@@ -357,7 +357,7 @@ func checkClobbers(c *lint.Context, quirk bool) {
 		r  flow.Reg
 	}
 	done := map[key]bool{}
-	var buf []regRead
+	var buf []flow.Access
 	for i := range p.Stmts {
 		st := &p.Stmts[i]
 		if st.Kind != asm.Instr || st.Inst == nil || st.Inst.Name == "push" || !res.Reachable(i) {
@@ -373,31 +373,31 @@ func checkClobbers(c *lint.Context, quirk bool) {
 		if !blamed {
 			continue
 		}
-		buf = appendReads(buf[:0], p, i)
+		buf = flow.AppendReads(buf[:0], p, i)
 		for _, u := range buf {
-			d := res.In[i].Get(u.r).Def
+			d := res.In[i].Get(u.Reg).Def
 			m, ok := masks[d]
-			if !ok || done[key{d, u.r}] {
+			if !ok || done[key{d, u.Reg}] {
 				continue
 			}
 			call := f.ints[d]
-			bits := m.doc[u.r]
+			bits := m.doc[u.Reg]
 			if quirk {
-				bits = m.quirk[u.r]
+				bits = m.quirk[u.Reg]
 			}
-			if u.bits()&bits == 0 {
+			if u.Bits()&bits == 0 {
 				continue
 			}
-			done[key{d, u.r}] = true
-			name := "%" + u.name()
+			done[key{d, u.Reg}] = true
+			name := "%" + u.Name()
 			var msg string
 			if quirk {
 				msg = fmt.Sprintf("%s is read after %s (line %d) without being reloaded; some BIOSes destroy it across this call", name, call.title(), lineOf(p, d))
 			} else {
 				msg = fmt.Sprintf("%s is read after %s (line %d) without being reloaded, but the service destroys it", name, call.title(), lineOf(p, d))
 			}
-			if u.op >= 0 {
-				c.ReportOp(i, u.op, msg)
+			if u.Op >= 0 {
+				c.ReportOp(i, u.Op, msg)
 			} else {
 				c.ReportStmt(i, msg)
 			}

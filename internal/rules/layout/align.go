@@ -139,7 +139,7 @@ func pageTables(p *asm.Program) []table {
 	}
 	for i := range p.Stmts {
 		st := &p.Stmts[i]
-		if st.Kind != asm.Instr || st.Inst == nil || st.InMacroDef || st.Inst.Name != "mov" || len(st.Ops) != 2 {
+		if st.Kind != asm.Instr || st.Inst == nil || st.InMacroDef || !st.IsGPRMove() || len(st.Ops) != 2 {
 			continue
 		}
 		dst, src := &st.Ops[1], &st.Ops[0]
@@ -254,7 +254,7 @@ func loadedLabel(p *asm.Program, st *asm.Stmt) (string, int64, bool) {
 	}
 	src := &st.Ops[0]
 	switch {
-	case st.Inst.Name == "mov" && src.Kind == asm.OpImm:
+	case st.IsGPRMove() && src.Kind == asm.OpImm:
 		l, off, ok := parseRef(src.Imm, macroLookup(p), false)
 		if !ok || l == "" {
 			return "", 0, false
@@ -503,8 +503,8 @@ func init() {
 				"of known tables that name another label (`.quad pdpt + 3`). An error is reported only when " +
 				"the offset is misaligned within a section that is itself aligned to 4 KiB, which makes the " +
 				"result certain; otherwise table-alignment says it depends on placement. Needs the toolchain.",
-			Bad:  "\t.section .data\n\t.balign 4096\n\t.long 0\npml4:\n\t.quad pdpt + 3\n\t.balign 4096\npdpt:\n\t.quad 0x83\n\t.text\n\tmovl $pml4, %eax\n\tmovl %eax, %cr3",
-			Good: "\t.section .data\n\t.balign 4096\npml4:\n\t.quad pdpt + 3\n\t.balign 4096\npdpt:\n\t.quad 0x83\n\t.text\n\tmovl $pml4, %eax\n\tmovl %eax, %cr3",
+			Bad:  "\t.section .data\n\t.balign 4096\n\t.long 0\npml4:\n\t.quad pdpt + 3\n\t.balign 4096\npdpt:\n\t.quad 0x83\n\t.text\n\tmovq $pml4, %rax\n\tmovq %rax, %cr3",
+			Good: "\t.section .data\n\t.balign 4096\npml4:\n\t.quad pdpt + 3\n\t.balign 4096\npdpt:\n\t.quad 0x83\n\t.text\n\tmovq $pml4, %rax\n\tmovq %rax, %cr3",
 		},
 		Check: checkPageTableAlignment,
 	})

@@ -105,6 +105,10 @@ const (
 	// langConfig is a .falcon-asm.json open in the editor: its text is the
 	// live configuration, and nothing else is served for it.
 	langConfig
+	// langNone is a document opened as assembly that is not one: a
+	// preprocessed linker script (*.ld.S). Nothing is served for it, and in
+	// particular it is never assembled.
+	langNone
 )
 
 // docState is one open document. Fields are guarded by Engine.mu.
@@ -308,6 +312,8 @@ func languageOf(uri, languageID string) lang {
 	switch {
 	case path.Base(uri) == lint.ConfigFile:
 		return langConfig
+	case toolchain.IsLinkerScript(uri):
+		return langNone
 	case languageID == server.AsmLanguageID:
 		return langAsm
 	case cLanguages[languageID]:

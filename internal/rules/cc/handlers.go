@@ -51,7 +51,7 @@ func (m *model) handlers() {
 	}
 	for i := range p.Stmts {
 		st := &p.Stmts[i]
-		if st.Kind != asm.Instr || st.Inst == nil || st.Inst.Name != "mov" || len(st.Ops) != 2 {
+		if st.Kind != asm.Instr || st.Inst == nil || !st.IsGPRMove() || len(st.Ops) != 2 {
 			continue
 		}
 		src, dst := &st.Ops[0], &st.Ops[1]
@@ -79,7 +79,7 @@ func (m *model) handlers() {
 			}
 			name := ""
 			switch {
-			case st.Inst.Name == "mov" && st.Ops[0].Kind == asm.OpImm:
+			case st.IsGPRMove() && st.Ops[0].Kind == asm.OpImm:
 				if h, ok := m.funcIn(st.Ops[0].Imm); ok {
 					if h != fi {
 						mark(h, handler{vector: -1, how: "its address is installed in an IDT"})

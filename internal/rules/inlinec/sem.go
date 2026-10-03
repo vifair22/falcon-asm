@@ -3,31 +3,16 @@ package inlinec
 import "strings"
 
 // What an instruction reads and writes. internal/isa describes forms and
-// flags but not operand access or implicit registers, so this file carries
-// the small part of that knowledge the inline asm rules need. It is
+// flags but not operand access or implicit registers. Whether the last
+// operand is written at all comes from the flow package's model
+// (flow.DestWritten, kept on the insn); this file carries the rest of the
+// knowledge the inline asm rules need, over the template's own operand
+// model (operand references whose registers the compiler picks). It is
 // written for the instructions inline asm actually uses (CPUID, the
 // time-stamp and MSR reads, string moves, the system instructions); an
 // instruction it does not list falls back to the AT&T convention of a
 // written last operand, and an instruction the ISA tables do not know at
 // all has no effects, so it can never produce a finding.
-
-// noExplicitWrite lists instructions whose explicit operands are all read:
-// comparisons, stores to places no rule tracks (ports, descriptor tables),
-// one-operand arithmetic whose result goes to fixed registers, and hints.
-var noExplicitWrite = setOf(
-	"cmp", "test", "bt", "push", "out", "int", "int1", "int3", "into",
-	"lgdt", "lidt", "lldt", "ltr", "lmsw", "invlpg", "invlpga", "invpcid", "invept", "invvpid",
-	"clflush", "clflushopt", "clwb", "cldemote",
-	"ucomiss", "ucomisd", "comiss", "comisd", "vucomiss", "vucomisd", "vcomiss", "vcomisd",
-	"ptest", "vptest", "vtestps", "vtestpd",
-	"mul", "div", "idiv", "verr", "verw", "wrfsbase", "wrgsbase", "ldmxcsr", "vldmxcsr",
-	"fxrstor", "fxrstor64", "xrstor", "xrstor64", "xrstors", "xrstors64",
-	"bound", "monitor", "umonitor", "mwait", "umwait", "tpause", "nop", "ud0", "ud1", "ud2",
-	"maskmovdqu", "vmaskmovdqu", "maskmovq",
-	"pcmpestri", "pcmpistri", "vpcmpestri", "vpcmpistri", "pcmpestrm", "pcmpistrm", "vpcmpestrm", "vpcmpistrm",
-	"ret", "lret", "enter", "vmptrld", "vmclear", "vmwrite", "movdir64b", "clzero",
-	"wrmsr", "xsetbv", "wrpkru",
-)
 
 // writesAllOperands exchange their operands.
 var writesAllOperands = setOf("xchg", "xadd")
@@ -45,12 +30,7 @@ var x87Writes = setOf(
 func writtenOps(in *insn) []int {
 	n := len(in.ops)
 	switch {
-	case !in.known || n == 0 || in.branch || stringOps[in.name] || noExplicitWrite[in.name]:
-		return nil
-	case strings.HasPrefix(in.name, "prefetch") || strings.HasPrefix(in.name, "kortest") ||
-		strings.HasPrefix(in.name, "ktest"):
-		return nil
-	case in.name == "imul" && n == 1:
+	case !in.known || n == 0 || in.branch || stringOps[in.name] || !in.destWritten:
 		return nil
 	case in.name[0] == 'f' && !x87Writes[in.name]:
 		return nil

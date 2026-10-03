@@ -93,13 +93,9 @@ func (a *analyzer) info(st *asm.Stmt) *insnInfo {
 	inst := st.Inst
 	in := &insnInfo{
 		fw:       st.FlagsWritten(),
-		readOnly: readOnlyLast[inst.Name] || strings.HasPrefix(inst.Name, "prefetch"),
+		readOnly: lastReadOnly(inst),
 		opaque:   opaqueCategories[inst.Category] && inst.Name != "syscall" || inst.Name == "sysenter",
 		implicit: implicitWrites[inst.Name],
-	}
-	switch inst.Category {
-	case "COND_BR", "UNCOND_BR", "CALL", "RET", "PUSH":
-		in.readOnly = true
 	}
 	if a.infos == nil {
 		a.infos = map[*isa.Instruction]*insnInfo{}
@@ -136,28 +132,7 @@ func dataBits(st *asm.Stmt) int {
 
 // hasPrefix reports a prefix on the statement or on a lone prefix
 // statement ("rep;") right before it.
-func (a *analyzer) hasPrefix(i int, names ...string) bool {
-	check := func(ps []string) bool {
-		for _, p := range ps {
-			for _, n := range names {
-				if p == n {
-					return true
-				}
-			}
-		}
-		return false
-	}
-	if check(a.p.Stmts[i].Prefixes) {
-		return true
-	}
-	if i > 0 {
-		prev := &a.p.Stmts[i-1]
-		if prev.Kind == asm.Instr && prev.Mnemonic == "" && !prev.InMacroDef {
-			return check(prev.Prefixes)
-		}
-	}
-	return false
-}
+func (a *analyzer) hasPrefix(i int, names ...string) bool { return hasPrefixAt(a.p, i, names...) }
 
 // modeBits is the default operand size, with data16/data32 applied.
 func (a *analyzer) modeBits(i int, mode asm.Mode) int {
@@ -181,24 +156,7 @@ func (a *analyzer) modeBits(i int, mode asm.Mode) int {
 
 // addrBits is the address size (the width of the count and index
 // registers string instructions and loop use).
-func (a *analyzer) addrBits(i int, mode asm.Mode) int {
-	switch mode {
-	case asm.Mode16:
-		if a.hasPrefix(i, "addr32") {
-			return 32
-		}
-		return 16
-	case asm.Mode32:
-		if a.hasPrefix(i, "addr16") {
-			return 16
-		}
-		return 32
-	}
-	if a.hasPrefix(i, "addr32") {
-		return 32
-	}
-	return 64
-}
+func (a *analyzer) addrBits(i int, mode asm.Mode) int { return addrBitsAt(a.p, i, mode) }
 
 // stackBits is the stack pointer width a push or pop moves (sp, esp or
 // rsp), approximated from the mode: the B bit of SS is not known.
@@ -404,7 +362,12 @@ var readOnlyLast = map[string]bool{
 	"xrstor": true, "xrstor64": true, "xrstors": true, "xrstors64": true, "fcom": true,
 	"fcomp": true, "fucom": true, "fucomp": true, "ftst": true, "ficom": true, "ficomp": true,
 	"enter": true, "int": true, "xabort": true, "prefetchw": true, "prefetchwt1": true,
-	"incsspd": true, "incsspq": true, "lkgs": true,
+	"incsspd": true, "incsspq": true, "lkgs": true, "int1": true, "int3": true, "into": true,
+	"invept": true, "invvpid": true, "mwait": true, "ud0": true, "ud1": true, "ud2": true,
+	"maskmovdqu": true, "vmaskmovdqu": true, "maskmovq": true, "pcmpestri": true, "pcmpistri": true,
+	"vpcmpestri": true, "vpcmpistri": true, "pcmpestrm": true, "pcmpistrm": true, "vpcmpestrm": true,
+	"vpcmpistrm": true, "ret": true, "lret": true, "vmptrld": true, "vmclear": true, "vmwrite": true,
+	"movdir64b": true, "clzero": true, "xsetbv": true, "wrpkru": true,
 }
 
 // opaqueCategories have register side effects too wide or too

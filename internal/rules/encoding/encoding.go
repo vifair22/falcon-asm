@@ -58,6 +58,15 @@ type issue struct {
 	msg        string
 	fixTitle   string
 	edits      []edit
+	// alts are further fixes offered alongside the first, for findings
+	// with several equally valid repairs (one per possible suffix).
+	alts []altFix
+}
+
+// altFix is one more fix offered with an issue.
+type altFix struct {
+	title string
+	edits []edit
 }
 
 const memoKey = "encoding/issues"
@@ -86,6 +95,13 @@ func report(c *lint.Context) {
 				edits = append(edits, c.ReplaceRange(e.start, e.end, e.text))
 			}
 			fixes = append(fixes, lint.NewFix(is.fixTitle, edits...))
+		}
+		for _, alt := range is.alts {
+			edits := make([]protocol.TextEdit, 0, len(alt.edits))
+			for _, e := range alt.edits {
+				edits = append(edits, c.ReplaceRange(e.start, e.end, e.text))
+			}
+			fixes = append(fixes, lint.NewFix(alt.title, edits...))
 		}
 		c.ReportRange(is.start, is.end, is.msg, fixes...)
 	}

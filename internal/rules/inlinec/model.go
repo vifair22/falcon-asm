@@ -6,6 +6,7 @@ import (
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
+	"git.airies.net/vifair22/falcon-asm/internal/flow"
 	"git.airies.net/vifair22/falcon-asm/internal/inlineasm"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/lint"
@@ -65,6 +66,9 @@ type insn struct {
 	known     bool // resolved against the ISA tables
 	branch    bool // jumps or calls somewhere
 	uncond    bool // never falls through (jmp, ret)
+	// destWritten is the flow package's answer to whether the last
+	// explicit operand is written (not only read: cmp, out, lgdt).
+	destWritten bool
 	// leaves is set for an unconditional transfer out of the template: a
 	// return, or a jump to anything but a label the template defines. Code
 	// after the asm is never reached through it, so nothing the template
@@ -237,6 +241,7 @@ func parseTemplate(text string, refs []inlineasm.OperandRef, nOps, mode int) []i
 			in.name = strings.ToLower(s.Inst.Name)
 			in.branch = s.IsBranch() || s.IsRet() || s.IsIret()
 			in.uncond = s.IsUncondJump() || s.IsRet() || s.IsIret()
+			in.destWritten = flow.DestWritten(s)
 		}
 		in.width = suffixWidth(s.Suffix)
 		if in.width == 0 && len(in.mnem) == len(in.name)+1 && strings.HasPrefix(strings.ToLower(in.mnem), in.name) {
@@ -247,7 +252,7 @@ func parseTemplate(text string, refs []inlineasm.OperandRef, nOps, mode int) []i
 			in.ops = append(in.ops, classify(text, &s.Ops[j], refs, in.branch))
 		}
 		normalizeString(&in)
-		normalizeMovq(&in)
+		normalizeMovq(&in, s)
 		in.leaves = in.uncond && leavesTemplate(&in, local, nOps)
 		out = append(out, in)
 	}
@@ -299,14 +304,9 @@ func normalizeString(in *insn) {
 // normalizeMovq treats movq between general registers and memory as the
 // 64-bit mov it is; the ISA tables resolve the mnemonic to the MMX/SSE
 // movq, which no width or save rule would recognise.
-func normalizeMovq(in *insn) {
-	if in.name != "movq" {
+func normalizeMovq(in *insn, s *asm.Stmt) {
+	if in.name != "movq" || !s.IsGPRMove() {
 		return
-	}
-	for _, op := range in.ops {
-		if op.kind == oReg && !isGPR(op.fam) {
-			return
-		}
 	}
 	in.name, in.width = "mov", 64
 }

@@ -437,8 +437,11 @@ func (st *stmtCtx) checkAmbiguous(exact []*form) {
 		return
 	}
 	if (st.name == "in" || st.name == "out") && len(st.m.ops) == 1 {
-		st.reportMnem(CodeSizeAmbiguous, fmt.Sprintf("%s %s names no data register, so the size is ambiguous; write %sb, %sw or %sl",
+		is := st.reportMnem(CodeSizeAmbiguous, fmt.Sprintf("%s %s names no data register, so the size is ambiguous; write %sb, %sw or %sl",
 			st.name, strings.TrimSpace(st.m.ops[0].op.Text), st.name, st.name, st.name))
+		for _, w := range []int{8, 16, 32} {
+			st.offerMnemonic(is, st.name+suffixFor(w))
+		}
 		return
 	}
 	picked := make([]*alt, len(st.m.ops))
@@ -484,9 +487,25 @@ func (st *stmtCtx) checkAmbiguous(exact []*form) {
 		} else {
 			msg += "name the size with a register operand or the mnemonic's x/y suffix"
 		}
-		st.reportOp(CodeSizeAmbiguous, j, msg)
+		is := st.reportOp(CodeSizeAmbiguous, j, msg)
+		// Every width is a valid program, so the choice is the author's:
+		// each one is offered and none is preferred.
+		if gpr {
+			for _, m := range alts {
+				st.offerMnemonic(is, m)
+			}
+		}
 		return
 	}
+}
+
+// offerMnemonic adds a fix to is that respells the mnemonic as m.
+func (st *stmtCtx) offerMnemonic(is *issue, m string) {
+	if is == nil {
+		return
+	}
+	start, end := st.mnemRange()
+	is.alts = append(is.alts, altFix{title: "Use " + m, edits: []edit{{start: start, end: end, text: m}}})
 }
 
 // sizedMnemonic spells the mnemonic with a memory operand of w bits. movzx

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
+	"git.airies.net/vifair22/falcon-asm/internal/toolchain"
 )
 
 // maxIncludeDepth bounds how deep includes of files read from disk are
@@ -119,17 +120,7 @@ var cExts = map[string]bool{
 // script (jmod.ld.S) is also an assembly source to the scan; its words
 // still name the symbols the link needs.
 func isWordFile(p string) bool {
-	return cExts[strings.ToLower(filepath.Ext(p))] || isLinkerScript(p)
-}
-
-func isLinkerScript(p string) bool {
-	b := strings.ToLower(filepath.Base(p))
-	ext := filepath.Ext(b)
-	if ext == ".ld" || ext == ".lds" {
-		return true
-	}
-	stem := strings.TrimSuffix(b, ext)
-	return ext == ".s" && (strings.HasSuffix(stem, ".ld") || strings.HasSuffix(stem, ".lds"))
+	return cExts[strings.ToLower(filepath.Ext(p))] || toolchain.IsLinkerScript(p)
 }
 
 // scanWords reads the word files found under root, skipping those whose
@@ -178,7 +169,7 @@ func (ix *Index) loadWords(p, root string) {
 	if err != nil {
 		return
 	}
-	w := &wordFile{words: uniqueWords(text), ld: isLinkerScript(p), mod: st.ModTime(), size: st.Size(), root: root}
+	w := &wordFile{words: uniqueWords(text), ld: toolchain.IsLinkerScript(p), mod: st.ModTime(), size: st.Size(), root: root}
 	ix.mu.Lock()
 	if ix.ws.words == nil {
 		ix.ws.words = map[string]*wordFile{}

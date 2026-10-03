@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
+	"git.airies.net/vifair22/falcon-asm/internal/flow"
 	"git.airies.net/vifair22/falcon-asm/internal/lint"
 )
 
@@ -72,7 +73,7 @@ func checkSMC(c *lint.Context) {
 		}
 		k := len(st.Ops) - 1
 		op := &st.Ops[k]
-		if op.Kind != asm.OpMem || readOnly[st.Inst.Name] || st.Inst.Name == "lea" || op.Disp == "" || op.Base != "" || op.Index != "" {
+		if op.Kind != asm.OpMem || !flow.DestWritten(st) || st.Inst.Name == "lea" || op.Disp == "" || op.Base != "" || op.Index != "" {
 			continue
 		}
 		t, name := codeLabel(p, i, op.Disp)

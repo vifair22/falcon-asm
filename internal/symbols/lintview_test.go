@@ -123,10 +123,9 @@ func TestDefaultResolveAndHelpers(t *testing.T) {
 	if got, ok := defaultResolve("", p, true, nil); !ok || got != p {
 		t.Fatal("absolute")
 	}
-	for name, want := range map[string]bool{"a.ld": true, "b.LDS": true, "jmod.ld.S": true, "x.lds.s": true, "a.S": false, "ld.S": false, "a.c": false} {
-		if isLinkerScript(name) != want {
-			t.Errorf("isLinkerScript(%s)", name)
-		}
+	// Linker script detection itself is toolchain.IsLinkerScript's test.
+	if !isWordFile("jmod.ld.S") {
+		t.Fatal("a preprocessed linker script is a word file")
 	}
 	if !isWordFile("a.hpp") || isWordFile("a.S") {
 		t.Fatal("isWordFile")

@@ -2,6 +2,8 @@ package encoding
 
 import (
 	"fmt"
+	"regexp"
+	"strconv"
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
@@ -30,7 +32,15 @@ func rel8Only(inst *isa.Instruction) bool {
 // must be the only instruction on its line (the listing places lines, not
 // statements).
 func checkBranchRange(c *lint.Context) {
-	if c.Prog == nil || c.Listing == nil || len(c.Listing.Listing) == 0 {
+	if c.Prog == nil || c.Listing == nil {
+		return
+	}
+	// gas fails on exactly the branch this rule exists for, and a failed
+	// assembly lists every address as ????. Its error still carries the
+	// displacement it could not fit, so that is read first; the listing
+	// offsets only matter when gas was not the one to fail.
+	reported := gasRangeErrors(c)
+	if len(c.Listing.Listing) == 0 {
 		return
 	}
 	byLine := make(map[int]int, len(c.Listing.Listing))
@@ -41,6 +51,9 @@ func checkBranchRange(c *lint.Context) {
 	for i := range p.Stmts {
 		s := &p.Stmts[i]
 		if s.Kind != asm.Instr || s.InMacroDef || !rel8Only(s.Inst) || len(s.Ops) != 1 {
+			continue
+		}
+		if reported[s.Line] {
 			continue
 		}
 		li, ok := byLine[s.Line]
@@ -118,4 +131,43 @@ func labelAddress(p *asm.Program, lst []toolchain.ListingLine, byLine map[int]in
 		}
 	}
 	return 0, false
+}
+
+// gasFieldErr is gas's message for a displacement that does not fit its
+// field: "value of ffffff36 too large for field of 1 byte at 000000c9".
+var gasFieldErr = regexp.MustCompile(`value of ([0-9a-fA-F]+) too large for field of 1 byte`)
+
+// gasRangeErrors turns gas's field-overflow errors on rel8-only branches
+// into this rule's finding (the same-line gas error is then dropped as a
+// duplicate) and returns the lines it reported.
+func gasRangeErrors(c *lint.Context) map[int]bool {
+	done := map[int]bool{}
+	path, ok := toolchain.URIToPath(c.Prog.Doc.URI)
+	if !ok {
+		return done
+	}
+	p := c.Prog
+	for _, d := range c.Listing.Diagnostics[path] {
+		m := gasFieldErr.FindStringSubmatch(d.Message)
+		if m == nil {
+			continue
+		}
+		for _, i := range p.StmtAt(d.Range.Start.Line) {
+			s := &p.Stmts[i]
+			if s.Kind != asm.Instr || !rel8Only(s.Inst) || len(s.Ops) != 1 || done[s.Line] {
+				continue
+			}
+			v, err := strconv.ParseUint(m[1], 16, 64)
+			if err != nil {
+				continue
+			}
+			// The value is the displacement truncated to the 32 bits gas
+			// printed; reading it back as signed gives the real distance.
+			disp := int64(int32(uint32(v)))
+			c.ReportOp(i, 0, fmt.Sprintf("%s reaches only -128..+127 bytes, but %s is %d bytes away; "+
+				"use a dec/jnz pair (or jcxz to a near jmp) instead", s.Mnemonic, s.Ops[0].Symbol, disp))
+			done[s.Line] = true
+		}
+	}
+	return done
 }

@@ -186,7 +186,7 @@ func (m *model) vectorSaved(c *lint.Context, fi int) {
 				saved[r] = true
 			}
 		}
-		if last.Kind != asm.OpReg || vecReadOnly(st.Inst.Name) {
+		if last.Kind != asm.OpReg || !flow.DestWritten(st) {
 			return true
 		}
 		if r, _, _, ok := flow.RegOf(last.RegName); ok && r.IsVector() {
@@ -204,16 +204,6 @@ func (m *model) vectorSaved(c *lint.Context, fi int) {
 		m.report(c, w, fmt.Sprintf("%s is callee-saved under %s, but %s changes it and never saves it", regName(r, f.bits),
 			f.conv.Name, f.fname()), nil)
 	}
-}
-
-// vecReadOnly are vector instructions that only read their last operand.
-func vecReadOnly(name string) bool {
-	switch name {
-	case "ptest", "vptest", "vtestps", "vtestpd", "ucomiss", "ucomisd", "comiss", "comisd",
-		"vucomiss", "vucomisd", "vcomiss", "vcomisd":
-		return true
-	}
-	return false
 }
 
 // controlSaved reports a function that loads the MXCSR or the x87
@@ -273,7 +263,7 @@ func checkCallerSaved(c *lint.Context, m *model) {
 		if before == nil || !before.Reachable {
 			continue
 		}
-		for _, u := range reads(st) {
+		for _, u := range reads(p, j) {
 			call := before.Get(u.r).Def
 			if call < 0 || !p.Stmts[call].IsCall() {
 				continue
@@ -451,7 +441,7 @@ func (m *model) argReads(fi int) map[flow.Reg]int {
 		if before == nil || !before.Reachable {
 			return true
 		}
-		for _, u := range reads(st) {
+		for _, u := range reads(m.prog, i) {
 			if !f.conv.IsArg(u.r) || before.Get(u.r).Def != flow.DefEntry {
 				continue
 			}
@@ -538,7 +528,7 @@ func (m *model) readAfter(call int, r flow.Reg) (int, bool) {
 			if st.Kind != asm.Instr || st.Inst == nil {
 				continue
 			}
-			if _, ok := readsReg(st, r); ok {
+			if _, ok := readsReg(m.prog, i, r); ok {
 				return i, true
 			}
 			stop = m.writes(i, r) || st.IsCall() || st.IsRet() || st.IsIret()

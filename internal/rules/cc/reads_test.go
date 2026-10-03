@@ -51,17 +51,17 @@ func TestReads(t *testing.T) {
 	for _, tc := range cases {
 		doc := &docstore.Document{URI: "file:///r.S", Text: "\t" + tc.text + "\n"}
 		p := asm.Parse(doc, lexer.Tokenize(doc.Text), asm.Config{InitialMode: tc.mode})
-		var st *asm.Stmt
+		at := -1
 		for i := range p.Stmts {
 			if p.Stmts[i].Kind == asm.Instr {
-				st = &p.Stmts[i]
+				at = i
 			}
 		}
-		if st == nil {
+		if at < 0 {
 			t.Fatalf("%q: no instruction", tc.text)
 		}
 		var got []string
-		for _, u := range reads(st) {
+		for _, u := range reads(p, at) {
 			got = append(got, u.r.String())
 		}
 		want := strings.Fields(tc.want)
@@ -71,7 +71,7 @@ func TestReads(t *testing.T) {
 			t.Errorf("%q: %v, want %v", tc.text, got, want)
 		}
 	}
-	if reads(&asm.Stmt{Kind: asm.Label}) != nil {
+	if reads(&asm.Program{Stmts: []asm.Stmt{{Kind: asm.Label}}}, 0) != nil {
 		t.Error("label")
 	}
 }

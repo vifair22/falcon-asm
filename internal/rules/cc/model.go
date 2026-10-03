@@ -566,7 +566,7 @@ func (m *model) restores(fi int, r flow.Reg, def int) bool {
 	case "leave":
 		return r == flow.RBP
 	case "mov", "movq", "movabs":
-		if len(st.Ops) != 2 || st.Ops[0].Kind != asm.OpMem || !regIs(&st.Ops[1], r) {
+		if !st.IsGPRMove() || len(st.Ops) != 2 || st.Ops[0].Kind != asm.OpMem || !regIs(&st.Ops[1], r) {
 			return false
 		}
 		// The save is a store of r before the load (in source order, the
@@ -580,7 +580,7 @@ func (m *model) restores(fi int, r flow.Reg, def int) bool {
 		owner := m.owner(def)
 		visit := func(i int) bool {
 			s := &m.prog.Stmts[i]
-			if i < def && s.Kind == asm.Instr && s.Inst != nil && isMov(s.Inst.Name) && len(s.Ops) == 2 &&
+			if i < def && s.Kind == asm.Instr && s.IsGPRMove() && len(s.Ops) == 2 &&
 				regIs(&s.Ops[0], r) && s.Ops[1].Kind == asm.OpMem &&
 				(sameSlot(&s.Ops[1], load) || stackSlot(&s.Ops[1]) && stackSlot(load)) {
 				spilled = true
@@ -623,8 +623,6 @@ func numericLabel(name string) bool {
 	}
 	return true
 }
-
-func isMov(name string) bool { return name == "mov" || name == "movq" || name == "movabs" }
 
 func regIs(op *asm.Operand, r flow.Reg) bool {
 	if op.Kind != asm.OpReg {

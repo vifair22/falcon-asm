@@ -296,7 +296,7 @@ func (ix *Index) selectorHover(sel int64, protected bool) string {
 // ECX, a port number of 0x100 or more moved into DX (below that, DX more
 // often holds a drive or a head for INT 13h).
 func (ix *Index) bareImmHover(db *hwdb.DB, s *asm.Stmt, op *asm.Operand, i int) string {
-	if s.Inst.Name != "mov" || len(s.Ops) != 2 || &s.Ops[0] != op || !op.ImmVal.Known {
+	if !s.IsGPRMove() || len(s.Ops) != 2 || &s.Ops[0] != op || !op.ImmVal.Known {
 		return ""
 	}
 	v := uint64(op.ImmVal.V)
@@ -323,7 +323,7 @@ func (ix *Index) bareImmHover(db *hwdb.DB, s *asm.Stmt, op *asm.Operand, i int) 
 // immToAH is the AH an immediate move writes: `movb $0x42, %ah`, or the
 // high byte of `movw $0x0201, %ax`.
 func immToAH(s *asm.Stmt, op *asm.Operand) (uint64, bool) {
-	if s.Inst == nil || s.Inst.Name != "mov" || len(s.Ops) != 2 || &s.Ops[0] != op || !op.ImmVal.Known {
+	if !s.IsGPRMove() || len(s.Ops) != 2 || &s.Ops[0] != op || !op.ImmVal.Known {
 		return 0, false
 	}
 	v := uint64(op.ImmVal.V)

@@ -94,7 +94,7 @@ func segUses(st *asm.Stmt) []segUse {
 			continue
 		}
 		what := "reads"
-		if k == n-1 && !readOnly[name] {
+		if k == n-1 && flow.DestWritten(st) {
 			what = "stores"
 		}
 		if isStringOp(st) {

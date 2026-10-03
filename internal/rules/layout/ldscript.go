@@ -494,14 +494,23 @@ func checkSectionOverlap(c *lint.Context) {
 		}
 		reported := map[string]bool{}
 		for i := range pls {
-			for j := range pls {
-				a, b := &pls[i], &pls[j]
-				// a starts first (or at the same address, then by script
-				// order) and runs into b.
-				if i == j || a.out.addr > b.out.addr || a.out.addr == b.out.addr && i > j {
+			a := &pls[i]
+			end := uint64(a.out.addr) + a.size
+			// Every fixed-address output section of the script is an
+			// obstacle, not just the ones this file fills: a split loader
+			// links stage 2 from other objects, and stage 1 running into
+			// its address is the overflow that matters. An output section
+			// with no input descriptions only reserves space and is not
+			// one.
+			for k := range s.sects {
+				b := &s.sects[k]
+				if b == a.out || !b.addrKnown || b.discard || len(b.inputs) == 0 {
 					continue
 				}
-				if uint64(b.out.addr-a.out.addr) >= a.size || reported[a.out.name] {
+				if b.addr < a.out.addr || b.addr == a.out.addr && k < outIndex(s, a.out) {
+					continue
+				}
+				if uint64(b.addr) >= end || reported[a.out.name] {
 					continue
 				}
 				reported[a.out.name] = true
@@ -511,7 +520,17 @@ func checkSectionOverlap(c *lint.Context) {
 	}
 }
 
-func reportOverlap(c *lint.Context, s *ldScript, a, b *placement) {
+// outIndex is the position of o in the script's output sections.
+func outIndex(s *ldScript, o *outSect) int {
+	for k := range s.sects {
+		if &s.sects[k] == o {
+			return k
+		}
+	}
+	return -1
+}
+
+func reportOverlap(c *lint.Context, s *ldScript, a *placement, b *outSect) {
 	p := c.Prog
 	at := sectionStmt(p, a.inputs)
 	if at < 0 {
@@ -520,9 +539,9 @@ func reportOverlap(c *lint.Context, s *ldScript, a, b *placement) {
 	msg := fmt.Sprintf("%s goes to output section %s at %#x, which holds at least %d bytes from this file and so runs to %#x, "+
 		"past output section %s at %#x (%s line %d)",
 		strings.Join(a.inputs, ", "), a.out.name, a.out.addr, a.size, uint64(a.out.addr)+a.size,
-		b.out.name, b.out.addr, filepath.Base(s.path), b.out.line+1)
+		b.name, b.addr, filepath.Base(s.path), b.line+1)
 	st := &p.Stmts[at]
-	pos := protocol.Position{Line: b.out.line}
+	pos := protocol.Position{Line: b.line}
 	c.ReportFinding(lint.Finding{
 		Range:   p.Range(st.Start, st.End),
 		Message: msg,
@@ -582,8 +601,8 @@ func init() {
 				"address on the output section) are used, sizes are this file's contribution only (a " +
 				"lower bound), and a script is only considered when it names one of the file's own " +
 				"non-standard sections literally. Needs the toolchain.",
-			Bad:  "/* boot.ld: .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7D00 : { *(.text.stage2) } */\n\t.section .text.stage1, \"ax\"\n\t.fill 300, 1, 0x90",
-			Good: "/* boot.ld: .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7E00 : { *(.text.stage2) } */\n\t.section .text.stage1, \"ax\"\n\t.fill 300, 1, 0x90",
+			Bad:  "/* boot.ld: SECTIONS { .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7D00 : { *(.text.stage2) } } */\n\t.section .text.stage1, \"ax\"\n\t.fill 300, 1, 0x90",
+			Good: "/* boot.ld: SECTIONS { .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7E00 : { *(.text.stage2) } } */\n\t.section .text.stage1, \"ax\"\n\t.fill 300, 1, 0x90",
 		},
 		Check: checkSectionOverlap,
 	})

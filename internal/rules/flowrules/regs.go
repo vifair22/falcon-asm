@@ -58,38 +58,38 @@ func checkPartial(c *lint.Context) {
 		return
 	}
 	p, res := f.p, f.res
-	var buf []regRead
+	var buf []flow.Access
 	for i := range p.Stmts {
 		st := &p.Stmts[i]
 		if st.Kind != asm.Instr || st.Inst == nil || st.Inst.Name == "push" || !res.Reachable(i) {
 			continue
 		}
-		buf = appendReads(buf[:0], p, i)
+		buf = flow.AppendReads(buf[:0], p, i)
 		for _, u := range buf {
-			if !u.r.IsGPR() || u.lo != 0 || u.width() < 32 {
+			if !u.Reg.IsGPR() || u.Lo != 0 || u.Width() < 32 {
 				continue
 			}
-			v := res.In[i].Get(u.r)
+			v := res.In[i].Get(u.Reg)
 			if v.Def < 0 {
 				continue
 			}
-			wd, dop := narrowWrite(p, v.Def, u.r)
-			if wd == 0 || wd >= u.width() {
+			wd, dop := narrowWrite(p, v.Def, u.Reg)
+			if wd == 0 || wd >= u.Width() {
 				continue
 			}
-			upper := u.bits() &^ (uint64(1)<<uint(wd) - 1)
+			upper := u.Bits() &^ (uint64(1)<<uint(wd) - 1)
 			if v.Mask&upper == upper || mergesOnPurpose(p, res, v.Def, u) {
 				continue
 			}
-			name := u.name()
+			name := u.Name()
 			msg := fmt.Sprintf("%%%s is read as %d bits, but its last write (%s at line %d) set only %%%s: bits %d-%d hold whatever they held before",
-				name, u.width(), p.Stmts[v.Def].Mnemonic, lineOf(p, v.Def), u.r.Name(wd), wd, u.width()-1)
+				name, u.Width(), p.Stmts[v.Def].Mnemonic, lineOf(p, v.Def), u.Reg.Name(wd), wd, u.Width()-1)
 			var fixes []lint.Fix
 			if fx, ok := widenFix(c, p, v.Def, dop, wd, u); ok {
 				fixes = append(fixes, fx)
 			}
-			if u.op >= 0 {
-				c.ReportOp(i, u.op, msg, fixes...)
+			if u.Op >= 0 {
+				c.ReportOp(i, u.Op, msg, fixes...)
 			} else {
 				c.ReportStmt(i, msg, fixes...)
 			}
@@ -104,12 +104,12 @@ func checkPartial(c *lint.Context) {
 // a high-byte write, a full-width write).
 func narrowWrite(p *asm.Program, d int, r flow.Reg) (int, int) {
 	st := &p.Stmts[d]
-	if st.Kind != asm.Instr || st.Inst == nil || len(st.Ops) == 0 || readOnly[st.Inst.Name] {
+	if !flow.DestWritten(st) {
 		return 0, -1
 	}
 	// orb $1, %al on a full value is an edit of the value, not a new
 	// one: the upper bits are meant to be kept.
-	if rmwDest[st.Inst.Name] {
+	if flow.DestRead(st) {
 		return 0, -1
 	}
 	k := len(st.Ops) - 1
@@ -130,8 +130,8 @@ func narrowWrite(p *asm.Program, d int, r flow.Reg) (int, int) {
 // mergesOnPurpose reports a narrow write over a value the code loaded at
 // full width just before (movl (mem), %eax; movw $x, %ax): the upper half
 // is the loaded one, kept deliberately.
-func mergesOnPurpose(p *asm.Program, res *flow.Result, d int, u regRead) bool {
-	prev := res.In[d].Get(u.r).Def
+func mergesOnPurpose(p *asm.Program, res *flow.Result, d int, u flow.Access) bool {
+	prev := res.In[d].Get(u.Reg).Def
 	if prev < 0 {
 		return false
 	}
@@ -141,23 +141,23 @@ func mergesOnPurpose(p *asm.Program, res *flow.Result, d int, u regRead) bool {
 	}
 	op := &st.Ops[len(st.Ops)-1]
 	r, lo, hi, ok := flow.RegOf(op.RegName)
-	if op.Kind != asm.OpReg || !ok || r != u.r {
+	if op.Kind != asm.OpReg || !ok || r != u.Reg {
 		// An implicit write (cpuid, a call, an int) of the whole family.
 		return true
 	}
-	return lo == 0 && hi+1 >= u.width()
+	return lo == 0 && hi+1 >= u.Width()
 }
 
 // widenFix turns "movw $imm, %ax" into "movl $imm, %eax" when the read is
 // 32 bits: the one form where widening the write is obviously what the
 // code meant and changes nothing else.
-func widenFix(c *lint.Context, p *asm.Program, d, dop, wd int, u regRead) (lint.Fix, bool) {
+func widenFix(c *lint.Context, p *asm.Program, d, dop, wd int, u flow.Access) (lint.Fix, bool) {
 	st := &p.Stmts[d]
-	if st.Inst.Name != "mov" || wd != 16 || u.width() != 32 || len(st.Ops) != 2 || st.Ops[0].Kind != asm.OpImm {
+	if !st.IsGPRMove() || wd != 16 || u.Width() != 32 || len(st.Ops) != 2 || st.Ops[0].Kind != asm.OpImm {
 		return lint.Fix{}, false
 	}
 	op := &st.Ops[dop]
-	edits := []lintEdit{{op.Start, op.End, "%" + u.r.Name(32)}}
+	edits := []lintEdit{{op.Start, op.End, "%" + u.Reg.Name(32)}}
 	switch st.Mnemonic {
 	case "movw":
 		edits = append(edits, lintEdit{st.MnemStart, st.MnemStart + len(st.Mnemonic), "movl"})
@@ -165,7 +165,7 @@ func widenFix(c *lint.Context, p *asm.Program, d, dop, wd int, u regRead) (lint.
 	default:
 		return lint.Fix{}, false
 	}
-	fx := lint.Fix{Title: fmt.Sprintf("Write all of %%%s", u.r.Name(32))}
+	fx := lint.Fix{Title: fmt.Sprintf("Write all of %%%s", u.Reg.Name(32))}
 	for _, e := range edits {
 		fx.Edits = append(fx.Edits, c.ReplaceRange(e.start, e.end, e.text))
 	}
@@ -195,24 +195,24 @@ func checkUninit(c *lint.Context) {
 			if st.Kind != asm.Instr || st.Inst == nil || st.Inst.Name == "push" || !res.Reachable(i) {
 				return true
 			}
-			for _, u := range readsOf(p, i) {
-				if !uninitFamilies[u.r] || done[u.r] || res.In[i].Get(u.r).Def != flow.DefEntry {
+			for _, u := range flow.Reads(p, i) {
+				if !uninitFamilies[u.Reg] || done[u.Reg] || res.In[i].Get(u.Reg).Def != flow.DefEntry {
 					continue
 				}
 				// DL alone is the boot drive the BIOS passes.
-				if u.r == flow.RDX && u.bits()&^0xFF == 0 {
+				if u.Reg == flow.RDX && u.Bits()&^0xFF == 0 {
 					continue
 				}
-				done[u.r] = true
-				msg := fmt.Sprintf("%s reads %%%s, which nothing has set since the BIOS entered this boot sector: it holds whatever the BIOS left", st.Mnemonic, u.name())
+				done[u.Reg] = true
+				msg := fmt.Sprintf("%s reads %%%s, which nothing has set since the BIOS entered this boot sector: it holds whatever the BIOS left", st.Mnemonic, u.Name())
 				switch {
-				case u.r == flow.RCX && u.op < 0 && hasRep(p, i):
-					msg = fmt.Sprintf("the count of this rep %s is %%%s, which nothing has set since the BIOS entered this boot sector", st.Mnemonic, u.name())
-				case u.r == flow.RDX && (st.Inst.Name == "in" || st.Inst.Name == "out" || st.Inst.Name == "ins" || st.Inst.Name == "outs"):
+				case u.Reg == flow.RCX && u.Op < 0 && hasRep(p, i):
+					msg = fmt.Sprintf("the count of this rep %s is %%%s, which nothing has set since the BIOS entered this boot sector", st.Mnemonic, u.Name())
+				case u.Reg == flow.RDX && (st.Inst.Name == "in" || st.Inst.Name == "out" || st.Inst.Name == "ins" || st.Inst.Name == "outs"):
 					msg = fmt.Sprintf("the I/O port of this %s is %%dx, which nothing has set since the BIOS entered this boot sector (only DL, the boot drive, is defined)", st.Mnemonic)
 				}
-				if u.op >= 0 {
-					c.ReportOp(i, u.op, msg)
+				if u.Op >= 0 {
+					c.ReportOp(i, u.Op, msg)
 				} else {
 					c.ReportStmt(i, msg)
 				}

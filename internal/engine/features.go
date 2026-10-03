@@ -24,7 +24,7 @@ import (
 func (e *Engine) Hover(doc *docstore.Document, pos protocol.Position) (*protocol.Hover, error) {
 	s := e.snapshotFor(doc)
 	switch s.lang {
-	case langConfig:
+	case langConfig, langNone:
 		return nil, nil
 	case langC:
 		h, err := s.inlineHover(pos)
@@ -314,7 +314,7 @@ func (e *Engine) CodeActions(doc *docstore.Document, rng protocol.Range, ctx pro
 		return nil
 	}
 	s := e.snapshotFor(doc)
-	if s.lang == langConfig {
+	if s.lang == langConfig || s.lang == langNone {
 		return nil
 	}
 	res := s.lintResult()

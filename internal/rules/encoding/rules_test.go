@@ -47,7 +47,9 @@ func runCases(t *testing.T, lang lint.Lang, cases []ruleCase) {
 			t.Errorf("%q: message %q lacks %q", tc.text, f.Message, tc.msg)
 		}
 		switch {
-		case tc.fix == "" && len(f.Fixes) != 0:
+		// An ambiguous size offers one fix per width; those are checked by
+		// TestAmbiguousSizeFixes rather than as a single expected text.
+		case tc.fix == "" && len(f.Fixes) != 0 && tc.want != CodeSizeAmbiguous:
 			t.Errorf("%q: unexpected fix %+v", tc.text, f.Fixes)
 		case tc.fix != "" && len(f.Fixes) != 1:
 			t.Errorf("%q: want a fix, got %+v", tc.text, f.Fixes)
@@ -447,5 +449,47 @@ func TestQuiet(t *testing.T) {
 	}
 	if got := lintText(t, "\t.code64\n\tpush %es\n", asm.Mode64, lint.LangAsm, nil); summary(got) != CodeSreg+"@1" {
 		t.Errorf(".code64: %v", got)
+	}
+}
+
+// An ambiguous size has one valid repair per width; every one is offered
+// so the author picks, and applying any of them clears the finding.
+func TestAmbiguousSizeFixes(t *testing.T) {
+	cases := []struct {
+		text string
+		mode asm.Mode
+		want []string
+	}{
+		{"\t.code16\n\tinc (%bx)", 0, []string{"Use incb", "Use incw", "Use incl"}},
+		{"\tmovzx (%eax), %ecx", 32, []string{"Use movzbl", "Use movzwl"}},
+		{"\tin $0x60", 32, []string{"Use inb", "Use inw", "Use inl"}},
+	}
+	for _, tc := range cases {
+		var f *lint.Finding
+		fs := lintText(t, tc.text, tc.mode, lint.LangAsm, nil)
+		for i := range fs {
+			if fs[i].Code == CodeSizeAmbiguous {
+				f = &fs[i]
+			}
+		}
+		if f == nil {
+			t.Fatalf("%q: no finding in %s", tc.text, summary(fs))
+			return
+		}
+		var titles []string
+		for _, fx := range f.Fixes {
+			titles = append(titles, fx.Title)
+		}
+		if strings.Join(titles, ",") != strings.Join(tc.want, ",") {
+			t.Fatalf("%q: fixes %q, want %q", tc.text, titles, tc.want)
+		}
+		for _, fx := range f.Fixes {
+			fixed := applyFix(t, tc.text, fx)
+			for _, g := range lintText(t, fixed, tc.mode, lint.LangAsm, nil) {
+				if g.Code == CodeSizeAmbiguous {
+					t.Errorf("%q after %q still ambiguous", fixed, fx.Title)
+				}
+			}
+		}
 	}
 }

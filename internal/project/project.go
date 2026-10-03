@@ -36,8 +36,11 @@ var AsmExts = map[string]bool{".s": true}
 // IsC reports whether path names a C-family source.
 func IsC(path string) bool { return CExts[strings.ToLower(filepath.Ext(path))] }
 
-// IsAsm reports whether path names an assembly source (.S or .s).
-func IsAsm(path string) bool { return AsmExts[strings.ToLower(filepath.Ext(path))] }
+// IsAsm reports whether path names an assembly source (.S or .s). A
+// preprocessed linker script (jmod.ld.S) ends in .S too but is not one.
+func IsAsm(path string) bool {
+	return AsmExts[strings.ToLower(filepath.Ext(path))] && !toolchain.IsLinkerScript(path)
+}
 
 // TargetInputs are the sources of a file's target other than its own
 // text, which ResolveTarget combines.

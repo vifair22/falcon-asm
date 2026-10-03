@@ -897,3 +897,28 @@ func TestEmptyDocument(t *testing.T) {
 		t.Errorf("stmts %v", p.Stmts)
 	}
 }
+
+func TestIsGPRMove(t *testing.T) {
+	cases := map[string]bool{
+		"\tmovl $1, %eax":    true,
+		"\tmovq $tbl, %rax":  true,
+		"\tmovq %rax, %cr3":  true,
+		"\tmovabs $1, %rax":  true,
+		"\tmovq %xmm0, %rax": false,
+		"\tmovq %mm1, %mm2":  false,
+		"\tmovd %eax, %xmm0": false,
+		"\taddl $1, %eax":    false,
+	}
+	for src, want := range cases {
+		p := Parse(&docstore.Document{URI: "file:///t.S", Text: src}, lexer.Tokenize(src), Config{InitialMode: Mode64})
+		var got bool
+		for _, s := range p.Stmts {
+			if s.Kind == Instr {
+				got = s.IsGPRMove()
+			}
+		}
+		if got != want {
+			t.Errorf("%q: IsGPRMove = %v, want %v", src, got, want)
+		}
+	}
+}

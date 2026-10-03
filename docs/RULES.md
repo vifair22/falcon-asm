@@ -2174,8 +2174,8 @@ pml4:
 pdpt:
 	.quad 0x83
 	.text
-	movl $pml4, %eax
-	movl %eax, %cr3
+	movq $pml4, %rax
+	movq %rax, %cr3
 ```
 
 Good:
@@ -2189,8 +2189,8 @@ pml4:
 pdpt:
 	.quad 0x83
 	.text
-	movl $pml4, %eax
-	movl %eax, %cr3
+	movq $pml4, %rax
+	movq %rax, %cr3
 ```
 
 ## section-overlap
@@ -2207,7 +2207,7 @@ Boot images place each stage at the address it is loaded to (`.stage1 0x7C00 : {
 Bad:
 
 ```asm
-/* boot.ld: .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7D00 : { *(.text.stage2) } */
+/* boot.ld: SECTIONS { .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7D00 : { *(.text.stage2) } } */
 	.section .text.stage1, "ax"
 	.fill 300, 1, 0x90
 ```
@@ -2215,7 +2215,7 @@ Bad:
 Good:
 
 ```asm
-/* boot.ld: .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7E00 : { *(.text.stage2) } */
+/* boot.ld: SECTIONS { .stage1 0x7C00 : { *(.text.stage1) }  .stage2 0x7E00 : { *(.text.stage2) } } */
 	.section .text.stage1, "ax"
 	.fill 300, 1, 0x90
 ```

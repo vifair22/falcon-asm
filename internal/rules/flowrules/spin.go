@@ -228,8 +228,8 @@ func invariantExit(f *facts, j int, written map[flow.Reg]bool, in map[int]bool) 
 	if !st.IsCondJump() {
 		return false
 	}
-	for _, u := range readsOf(p, j) {
-		if written[u.r] {
+	for _, u := range flow.Reads(p, j) {
+		if written[u.Reg] {
 			return false
 		}
 	}
@@ -261,8 +261,8 @@ func invariantExit(f *facts, j int, written map[flow.Reg]bool, in map[int]bool) 
 			return false
 		}
 	}
-	for _, u := range readsOf(p, def) {
-		if written[u.r] {
+	for _, u := range flow.Reads(p, def) {
+		if written[u.Reg] {
 			return false
 		}
 	}

@@ -166,3 +166,26 @@ func (s Stmt) ReadsFlags() bool { return s.FlagsRead() != 0 }
 
 // WritesFlags reports whether the instruction changes any EFLAGS bit.
 func (s Stmt) WritesFlags() bool { return s.FlagsWritten() != 0 }
+
+// IsGPRMove reports whether the statement is a general-purpose mov. AT&T
+// spells the 64-bit form movq, which resolves exactly to the SSE/MMX movq
+// instruction, so a check on the name alone misses `movq $tbl, %rax` and
+// `movq %rax, %cr3`. movq counts as mov here unless an operand is an MMX
+// or XMM register; movabs is the 64-bit immediate form of mov.
+func (s Stmt) IsGPRMove() bool {
+	if s.Inst == nil {
+		return false
+	}
+	switch s.Inst.Name {
+	case "mov", "movabs":
+		return true
+	case "movq":
+		for i := range s.Ops {
+			if r := s.Ops[i].Reg; r != nil && (r.Class == "mmx" || r.Class == "xmm") {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
