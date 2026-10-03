@@ -273,7 +273,12 @@ func (s *Server) dispatch(m *jsonrpc.Message) (any, *jsonrpc.Error) {
 		return s.inlayHint(m.Params)
 	case protocol.MethodCompletion:
 		return s.completion(m.Params)
+	case protocol.MethodCodeAction:
+		return s.codeAction(m.Params)
 	default:
+		if res, jerr, ok := s.dispatchExtra(m); ok {
+			return res, jerr
+		}
 		return nil, jsonrpc.NewError(jsonrpc.MethodNotFound, "method not found: %s", m.Method)
 	}
 }
@@ -320,7 +325,7 @@ func (s *Server) initialize(params json.RawMessage) (any, *jsonrpc.Error) {
 			}
 		},
 	})
-	return &protocol.InitializeResult{
+	res := &protocol.InitializeResult{
 		Capabilities: protocol.ServerCapabilities{
 			TextDocumentSync: &protocol.TextDocumentSyncOptions{
 				OpenClose: true,
@@ -343,9 +348,12 @@ func (s *Server) initialize(params json.RawMessage) (any, *jsonrpc.Error) {
 			FoldingRangeProvider:   true,
 			InlayHintProvider:      true,
 			CompletionProvider:     &protocol.CompletionOptions{TriggerCharacters: TriggerCharacters},
+			CodeActionProvider:     &protocol.CodeActionOptions{CodeActionKinds: []string{protocol.CodeActionKindQuickFix}},
 		},
 		ServerInfo: &protocol.ServerInfo{Name: s.opts.Name, Version: s.opts.Version},
-	}, nil
+	}
+	s.extraCapabilities(&res.Capabilities)
+	return res, nil
 }
 
 func (s *Server) didOpen(params json.RawMessage) error {
@@ -600,6 +608,15 @@ func (s *Server) completion(params json.RawMessage) (any, *jsonrpc.Error) {
 		return l, nil
 	}
 	return nil, nil
+}
+
+func (s *Server) codeAction(params json.RawMessage) (any, *jsonrpc.Error) {
+	var p protocol.CodeActionParams
+	doc, ok, jerr := s.docAt(params, &p, func() string { return p.TextDocument.URI })
+	if jerr != nil || !ok {
+		return nil, jerr
+	}
+	return nilIfEmpty(s.eng.CodeActions(doc, p.Range, p.Context)), nil
 }
 
 // nilIfEmpty answers an empty slice as null. The LSP allows either for

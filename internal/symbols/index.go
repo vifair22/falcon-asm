@@ -56,6 +56,8 @@ type Index struct {
 	scanMu      sync.Mutex // one tree walk at a time
 	maxFiles    int
 	rescanEvery time.Duration
+
+	ws wsState // what lint rules need of the index; see lintview.go
 }
 
 // NewIndex returns an empty index. read loads a file that is not open in
@@ -158,7 +160,12 @@ func (ix *Index) AddRoot(dir string) {
 // loadDisk reads path unless the cached copy has the same mtime and size.
 // A file that cannot be stat'ed (a test's virtual read func, a vanished
 // file) is read when not cached and otherwise left as cached.
-func (ix *Index) loadDisk(path, root string) {
+func (ix *Index) loadDisk(path, root string) { ix.loadDiskDepth(path, root, 0) }
+
+// loadDiskDepth is loadDisk that also loads the files path includes
+// (resolved through the include resolver), up to a nesting depth that
+// stops an include cycle the cache does not already break.
+func (ix *Index) loadDiskDepth(path, root string, depth int) {
 	st, statErr := os.Stat(path)
 	ix.mu.RLock()
 	cur, cached := ix.disk[path]
@@ -176,12 +183,20 @@ func (ix *Index) loadDisk(path, root string) {
 	if statErr == nil {
 		d.mod, d.size = st.ModTime(), st.Size()
 	}
+	// The file is not shared yet, so its include list can still be set.
+	d.f.includes = ix.resolveIncludes(path, d.f)
 	ix.mu.Lock()
 	if cur, ok := ix.disk[path]; ok && cur.root != "" && root == "" {
 		d.root = cur.root
 	}
 	ix.disk[path] = d
+	ix.ws.gen++
 	ix.mu.Unlock()
+	if depth < maxIncludeDepth {
+		for _, p := range d.f.includes {
+			ix.loadDiskDepth(p, "", depth+1)
+		}
+	}
 }
 
 // ensureScanned walks every root whose last walk is older than the rescan
@@ -206,7 +221,7 @@ func (ix *Index) ensureScanned() {
 }
 
 func (ix *Index) scanRoot(root string) {
-	var paths []string
+	var paths, wpaths []string
 	_ = filepath.WalkDir(root, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			// An unreadable subdirectory should not end the walk.
@@ -226,6 +241,9 @@ func (ix *Index) scanRoot(root string) {
 			if len(paths) >= ix.maxFiles {
 				return fs.SkipAll
 			}
+		}
+		if isWordFile(p) && len(wpaths) < ix.maxFiles {
+			wpaths = append(wpaths, filepath.Clean(p))
 		}
 		return nil
 	})
@@ -253,10 +271,12 @@ func (ix *Index) scanRoot(root string) {
 	for p, d := range ix.disk {
 		if d.root == root && !seen[p] {
 			delete(ix.disk, p)
+			ix.ws.gen++
 		}
 	}
 	ix.roots[root] = time.Now()
 	ix.mu.Unlock()
+	ix.scanWords(root, wpaths)
 }
 
 // view is a consistent set of files for one query: open documents first,

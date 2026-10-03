@@ -263,6 +263,9 @@ func everyQuery(c *client) map[string]*jsonrpc.Message {
 		protocol.MethodFoldingRange:       c.call(protocol.MethodFoldingRange, protocol.FoldingRangeParams{TextDocument: td}),
 		protocol.MethodInlayHint:          c.call(protocol.MethodInlayHint, protocol.InlayHintParams{TextDocument: td}),
 		protocol.MethodCompletion:         c.call(protocol.MethodCompletion, protocol.CompletionParams{TextDocumentPositionParams: docPos(0, 1)}),
+		protocol.MethodCodeAction: c.call(protocol.MethodCodeAction, protocol.CodeActionParams{
+			TextDocument: td, Range: protocol.Range{End: protocol.Position{Character: 3}},
+		}),
 	}
 }
 
@@ -283,7 +286,8 @@ func TestEndToEnd(t *testing.T) {
 		`"semanticTokensProvider":{"documentSelector":[{"language":"falcon-asm"}],"legend":{"tokenTypes":["keyword","modifier","variable","number","label","macro","comment","string","operator","type","parameter"],"tokenModifiers":["declaration","defaultLibrary","deprecated"]},"full":{"delta":true},"range":false},` +
 		`"definitionProvider":true,"referencesProvider":true,"renameProvider":{"prepareProvider":true},` +
 		`"documentSymbolProvider":true,"foldingRangeProvider":true,"inlayHintProvider":true,` +
-		`"completionProvider":{"triggerCharacters":["%",".","$"]}}`
+		`"completionProvider":{"triggerCharacters":["%",".","$"]},` +
+		`"codeActionProvider":{"codeActionKinds":["quickfix"]}}`
 	if string(raw.Capabilities) != wantCaps {
 		t.Fatalf("capabilities =\n%s\nwant\n%s", raw.Capabilities, wantCaps)
 	}
@@ -452,6 +456,16 @@ func (f *fakeEngine) InlayHints(_ *docstore.Document, r protocol.Range) []protoc
 	return []protocol.InlayHint{{Position: r.End, Label: "+0x0"}}
 }
 
+func (f *fakeEngine) CodeActions(d *docstore.Document, r protocol.Range, ctx protocol.CodeActionContext) []protocol.CodeAction {
+	if len(ctx.Only) > 0 {
+		return nil
+	}
+	return []protocol.CodeAction{{
+		Title: "fix " + f.word(d, r.Start), Kind: protocol.CodeActionKindQuickFix,
+		Edit: &protocol.WorkspaceEdit{Changes: map[string][]protocol.TextEdit{d.URI: {{Range: r, NewText: "x"}}}},
+	}}
+}
+
 func (f *fakeEngine) Completion(d *docstore.Document, p protocol.Position) *protocol.CompletionList {
 	if p.Line > 0 {
 		return nil
@@ -498,6 +512,7 @@ func TestEngineWiring(t *testing.T) {
 		protocol.MethodFoldingRange:       `[{"startLine":0,"endLine":1}]`,
 		protocol.MethodInlayHint:          `[{"position":{"line":0,"character":0},"label":"+0x0"}]`,
 		protocol.MethodCompletion:         `{"isIncomplete":false,"items":[{"label":"   "}]}`,
+		protocol.MethodCodeAction:         `[{"title":"fix    ","kind":"quickfix","edit":{"changes":{"file:///work/pmode.S":[{"range":{"start":{"line":0,"character":0},"end":{"line":0,"character":3}},"newText":"x"}]}}}]`,
 	}
 	// Hover at 0,1 lands on spaces: the fake answers "   ", so check it
 	// separately at the mnemonic.
@@ -509,6 +524,11 @@ func TestEngineWiring(t *testing.T) {
 	wantResult(t, c.call(protocol.MethodCompletion, protocol.CompletionParams{TextDocumentPositionParams: docPos(1, 0)}), "null")
 	refs := protocol.ReferenceParams{TextDocumentPositionParams: docPos(0, 1)}
 	wantResult(t, c.call(protocol.MethodReferences, refs), "null")
+	// An empty answer (here: the client asked only for kinds the engine
+	// does not offer) is null.
+	only := protocol.CodeActionParams{TextDocument: protocol.TextDocumentIdentifier{URI: testURI}}
+	only.Context.Only = []string{"refactor"}
+	wantResult(t, c.call(protocol.MethodCodeAction, only), "null")
 
 	eng.refuse = true
 	m := c.call(protocol.MethodRename, protocol.RenameParams{TextDocumentPositionParams: docPos(0, 4), NewName: "eax"})

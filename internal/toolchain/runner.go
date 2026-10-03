@@ -432,15 +432,25 @@ func (r *Runner) Assemble(ctx context.Context, file string, f Flags) (*AsmResult
 	if err != nil {
 		return nil, fmt.Errorf("assemble %s: %w", file, err)
 	}
-	raw = append(raw, parseGasStderr(as.stderr, tmpS, f.Dir, lm)...)
+	gasRaw := parseGasStderr(as.stderr, tmpS, f.Dir, lm)
+	var rows []rawListing
+	if text, err := os.ReadFile(lst); err == nil {
+		rows = parseGasListing(string(text))
+		inAsm, _ := os.ReadFile(asmInput)
+		via := markIncluded(rows, splitLines(string(inAsm)), lm, func(name string) (string, bool) {
+			return f.ResolveGasInclude(file, name)
+		})
+		mirrorGasIncludes(gasRaw, via, file)
+	}
+	raw = append(raw, gasRaw...)
 	if as.exitErr != nil && len(raw) == 0 {
 		// Report something rather than a silent clean file.
 		raw = append(raw, rawDiag{file: file, col: -1, sev: protocol.SeverityError,
 			msg: "assembler failed: " + firstLine(as.stderr), via: -1})
 	}
 	res.Diagnostics = toDiagnostics(raw, file)
-	if text, err := os.ReadFile(lst); err == nil {
-		res.Listing = buildListing(parseGasListing(string(text)), lm)
+	if rows != nil {
+		res.Listing = buildListing(rows, lm)
 	}
 	res.SectionSizes = sectionSizes(obj)
 	return res, nil

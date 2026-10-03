@@ -188,6 +188,7 @@ describe("package.json contributions", () => {
     expect(props[`${CONFIG_SECTION}.inlineAsm.enabled`]).toMatchObject({ type: "boolean", default: true });
     expect(props[`${CONFIG_SECTION}.toolchain.enabled`]).toMatchObject({ type: "boolean", default: defaults.toolchain });
     expect(props[`${CONFIG_SECTION}.inlayHints.listing`]).toMatchObject({ type: "boolean", default: defaults.listingHints });
+    expect(props[`${CONFIG_SECTION}.inlayHints.registers`]).toMatchObject({ type: "boolean", default: defaults.registerHints });
     expect(props[`${CONFIG_SECTION}.level`]).toMatchObject({ type: "string", default: defaults.level, enum: [...LEVELS] });
     expect(props[`${CONFIG_SECTION}.compileCommands`]).toMatchObject({ type: "string", default: defaults.compileCommands });
   });

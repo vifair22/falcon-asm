@@ -31,7 +31,9 @@ export const RESTART_SETTINGS: readonly string[] = [
   "serverPath",
   "inlineAsm.enabled",
   "toolchain.enabled",
+  "toolchain.onType",
   "inlayHints.listing",
+  "inlayHints.registers",
   "level",
   "compileCommands",
 ].map((s) => `${CONFIG_SECTION}.${s}`);
@@ -56,8 +58,12 @@ export function isAsmDocument(languageId: string): boolean {
 export interface InitializationOptions {
   /** Run the compiler/assembler from the compile database on open and save. */
   toolchain: boolean;
+  /** Also assemble the unsaved buffer while typing (debounced). Off by default. */
+  toolchainOnType: boolean;
   /** Show listing inlay hints (offset and encoded bytes) after instruction lines. */
   listingHints: boolean;
+  /** Show tracked register values (`ah=42h dl=80h`) at int/in/out/rdmsr/wrmsr/cpuid/lgdt/CR writes/far jumps. Off by default. */
+  registerHints: boolean;
   /** Target level override: "", "v1".."v4". "" defers to the file comment, then -march. */
   level: string;
   /** compile_commands.json to use instead of the discovered one; "" means discover. Absolute when non-empty and resolvable. */
@@ -67,7 +73,9 @@ export interface InitializationOptions {
 /** Raw configuration values as read from `vscode.workspace.getConfiguration`, untyped on purpose. */
 export interface RawSettings {
   toolchainEnabled?: unknown;
+  toolchainOnType?: unknown;
   inlayHintsListing?: unknown;
+  inlayHintsRegisters?: unknown;
   level?: unknown;
   compileCommands?: unknown;
 }
@@ -117,7 +125,9 @@ export function normalizeCompileCommands(raw: unknown, homeDir: string, baseDir?
 export function initializationOptions(raw: RawSettings, homeDir: string, baseDir?: string): InitializationOptions {
   return {
     toolchain: bool(raw.toolchainEnabled, true),
+    toolchainOnType: bool(raw.toolchainOnType, false),
     listingHints: bool(raw.inlayHintsListing, true),
+    registerHints: bool(raw.inlayHintsRegisters, false),
     level: normalizeLevel(raw.level),
     compileCommands: normalizeCompileCommands(raw.compileCommands, homeDir, baseDir),
   };

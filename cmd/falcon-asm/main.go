@@ -1,5 +1,7 @@
 // Command falcon-asm is a language server for GNU as x86 assembly in AT&T
-// syntax. It speaks LSP over stdin/stdout; see docs/DESIGN.md.
+// syntax. It speaks LSP over stdin/stdout; see docs/DESIGN.md. The same
+// binary is the linter ("falcon-asm lint") and its rule reference
+// ("falcon-asm rules").
 package main
 
 import (
@@ -30,6 +32,16 @@ func main() {
 // run is main with its environment passed in, so tests can drive the real
 // entrypoint in-process as well as through a built binary.
 func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
+	// Subcommands; with none, the language server, which is what an
+	// editor starts.
+	if len(args) > 0 {
+		switch args[0] {
+		case "lint":
+			return runLint(args[1:], stdout, stderr)
+		case "rules":
+			return runRules(args[1:], stdout, stderr)
+		}
+	}
 	args, prof := profileArgs(args)
 	fs := flag.NewFlagSet("falcon-asm", flag.ContinueOnError)
 	fs.SetOutput(stderr)

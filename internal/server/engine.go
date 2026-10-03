@@ -56,6 +56,9 @@ type Engine interface {
 	FoldingRanges(doc *docstore.Document) []protocol.FoldingRange
 	InlayHints(doc *docstore.Document, rng protocol.Range) []protocol.InlayHint
 	Completion(doc *docstore.Document, pos protocol.Position) *protocol.CompletionList
+	// CodeActions returns the quick fixes over rng; ctx is the client's
+	// request context (its diagnostics and the kinds it wants).
+	CodeActions(doc *docstore.Document, rng protocol.Range, ctx protocol.CodeActionContext) []protocol.CodeAction
 }
 
 // RequestFailedError is an error meant for the user (a refused rename),
@@ -128,5 +131,10 @@ func (NopEngine) InlayHints(*docstore.Document, protocol.Range) []protocol.Inlay
 
 // Completion implements Engine.
 func (NopEngine) Completion(*docstore.Document, protocol.Position) *protocol.CompletionList {
+	return nil
+}
+
+// CodeActions implements Engine.
+func (NopEngine) CodeActions(*docstore.Document, protocol.Range, protocol.CodeActionContext) []protocol.CodeAction {
 	return nil
 }

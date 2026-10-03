@@ -10,9 +10,15 @@ import (
 	"git.airies.net/vifair22/falcon-asm/internal/hover"
 	"git.airies.net/vifair22/falcon-asm/internal/inlineasm"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
+	"git.airies.net/vifair22/falcon-asm/internal/lint"
+	"git.airies.net/vifair22/falcon-asm/internal/project"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
+	"git.airies.net/vifair22/falcon-asm/internal/rules/target"
 	"git.airies.net/vifair22/falcon-asm/internal/symbols"
 	"git.airies.net/vifair22/falcon-asm/internal/toolchain"
+
+	// Every rule registers itself; the engine publishes their findings.
+	_ "git.airies.net/vifair22/falcon-asm/internal/rules/all"
 )
 
 // snapshot is everything derived from one document version under one
@@ -28,6 +34,18 @@ type snapshot struct {
 	flags    toolchain.Flags
 	hasFlags bool
 	macros   map[string]toolchain.Macro // toolchain table; never mutated
+
+	tin     project.TargetInputs
+	fileCfg lint.FileConfig
+	tables  lint.Tables
+	listing *toolchain.AsmResult // the last run's result when it describes this text
+	logf    func(format string, args ...any)
+
+	targetOnce sync.Once
+	target     lint.Target
+
+	lintOnce sync.Once
+	lint     project.Result
 
 	toksOnce sync.Once
 	toks     []lexer.Token
@@ -46,6 +64,13 @@ type snapshot struct {
 
 	diagOnce sync.Once
 	diags    []protocol.Diagnostic
+
+	// ws is the lint rules' workspace view (expand.go and the symbol
+	// rules); exp caches macro expansions for hover (expand.go).
+	ws  lint.Workspace
+	exp expandState
+	// hw is the hardware index for hover (hwhover.go).
+	hw hwState
 }
 
 // snapshotLocked returns st's current snapshot, building a new one when the
@@ -63,20 +88,31 @@ func (e *Engine) newSnapshotLocked(st *docState, doc *docstore.Document) *snapsh
 	s := &snapshot{
 		doc: doc, lang: st.lang, path: st.path, gen: st.gen,
 		flags: st.flags, hasFlags: st.hasFlags, macros: st.macros,
+		fileCfg: st.fileCfg, tables: st.tables, logf: e.log.Printf,
 	}
-	s.cfg = analysis.Config{Level: e.level, LevelSource: e.levelSource}
-	if st.hasFlags {
-		s.cfg.InitialMode = analysis.Mode(st.flags.Mode)
-		if s.cfg.Level == 0 && st.flags.Level != 0 {
-			s.cfg.Level, s.cfg.LevelSource = st.flags.Level, st.flags.LevelSource
-		}
+	if st.asm != nil && st.asmVersion == doc.Version {
+		s.listing = st.asm
 	}
+	if st.lang == langAsm {
+		s.ws = e.index.LintView(st.uri)
+	}
+	s.exp.tc, _ = e.tc.(lineExpander)
+	s.tin = project.TargetInputs{
+		Flags: st.flags, HasFlags: st.hasFlags, Config: st.fileCfg.Target,
+		SettingLevel: e.level, SettingSource: e.levelSource,
+	}
+	var macros map[string]string
 	if len(st.macros) > 0 {
-		s.cfg.Macros = make(map[string]string, len(st.macros))
+		macros = make(map[string]string, len(st.macros))
 		for name, m := range st.macros {
-			s.cfg.Macros[name] = m.Value
+			macros[name] = m.Value
 		}
 	}
+	// The analysis applies the in-file level comment itself, so the target
+	// without it gives the same configuration the lint rules derive from
+	// the full target: that is what lets the snapshot's analysis seed the
+	// rules (see lintResult) instead of running twice.
+	s.cfg = target.AnalysisConfig(project.ResolveTarget(s.tin, project.LevelComment{}), macros)
 	return s
 }
 
@@ -123,15 +159,54 @@ func (s *snapshot) statements() []inlineasm.Stmt {
 	return s.stmts
 }
 
-// diagnostics are falcon-asm's own findings for the document: the analysis
-// of an assembly file, or of every inline asm statement of a C file.
-func (s *snapshot) diagnostics() []protocol.Diagnostic {
-	s.diagOnce.Do(func() {
-		if s.lang == langC {
-			s.diags = s.inlineDiagnostics()
+// targetOf is the document's resolved target, the level comment included.
+func (s *snapshot) targetOf() lint.Target {
+	s.targetOnce.Do(func() {
+		var c project.LevelComment
+		switch s.lang {
+		case langAsm:
+			c = project.AsmLevelComment(s.tokens())
+		case langC:
+			c = project.CLevelComment(s.doc.Text)
+		}
+		s.target = project.ResolveTarget(s.tin, c)
+	})
+	return s.target
+}
+
+// lintResult runs the lint rules over the version once. An assembly run
+// reuses the snapshot's tokens and analysis; a C run its inline asm
+// statements.
+func (s *snapshot) lintResult() project.Result {
+	s.lintOnce.Do(func() {
+		d := project.Doc{
+			Doc: s.doc, Target: s.targetOf(), Config: s.fileCfg, Macros: s.cfg.Macros,
+			Listing: s.listing, Tables: s.tables, Log: s.logf, Workspace: s.ws,
+		}
+		switch s.lang {
+		case langAsm:
+			d.Toks = s.tokens()
+			d.Memo = lint.NewMemo()
+			target.Seed(d.Memo, s.analysis())
+		case langC:
+			d.C = true
+			d.Inline = s.statements()
+		default:
 			return
 		}
-		s.diags = s.analysis().Diagnostics
+		s.lint = project.Lint(d)
+	})
+	return s.lint
+}
+
+// diagnostics are falcon-asm's own findings for the document, as sent.
+func (s *snapshot) diagnostics() []protocol.Diagnostic {
+	s.diagOnce.Do(func() {
+		fs := s.lintResult().Findings
+		s.diags = make([]protocol.Diagnostic, len(fs))
+		for i, f := range fs {
+			s.diags[i] = f.Diagnostic()
+		}
 	})
 	return s.diags
 }
@@ -204,7 +279,14 @@ func (s *snapshot) includes() []string {
 				name = a[1 : 1+strings.IndexByte(a[1:], '"')]
 			}
 		case t.Kind == lexer.Directive && strings.EqualFold(t.Text, ".include") && arg.Kind == lexer.String:
-			name = strings.Trim(arg.Text, "\"")
+			// gas searches its working directory and its own -I list,
+			// not cpp's; with flags the gas search applies.
+			if name = strings.Trim(arg.Text, "\""); name != "" && s.hasFlags {
+				if p, ok := s.flags.ResolveGasInclude(s.path, name); ok {
+					out = append(out, p)
+				}
+				continue
+			}
 		}
 		if name == "" {
 			continue

@@ -2,7 +2,7 @@
   "name": "falcon-asm",
   "displayName": "falcon-asm (GAS x86)",
   "description": "GAS (AT&T) x86 assembly support backed by the falcon-asm language server: hover, diagnostics and semantic highlighting, plus inline asm in C and C++.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "vifair22",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -127,6 +127,12 @@
     "configurationDefaults": {
       "[falcon-asm]": {
         "editor.semanticHighlighting.enabled": true
+      },
+      "files.exclude": {
+        "**/.falcon-asm-*-*": true
+      },
+      "files.watcherExclude": {
+        "**/.falcon-asm-*-*": true
       }
     },
     "configuration": {
@@ -150,11 +156,23 @@
           "scope": "window",
           "markdownDescription": "Run the compiler and assembler from `compile_commands.json` when a file is opened or saved, for assembler diagnostics, macro values and listing hints. Changing it restarts the server."
         },
+        "falcon-asm.toolchain.onType": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "markdownDescription": "Also run the assembler on the unsaved buffer while typing (after a 400 ms pause), so assembler diagnostics, listing hints and size budget lenses follow the text without saving. The buffer is written to a hidden `.falcon-asm-<pid>-<n>-<file>` next to the source, so quoted includes resolve, and removed when the run ends. Needs `falcon-asm.toolchain.enabled`. Changing it restarts the server."
+        },
         "falcon-asm.inlayHints.listing": {
           "type": "boolean",
           "default": true,
           "scope": "window",
           "markdownDescription": "Show the assembler listing as inlay hints: section offset and encoded bytes after each instruction line, padding size on `.org` lines. Needs `falcon-asm.toolchain.enabled`. Changing it restarts the server."
+        },
+        "falcon-asm.inlayHints.registers": {
+          "type": "boolean",
+          "default": false,
+          "scope": "window",
+          "markdownDescription": "Show register values the dataflow analysis tracks as inlay hints at interesting statements: `ah=42h dl=80h` before `int $0x13`, `dx=3FDh` at `in`/`out`, `ecx=C0000080h (EFER)` at `rdmsr`/`wrmsr`, the CPUID leaf, the value a control register receives, CR0 at far jumps. Off by default. Changing it restarts the server."
         },
         "falcon-asm.level": {
           "type": "string",

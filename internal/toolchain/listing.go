@@ -33,6 +33,11 @@ type rawListing struct {
 	bytes     []byte
 	source    string
 	expansion bool
+	// included marks a row from a file gas pulled in with .include: such
+	// rows are numbered by that file's own lines, so mapping them through
+	// the main file's line map would pin their bytes on unrelated main
+	// lines. See markIncluded.
+	included bool
 }
 
 // parseGasListing reads a listing produced with -al or -alm. The layout is
@@ -217,7 +222,7 @@ func buildListing(rows []rawListing, lm *LineMap) []ListingLine {
 			// A row such as `.section .x; .byte 1` emits into the new section.
 			sec = t.cur
 		}
-		if lm == nil || r.num-1 < 0 || r.num-1 >= len(lm.Lines) {
+		if r.included || lm == nil || r.num-1 < 0 || r.num-1 >= len(lm.Lines) {
 			continue
 		}
 		o := lm.Lines[r.num-1]

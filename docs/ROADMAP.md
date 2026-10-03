@@ -200,26 +200,28 @@ references and the PCI specification. No third-party data is copied.
 ## 11. Toolchain truth
 
 77. **[have]** Real gas errors on save, mapped through includes.
-78. Our diagnostics win over gas's on the same line, to avoid duplicates.
+78. **[have]** Our diagnostics win over gas's on the same line, to avoid duplicates.
 79. Opt-in on-type gas assembly (default off).
 
 ## 12. Lint workflow
 
-80. `falcon-asm lint` CLI with no editor: walks a tree using the compile
-    database, prints `file:line:col` output, and also JSON and SARIF. Exit
-    codes, a `--fix` mode, and a pre-commit friendly fast path.
+80. **[have]** `falcon-asm lint` CLI with no editor: walks a tree using
+    the compile database, prints `file:line:col` output, and also JSON and
+    SARIF. Exit codes, a `--fix` mode, and a pre-commit friendly fast path.
 81. Quick fixes: add a `cld`, `vzeroupper`, missing clobber or missing
     suffix; swap to the valid form; insert an `ignore` comment; convert
-    `%rax` to the mode-correct register.
-82. Rule configuration in `.falcon-asm.json`: enable/disable and severity
-    per rule, per path glob.
-83. Suppression: `falcon-asm: ignore=<code>` for a line, `ignore-next`,
-    `ignore-file`, and region begin/end.
+    `%rax` to the mode-correct register. **[have]** the code action
+    plumbing, the `ignore` comment and the mode-correct register.
+82. **[have]** Rule configuration in `.falcon-asm.json`: enable/disable
+    and severity per rule, per path glob.
+83. **[have]** Suppression: `falcon-asm: ignore=<code>` for a line,
+    `ignore-next`, `ignore-file`, and region begin/end.
 84. Inlay hints with tracked register state at interesting points (e.g.
     `ah=42h` before `int $0x13`). Off by default.
 85. Workspace symbols and call hierarchy (who calls this label).
 86. Every rule documented in `docs/RULES.md`, with a bad and good example
-    and the reasoning, and its own test fixtures.
+    and the reasoning, and its own test fixtures. **[have]** the generator
+    (`make rules-doc`) and the test that fails when the file is stale.
 
 ## Build order
 

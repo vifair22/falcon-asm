@@ -72,7 +72,8 @@ async function reportMissingServer(message: string): Promise<void> {
 // a provider that answers for a C file would replace clangd's tokens, and
 // completion, rename or symbols from two servers collide in the UI. So
 // every feature except hover is also dropped here for non-asm documents,
-// independent of what any server version advertises.
+// independent of what any server version advertises. Workspace symbols are
+// not tied to a document and stay on: the server only indexes assembly.
 function asmOnly<A extends unknown[], R>(
   call: (doc: vscode.TextDocument, ...rest: A) => R,
 ): (doc: vscode.TextDocument, ...rest: A) => R | undefined {
@@ -91,6 +92,8 @@ const middleware: Middleware = {
   provideDocumentSymbols: asmOnly((doc, token, next) => next(doc, token)),
   provideFoldingRanges: asmOnly((doc, ctx, token, next) => next(doc, ctx, token)),
   provideInlayHints: asmOnly((doc, range, token, next) => next(doc, range, token)),
+  provideCodeLenses: asmOnly((doc, token, next) => next(doc, token)),
+  prepareCallHierarchy: asmOnly((doc, pos, token, next) => next(doc, pos, token)),
 };
 
 async function startClient(): Promise<void> {
@@ -123,7 +126,9 @@ async function startClient(): Promise<void> {
     initializationOptions: initializationOptions(
       {
         toolchainEnabled: config.get<unknown>("toolchain.enabled"),
+        toolchainOnType: config.get<unknown>("toolchain.onType"),
         inlayHintsListing: config.get<unknown>("inlayHints.listing"),
+        inlayHintsRegisters: config.get<unknown>("inlayHints.registers"),
         level: config.get<unknown>("level"),
         compileCommands: config.get<unknown>("compileCommands"),
       },

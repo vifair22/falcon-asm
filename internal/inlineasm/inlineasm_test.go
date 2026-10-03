@@ -693,3 +693,25 @@ func FuzzExtract(f *testing.F) {
 		}
 	})
 }
+
+func TestColons(t *testing.T) {
+	cases := []struct {
+		src  string
+		want []string // the text from each colon to the end, trimmed to 4 bytes
+	}{
+		{`asm("x");`, nil},
+		{`asm("x" : "=r"(a));`, []string{`: "=`}},
+		{`asm("x" :: "r"(a) : "cc");`, []string{`:: "`, `: "r`, `: "c`}},
+		{`asm goto("x" : : : : out);`, []string{`: : `, `: : `, `: : `, `: ou`}},
+	}
+	for _, c := range cases {
+		st := Extract(c.src)[0]
+		var got []string
+		for _, off := range st.Colons {
+			got = append(got, c.src[off:min(off+4, len(c.src))])
+		}
+		if strings.Join(got, "|") != strings.Join(c.want, "|") {
+			t.Errorf("%s: colons %v", c.src, got)
+		}
+	}
+}

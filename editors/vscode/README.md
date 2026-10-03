@@ -49,7 +49,9 @@ code --install-extension falcon-asm-*.vsix
 | `falcon-asm.serverPath` | `falcon-asm` | The server binary. A bare name is looked up on `PATH`; `~/` is expanded; a relative path is resolved against the first workspace folder. Left at the default, a few install locations are tried after `PATH` (below). |
 | `falcon-asm.inlineAsm.enabled` | `true` | Offer C and C++ files to the server for hover and diagnostics inside `asm` statements. Off, the server only sees `falcon-asm` files. The highlighting grammar is unaffected. |
 | `falcon-asm.toolchain.enabled` | `true` | Run the compiler and assembler from `compile_commands.json` on open and save: assembler diagnostics, macro values, listing hints. |
+| `falcon-asm.toolchain.onType` | `false` | Also assemble the unsaved buffer after a 400 ms pause in typing, so assembler diagnostics, listing hints and size budget lenses follow the text without a save. The buffer is written to a hidden `.falcon-asm-<pid>-<n>-<file>` beside the source (so quoted includes resolve) and removed when the run ends; the extension hides that pattern from the explorer and the file watcher. Needs the toolchain. |
 | `falcon-asm.inlayHints.listing` | `true` | Listing inlay hints: section offset and encoded bytes after each instruction line, padding size on `.org` lines. Needs the toolchain. |
+| `falcon-asm.inlayHints.registers` | `false` | Register values the dataflow analysis tracks, as inlay hints at `int`, `in`/`out`, `rdmsr`/`wrmsr`, `cpuid`, `lgdt`, control register writes and far jumps: `ah=42h dl=80h`, `dx=3FDh`, `ecx=C0000080h (EFER)`. Values that differ by path are joined with `\|`. Does not need the toolchain. |
 | `falcon-asm.level` | `""` | Target x86-64 level for level diagnostics: `v1` to `v4`. Empty defers to a `falcon-asm: level=vN` comment in the file, then `-march` from the compile database. |
 | `falcon-asm.compileCommands` | `""` | `compile_commands.json` to use instead of discovering one. `~/` is expanded; a relative path is resolved against the first workspace folder. |
 | `falcon-asm.trace.server` | `off` | `messages` or `verbose` logs the JSON-RPC traffic to the "falcon-asm" output channel. |
@@ -61,14 +63,18 @@ server reads its options once, at initialization. They reach it as
 ```json
 {
   "toolchain": true,
+  "toolchainOnType": false,
   "listingHints": true,
+  "registerHints": false,
   "level": "",
   "compileCommands": ""
 }
 ```
 
-`toolchain` is `falcon-asm.toolchain.enabled`, `listingHints` is
-`falcon-asm.inlayHints.listing`. `level` is always one of `""`, `"v1"` to
+`toolchain` is `falcon-asm.toolchain.enabled`, `toolchainOnType` is
+`falcon-asm.toolchain.onType`, `listingHints` is
+`falcon-asm.inlayHints.listing`, `registerHints` is
+`falcon-asm.inlayHints.registers`. `level` is always one of `""`, `"v1"` to
 `"v4"` (anything else is sent as `""`). `compileCommands` is `""` (discover)
 or the path with `~/` expanded, made absolute against the first workspace
 folder when one is open. Every key is always present.

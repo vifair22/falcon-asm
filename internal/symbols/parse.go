@@ -62,9 +62,12 @@ type file struct {
 	byName   map[string][]int // name -> indexes into defs
 	occs     map[string][]span
 	globals  map[string]bool
-	incNames []string // names written in #include lines, without <> or ""
-	includes []string // resolved header paths supplied by the caller
-	cHeader  bool     // only #define lines are meaningful
+	incNames []string // names written in #include and .include lines, without <> or ""
+	// incAngled parallels incNames: true for #include <name>, which
+	// searches the include path only, never the includer's directory.
+	incAngled []bool
+	includes  []string // resolved header paths supplied by the caller
+	cHeader   bool     // only #define lines are meaningful
 }
 
 // cppOccDirectives are the cpp lines whose argument names macros, so the
@@ -240,6 +243,15 @@ func (f *file) scan() {
 			if name := t.Text[1:]; isSymbolName(name) {
 				f.addOcc(name, span{t.Line, t.Col + 1, t.Len - 1})
 			}
+		case lexer.String:
+			// gas .include pulls a file in textually, like #include, so
+			// it takes part in the include heuristics the same way.
+			if stmtDir == ".include" && first {
+				if name := strings.Trim(t.Text, "\""); name != "" {
+					f.incNames = append(f.incNames, name)
+					f.incAngled = append(f.incAngled, false)
+				}
+			}
 		}
 	}
 }
@@ -269,9 +281,11 @@ func (f *file) identifier(i int, stmtDir string, first bool) {
 // for the include heuristic.
 func (f *file) cppArg(t lexer.Token, dir string, defineName bool) {
 	if dir == "include" || dir == "include_next" {
-		name := strings.Trim(strings.TrimSpace(t.Text), "<>\"")
+		arg := strings.TrimSpace(t.Text)
+		name := strings.Trim(arg, "<>\"")
 		if name != "" {
 			f.incNames = append(f.incNames, name)
+			f.incAngled = append(f.incAngled, strings.HasPrefix(arg, "<"))
 		}
 		return
 	}

@@ -80,7 +80,9 @@ describe("initializationOptions", () => {
   it("uses the documented defaults when nothing is set", () => {
     expect(initializationOptions({}, "/home/u")).toEqual({
       toolchain: true,
+      toolchainOnType: false,
       listingHints: true,
+      registerHints: false,
       level: "",
       compileCommands: "",
     });
@@ -89,22 +91,41 @@ describe("initializationOptions", () => {
   it("passes set values through, normalized", () => {
     expect(
       initializationOptions(
-        { toolchainEnabled: false, inlayHintsListing: false, level: "V2", compileCommands: "out/cc.json" },
+        {
+          toolchainEnabled: false,
+          toolchainOnType: true,
+          inlayHintsListing: false,
+          inlayHintsRegisters: true,
+          level: "V2",
+          compileCommands: "out/cc.json",
+        },
         "/home/u",
         "/ws",
       ),
-    ).toEqual({ toolchain: false, listingHints: false, level: "v2", compileCommands: "/ws/out/cc.json" });
+    ).toEqual({
+      toolchain: false,
+      toolchainOnType: true,
+      listingHints: false,
+      registerHints: true,
+      level: "v2",
+      compileCommands: "/ws/out/cc.json",
+    });
   });
 
   it("ignores non-boolean switches instead of sending them", () => {
-    const o = initializationOptions({ toolchainEnabled: "no", inlayHintsListing: 0 }, "/home/u");
+    const o = initializationOptions(
+      { toolchainEnabled: "no", toolchainOnType: "yes", inlayHintsListing: 0, inlayHintsRegisters: "on" },
+      "/home/u",
+    );
+    expect(o.registerHints).toBe(false);
     expect(o.toolchain).toBe(true);
+    expect(o.toolchainOnType).toBe(false);
     expect(o.listingHints).toBe(true);
   });
 
   it("has exactly the keys the server decodes", () => {
     expect(Object.keys(initializationOptions({}, "/h")).sort()).toEqual(
-      ["compileCommands", "level", "listingHints", "toolchain"],
+      ["compileCommands", "level", "listingHints", "registerHints", "toolchain", "toolchainOnType"],
     );
   });
 });
@@ -115,7 +136,9 @@ describe("RESTART_SETTINGS", () => {
       `${CONFIG_SECTION}.serverPath`,
       `${CONFIG_SECTION}.inlineAsm.enabled`,
       `${CONFIG_SECTION}.toolchain.enabled`,
+      `${CONFIG_SECTION}.toolchain.onType`,
       `${CONFIG_SECTION}.inlayHints.listing`,
+      `${CONFIG_SECTION}.inlayHints.registers`,
       `${CONFIG_SECTION}.level`,
       `${CONFIG_SECTION}.compileCommands`,
     ]);

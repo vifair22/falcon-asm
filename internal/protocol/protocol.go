@@ -153,6 +153,11 @@ type ServerCapabilities struct {
 	FoldingRangeProvider   bool                     `json:"foldingRangeProvider,omitempty"`
 	InlayHintProvider      bool                     `json:"inlayHintProvider,omitempty"`
 	CompletionProvider     *CompletionOptions       `json:"completionProvider,omitempty"`
+	CodeActionProvider     *CodeActionOptions       `json:"codeActionProvider,omitempty"`
+	// Items 47 and 85: size budget lenses, workspace symbols, call hierarchy.
+	CodeLensProvider        *CodeLensOptions `json:"codeLensProvider,omitempty"`
+	WorkspaceSymbolProvider bool             `json:"workspaceSymbolProvider,omitempty"`
+	CallHierarchyProvider   bool             `json:"callHierarchyProvider,omitempty"`
 }
 
 // TextDocumentItem is the full document sent on open.
@@ -332,9 +337,24 @@ type Diagnostic struct {
 	Range    Range              `json:"range"`
 	Severity DiagnosticSeverity `json:"severity,omitempty"`
 	Code     string             `json:"code,omitempty"`
-	Source   string             `json:"source,omitempty"`
-	Message  string             `json:"message"`
-	Tags     []DiagnosticTag    `json:"tags,omitempty"`
+	// CodeDescription links the code to its documentation (docs/RULES.md).
+	CodeDescription    *CodeDescription               `json:"codeDescription,omitempty"`
+	Source             string                         `json:"source,omitempty"`
+	Message            string                         `json:"message"`
+	Tags               []DiagnosticTag                `json:"tags,omitempty"`
+	RelatedInformation []DiagnosticRelatedInformation `json:"relatedInformation,omitempty"`
+}
+
+// CodeDescription is where a diagnostic code is explained.
+type CodeDescription struct {
+	Href string `json:"href"`
+}
+
+// DiagnosticRelatedInformation points at another place that matters to a
+// diagnostic (the GDT entry a selector names, say).
+type DiagnosticRelatedInformation struct {
+	Location Location `json:"location"`
+	Message  string   `json:"message"`
 }
 
 // DiagnosticTag changes how a client renders a diagnostic. Unnecessary is

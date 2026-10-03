@@ -67,6 +67,7 @@ make analyze    # go vet, gofmt check, golangci-lint if installed
 make check      # ascii-check over the tree
 make bench      # Go microbenchmarks into build/bench/bench.txt
 make lspbench   # end-to-end LSP benchmark into build/bench/lspbench.{txt,json}
+make rules-doc  # regenerate docs/RULES.md from the rule registry (a test checks it)
 make install    # installs falcon-asm into ~/.local/bin (PREFIX=... to change)
 ```
 
@@ -84,6 +85,33 @@ with the toolchain on; `-json` and `-compare old.json new.json` track
 changes. `make bench` runs the Go microbenchmarks. The method, scenarios,
 the before and after numbers of the performance pass and the remaining hot
 spots are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+
+## Linting
+
+The same binary lints without an editor, for CI and pre-commit hooks:
+
+```sh
+falcon-asm lint                      # everything under ., gcc-style output
+falcon-asm lint --format sarif src   # SARIF 2.1.0 for code scanning
+falcon-asm lint --fix                # apply quick fixes in place
+falcon-asm lint --changed            # only files changed against git HEAD
+falcon-asm rules [code]              # the rule list, or one rule's documentation
+```
+
+Exit status is 0 when nothing at or above `--severity` (default `warning`)
+was found, 1 when something was, 2 on a usage or configuration error. Rules
+are configured per project and per path in `.falcon-asm.json` and silenced
+in the source with `falcon-asm: ignore=<code>` comments; the editor and the
+CLI read the same file and report the same findings. Every rule is
+documented, with examples, in [docs/RULES.md](docs/RULES.md).
+
+```json
+{
+  "rules": { "level-outside": "off", "mode-register": "error" },
+  "overrides": [ { "paths": ["legacy/**"], "target": { "mode": 16 } } ],
+  "target": { "level": "v3" }
+}
+```
 
 ## Editor setup
 
@@ -106,7 +134,8 @@ association in settings:
 
 Settings: `falcon-asm.serverPath` (default `falcon-asm`, resolved via PATH),
 `falcon-asm.toolchain.enabled` (run the compiler on open/save),
-`falcon-asm.inlayHints.listing` (offset/bytes hints), `falcon-asm.level`
+`falcon-asm.inlayHints.listing` (offset/bytes hints),
+`falcon-asm.inlayHints.registers` (tracked register values, off by default), `falcon-asm.level`
 (target level override, `v1`..`v4`), `falcon-asm.compileCommands` (explicit
 database path), `falcon-asm.inlineAsm.enabled` (serve C/C++ files for inline
 asm) and `falcon-asm.trace.server` (`off`, `messages`, `verbose`). Changing
@@ -119,7 +148,7 @@ The server reads its options once, from `initializationOptions`. Every key
 is optional:
 
 ```json
-{ "toolchain": true, "listingHints": true, "level": "", "compileCommands": "" }
+{ "toolchain": true, "listingHints": true, "registerHints": false, "level": "", "compileCommands": "" }
 ```
 
 `level` is `""` (use the file comment or `-march`) or `v1`..`v4`;
@@ -161,7 +190,7 @@ Neovim maps `.S`/`.s` to the `asm` filetype by default.
 ## Layout
 
 ```
-cmd/falcon-asm/      entry point
+cmd/falcon-asm/      entry point: the server, `lint` and `rules`
 internal/jsonrpc/    Content-Length framing and connection
 internal/protocol/   the LSP types in use
 internal/docstore/   open documents, incremental sync, UTF-16 positions
@@ -175,6 +204,9 @@ internal/completion/ completion items
 internal/constexpr/  integer constant expressions for macro values
 internal/hover/      hover content
 internal/semtok/     semantic tokens
+internal/lint/       rule registry, .falcon-asm.json, suppression comments, the runner
+internal/rules/      the lint rules, one package per roadmap area; rules/all imports them
+internal/project/    shared by server and CLI: file target resolution, linting a document
 internal/engine/     per-document state, configuration, toolchain runs, feature wiring
 internal/server/     method dispatch and lifecycle
 internal/benchdata/  shared benchmark inputs built from the fixtures

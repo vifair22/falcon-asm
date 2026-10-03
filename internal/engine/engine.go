@@ -19,6 +19,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -27,6 +28,8 @@ import (
 
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
+	"git.airies.net/vifair22/falcon-asm/internal/lint"
+	"git.airies.net/vifair22/falcon-asm/internal/project"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
 	"git.airies.net/vifair22/falcon-asm/internal/symbols"
@@ -66,10 +69,16 @@ type Config struct {
 	ReadFile   func(path string) ([]byte, error)
 	// ReadIndexFile loads files for the symbol index; nil means os.ReadFile.
 	ReadIndexFile func(path string) (string, error)
+	// FindConfig walks up from a directory to the nearest .falcon-asm.json;
+	// nil means lint.FindConfig. The file is read with ReadFile.
+	FindConfig func(dir string) (string, bool)
 
 	Debounce     time.Duration
 	ShutdownWait time.Duration
-	Log          io.Writer
+	// OnTypeDelay debounces on-type toolchain runs (item 79); zero means
+	// DefaultOnTypeDelay.
+	OnTypeDelay time.Duration
+	Log         io.Writer
 }
 
 // settings is the initializationOptions schema the VS Code client sends
@@ -80,6 +89,12 @@ type settings struct {
 	ListingHints    *bool  `json:"listingHints"`
 	Level           string `json:"level"`
 	CompileCommands string `json:"compileCommands"`
+	// ToolchainOnType runs gas on the unsaved buffer while typing; off
+	// unless set (see ontype.go).
+	ToolchainOnType *bool `json:"toolchainOnType"`
+	// RegisterHints shows tracked register values as inlay hints at
+	// interesting statements; off unless set (see reghints.go).
+	RegisterHints *bool `json:"registerHints"`
 }
 
 type lang int
@@ -87,6 +102,9 @@ type lang int
 const (
 	langAsm lang = iota
 	langC
+	// langConfig is a .falcon-asm.json open in the editor: its text is the
+	// live configuration, and nothing else is served for it.
+	langConfig
 )
 
 // docState is one open document. Fields are guarded by Engine.mu.
@@ -98,6 +116,9 @@ type docState struct {
 
 	flags    toolchain.Flags
 	hasFlags bool
+
+	fileCfg lint.FileConfig // .falcon-asm.json resolved for this file
+	tables  lint.Tables
 
 	// Toolchain results: kept until the next run for this file finishes.
 	macros     map[string]toolchain.Macro
@@ -127,14 +148,19 @@ type Engine struct {
 	root         string
 	toolchainOn  bool
 	listingHints bool
+	regHints     bool
 	level        isa.Level
 	levelSource  string
 	db           FlagDB
 	found        map[string]FlagDB // FindDB results by directory; nil value = none
 	docs         map[string]*docState
 	ext          map[string]map[string][]protocol.Diagnostic // target URI -> owner URI -> gas diagnostics
+	configs      map[string]*lint.Config                     // .falcon-asm.json by path, as last read or edited
+	cfgDir       map[string]string                           // directory -> nearest config path, "" for none
+	cfgDiags     map[string][]protocol.Diagnostic            // config URI -> its problems
 	logged       map[string]bool
 	closed       bool
+	onType       onTypeState // on-type toolchain runs, see ontype.go
 }
 
 var _ server.Engine = (*Engine)(nil)
@@ -155,6 +181,9 @@ func New(cfg Config) *Engine {
 	}
 	if cfg.ReadFile == nil {
 		cfg.ReadFile = os.ReadFile
+	}
+	if cfg.FindConfig == nil {
+		cfg.FindConfig = lint.FindConfig
 	}
 	if cfg.Debounce <= 0 {
 		cfg.Debounce = DefaultDebounce
@@ -179,6 +208,9 @@ func New(cfg Config) *Engine {
 		found:        map[string]FlagDB{},
 		docs:         map[string]*docState{},
 		ext:          map[string]map[string][]protocol.Diagnostic{},
+		configs:      map[string]*lint.Config{},
+		cfgDir:       map[string]string{},
+		cfgDiags:     map[string][]protocol.Diagnostic{},
 		logged:       map[string]bool{},
 	}
 }
@@ -246,6 +278,8 @@ func (e *Engine) Initialize(s server.Session) {
 	e.db = db
 	e.toolchainOn = opts.Toolchain == nil || *opts.Toolchain
 	e.listingHints = opts.ListingHints == nil || *opts.ListingHints
+	e.regHints = opts.RegisterHints != nil && *opts.RegisterHints
+	e.onType.on = opts.ToolchainOnType != nil && *opts.ToolchainOnType
 	e.level, e.levelSource = lvl, src
 	e.mu.Unlock()
 	if root != "" {
@@ -267,22 +301,19 @@ var cLanguages = map[string]bool{
 	"c": true, "cpp": true, "objective-c": true, "objective-cpp": true, "cuda-cpp": true,
 }
 
-// cExts classify a URI whose language id is unknown or unhelpful.
-var cExts = map[string]bool{
-	".c": true, ".h": true, ".cc": true, ".cpp": true, ".cxx": true, ".hpp": true, ".hh": true,
-}
-
 // languageOf decides how a document is served. Assembly is the default: the
 // server was assembly-only before C support, and clients other than VS Code
 // send ids such as "asm" or "gas" for .S files.
 func languageOf(uri, languageID string) lang {
 	switch {
+	case path.Base(uri) == lint.ConfigFile:
+		return langConfig
 	case languageID == server.AsmLanguageID:
 		return langAsm
 	case cLanguages[languageID]:
 		return langC
 	}
-	if cExts[strings.ToLower(filepath.Ext(uri))] {
+	if project.IsC(uri) {
 		return langC
 	}
 	return langAsm
@@ -332,7 +363,17 @@ func (e *Engine) Open(doc *docstore.Document, languageID string) {
 	st := &docState{uri: doc.URI, lang: languageOf(doc.URI, languageID), doc: doc, asmVersion: -1}
 	if p, ok := toolchain.URIToPath(doc.URI); ok {
 		st.path = p
-		st.flags, st.hasFlags = e.flagsFor(p)
+		if st.lang != langConfig {
+			st.flags, st.hasFlags = e.flagsFor(p)
+			st.fileCfg, st.tables = e.fileConfig(p)
+		}
+	}
+	if st.lang == langConfig {
+		e.mu.Lock()
+		e.docs[doc.URI] = st
+		e.mu.Unlock()
+		e.applyConfig(st.path, doc.URI, []byte(doc.Text))
+		return
 	}
 	e.mu.Lock()
 	if old := e.docs[doc.URI]; old != nil && old.timer != nil {
@@ -355,8 +396,14 @@ func (e *Engine) Change(doc *docstore.Document) {
 		return
 	}
 	st.doc = doc
+	if st.lang == langConfig {
+		e.mu.Unlock()
+		e.applyConfig(st.path, doc.URI, []byte(doc.Text))
+		return
+	}
 	snap := e.snapshotLocked(st)
 	e.schedulePublishLocked(st)
+	e.onTypeChangedLocked(st)
 	e.mu.Unlock()
 	e.updateIndex(st, snap)
 }
@@ -366,6 +413,7 @@ func (e *Engine) Change(doc *docstore.Document) {
 func (e *Engine) Save(uri string) {
 	e.mu.Lock()
 	if st := e.docs[uri]; st != nil {
+		e.onTypeStopLocked(uri)
 		e.startRunLocked(st)
 	}
 	e.mu.Unlock()
@@ -383,8 +431,19 @@ func (e *Engine) Close(uri string) {
 		st.timer.Stop()
 	}
 	delete(e.docs, uri)
+	e.onTypeStopLocked(uri)
 	targets := e.setExtLocked(uri, nil)
 	e.mu.Unlock()
+	if st.lang == langConfig {
+		// The buffer may have held unsaved edits; the file on disk is the
+		// configuration again.
+		data, err := e.cfg.ReadFile(st.path)
+		if err != nil {
+			data = nil
+		}
+		e.applyConfig(st.path, uri, data)
+		return
+	}
 	if st.lang == langAsm {
 		e.index.Remove(uri)
 	}
@@ -399,6 +458,7 @@ func (e *Engine) Close(uri string) {
 func (e *Engine) Shutdown() {
 	e.mu.Lock()
 	e.closed = true
+	e.onTypeStopAllLocked()
 	for _, st := range e.docs {
 		if st.timer != nil {
 			st.timer.Stop()

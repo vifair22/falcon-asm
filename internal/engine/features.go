@@ -11,6 +11,7 @@ import (
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/hover"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
+	"git.airies.net/vifair22/falcon-asm/internal/lint"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 	"git.airies.net/vifair22/falcon-asm/internal/semtok"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
@@ -22,10 +23,21 @@ import (
 // values; C gets hover only inside asm statements, the rest is clangd's.
 func (e *Engine) Hover(doc *docstore.Document, pos protocol.Position) (*protocol.Hover, error) {
 	s := e.snapshotFor(doc)
-	if s.lang == langC {
-		return s.inlineHover(pos)
+	switch s.lang {
+	case langConfig:
+		return nil, nil
+	case langC:
+		h, err := s.inlineHover(pos)
+		if h == nil && err == nil {
+			h = s.cHelperHover(pos)
+		}
+		return h, err
 	}
-	return hover.HoverWith(doc, pos, hover.Options{Tokens: s.tokens(), Macro: s.macro})
+	h, err := hover.HoverWith(doc, pos, hover.Options{Tokens: s.tokens(), Macro: s.macro, Expansion: s.expansion})
+	if err != nil {
+		return h, err
+	}
+	return s.withHardware(pos, h), nil
 }
 
 // SemanticTokens implements server.Engine. C documents get none: the
@@ -33,7 +45,7 @@ func (e *Engine) Hover(doc *docstore.Document, pos protocol.Position) (*protocol
 // clients must not have clangd's highlighting overwritten.
 func (e *Engine) SemanticTokens(doc *docstore.Document) []uint32 {
 	s := e.snapshotFor(doc)
-	if s.lang == langC {
+	if s.lang != langAsm {
 		return nil
 	}
 	var deprecated map[protocol.Position]bool
@@ -56,7 +68,7 @@ func (e *Engine) SemanticTokens(doc *docstore.Document) []uint32 {
 // record of where a macro from a header or the command line was defined.
 func (e *Engine) Definition(doc *docstore.Document, pos protocol.Position) []protocol.Location {
 	s := e.snapshotFor(doc)
-	if s.lang == langC {
+	if s.lang != langAsm {
 		return nil
 	}
 	if locs := e.index.Definition(doc.URI, pos); len(locs) > 0 {
@@ -72,7 +84,7 @@ func (e *Engine) Definition(doc *docstore.Document, pos protocol.Position) []pro
 
 // References implements server.Engine.
 func (e *Engine) References(doc *docstore.Document, pos protocol.Position, includeDecl bool) []protocol.Location {
-	if e.snapshotFor(doc).lang == langC {
+	if e.snapshotFor(doc).lang != langAsm {
 		return nil
 	}
 	return e.index.References(doc.URI, pos, includeDecl)
@@ -80,7 +92,7 @@ func (e *Engine) References(doc *docstore.Document, pos protocol.Position, inclu
 
 // PrepareRename implements server.Engine.
 func (e *Engine) PrepareRename(doc *docstore.Document, pos protocol.Position) (*protocol.PrepareRenameResult, error) {
-	if e.snapshotFor(doc).lang == langC {
+	if e.snapshotFor(doc).lang != langAsm {
 		return nil, nil
 	}
 	r, placeholder, err := e.index.PrepareRename(doc.URI, pos)
@@ -92,7 +104,7 @@ func (e *Engine) PrepareRename(doc *docstore.Document, pos protocol.Position) (*
 
 // Rename implements server.Engine.
 func (e *Engine) Rename(doc *docstore.Document, pos protocol.Position, newName string) (*protocol.WorkspaceEdit, error) {
-	if e.snapshotFor(doc).lang == langC {
+	if e.snapshotFor(doc).lang != langAsm {
 		return nil, nil
 	}
 	edit, err := e.index.Rename(doc.URI, pos, newName)
@@ -114,7 +126,7 @@ func userFacing(err error) error {
 // DocumentSymbols implements server.Engine.
 func (e *Engine) DocumentSymbols(doc *docstore.Document) []protocol.DocumentSymbol {
 	s := e.snapshotFor(doc)
-	if s.lang == langC {
+	if s.lang != langAsm {
 		return nil
 	}
 	return s.symbols().DocumentSymbols()
@@ -123,7 +135,7 @@ func (e *Engine) DocumentSymbols(doc *docstore.Document) []protocol.DocumentSymb
 // FoldingRanges implements server.Engine.
 func (e *Engine) FoldingRanges(doc *docstore.Document) []protocol.FoldingRange {
 	s := e.snapshotFor(doc)
-	if s.lang == langC {
+	if s.lang != langAsm {
 		return nil
 	}
 	return symbols.FoldingRangesTokens(s.tokens())
@@ -132,7 +144,7 @@ func (e *Engine) FoldingRanges(doc *docstore.Document) []protocol.FoldingRange {
 // Completion implements server.Engine.
 func (e *Engine) Completion(doc *docstore.Document, pos protocol.Position) *protocol.CompletionList {
 	s := e.snapshotFor(doc)
-	if s.lang == langC {
+	if s.lang != langAsm {
 		return nil
 	}
 	return completion.Complete(doc, pos, completion.Context{
@@ -202,13 +214,14 @@ func (s *snapshot) wordAt(pos protocol.Position) string {
 func (e *Engine) InlayHints(doc *docstore.Document, rng protocol.Range) []protocol.InlayHint {
 	e.mu.Lock()
 	st := e.docs[doc.URI]
+	regs := e.regHints && st != nil && st.lang == langAsm
 	if !e.listingHints || st == nil || st.lang != langAsm || st.asm == nil || st.asmVersion != doc.Version {
 		e.mu.Unlock()
-		return nil
+		return e.registerHints(regs, doc, rng, nil)
 	}
 	res := st.asm
 	e.mu.Unlock()
-	return listingHints(doc, res, rng)
+	return e.registerHints(regs, doc, rng, listingHints(doc, res, rng))
 }
 
 // maxHintBytes is how many encoded bytes a hint shows before "...": enough
@@ -290,4 +303,68 @@ func lineSize(res *toolchain.AsmResult, i int) int {
 		size = int(next - l.Offset)
 	}
 	return size
+}
+
+// CodeActions implements server.Engine: the quick fixes of every finding
+// touching rng, and for each finding an action adding a suppression
+// comment for its code on its line. Fixes come from the snapshot's lint
+// run, so they describe exactly the text the client holds.
+func (e *Engine) CodeActions(doc *docstore.Document, rng protocol.Range, ctx protocol.CodeActionContext) []protocol.CodeAction {
+	if !wantsQuickFix(ctx.Only) {
+		return nil
+	}
+	s := e.snapshotFor(doc)
+	if s.lang == langConfig {
+		return nil
+	}
+	res := s.lintResult()
+	var fixes, ignores []protocol.CodeAction
+	ignored := map[string]bool{}
+	for _, f := range res.Findings {
+		if !f.Overlaps(rng) {
+			continue
+		}
+		diag := []protocol.Diagnostic{f.Diagnostic()}
+		for i, fx := range f.Fixes {
+			fixes = append(fixes, protocol.CodeAction{
+				Title:       fx.Title,
+				Kind:        protocol.CodeActionKindQuickFix,
+				Diagnostics: diag,
+				IsPreferred: i == 0,
+				Edit:        &protocol.WorkspaceEdit{Changes: map[string][]protocol.TextEdit{doc.URI: fx.Edits}},
+			})
+		}
+		// Suppressing the report about a suppression would only stack
+		// comments; removing the stale one is the fix.
+		key := fmt.Sprintf("%d %s", f.Range.Start.Line, f.Code)
+		if f.Code == lint.UnusedSuppressionCode || ignored[key] || res.Suppressions == nil {
+			continue
+		}
+		ignored[key] = true
+		fx := res.Suppressions.IgnoreFix(f.Range.Start.Line, f.Code)
+		ignores = append(ignores, protocol.CodeAction{
+			Title:       fx.Title,
+			Kind:        protocol.CodeActionKindQuickFix,
+			Diagnostics: diag,
+			Edit:        &protocol.WorkspaceEdit{Changes: map[string][]protocol.TextEdit{doc.URI: fx.Edits}},
+		})
+	}
+	// Real fixes first: a client showing one action shows the best one.
+	return append(fixes, ignores...)
+}
+
+// wantsQuickFix honours the client's "only" filter. Kinds are
+// hierarchical: a filter admits its own kind and the kinds below it, so
+// only "quickfix" itself and the empty (root) kind admit ours; a filter
+// for a sub-kind such as "quickfix.x" is narrower than what we offer.
+func wantsQuickFix(only []string) bool {
+	if len(only) == 0 {
+		return true
+	}
+	for _, k := range only {
+		if k == "" || k == protocol.CodeActionKindQuickFix {
+			return true
+		}
+	}
+	return false
 }

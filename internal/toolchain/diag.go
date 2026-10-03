@@ -83,6 +83,9 @@ func gasSeverity(rest string) (protocol.DiagnosticSeverity, string, bool) {
 	return 0, "", false
 }
 
+// maxSaneLine bounds the line numbers believed from a tool's message.
+const maxSaneLine = 1 << 28
+
 // splitFileLine splits `file:line:rest`. File names may contain colons, so
 // the split is at the first `:<digits>:`.
 func splitFileLine(l string) (string, int, string, bool) {
@@ -98,7 +101,10 @@ func splitFileLine(l string) (string, int, string, bool) {
 			continue
 		}
 		n, err := strconv.Atoi(l[i+1 : j])
-		if err != nil || n < 1 {
+		// gas reports a line of 4294967291 (an unsigned -5) for a
+		// statement following a failed .include; such a line exists in no
+		// file and is skipped rather than placed past the end of one.
+		if err != nil || n < 1 || n > maxSaneLine {
 			continue
 		}
 		return l[:i], n, l[j+1:], true

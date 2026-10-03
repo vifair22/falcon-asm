@@ -767,8 +767,12 @@ func TestCDocuments(t *testing.T) {
 		t.Fatal("rename in C")
 	}
 	h.e.wg.Wait()
-	if calls := h.tc.Calls(); len(calls) != 0 {
-		t.Fatalf("toolchain ran for C: %q", calls)
+	// A C file is preprocessed for its macros (helper hover), never
+	// assembled.
+	for _, c := range h.tc.Calls() {
+		if !strings.HasPrefix(c, "macros ") {
+			t.Fatalf("toolchain assembled C: %q", h.tc.Calls())
+		}
 	}
 }
 

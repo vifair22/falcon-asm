@@ -14,6 +14,7 @@
 # make xed-data   regenerate internal/isa/data/xed.json from pinned upstreams
 # make bench      Go microbenchmarks into build/bench/bench.txt
 # make lspbench   end-to-end LSP benchmark into build/bench/lspbench.{txt,json}
+# make rules-doc  regenerate docs/RULES.md from the rule registry
 
 # pipefail so a failing benchmark is not hidden behind tee's exit status.
 SHELL       := /bin/bash
@@ -56,7 +57,7 @@ SERVER_BIN := $(BIN_DIR)/falcon-asm
 
 .DEFAULT_GOAL := all
 .PHONY: all server test test-junit coverage analyze check vscode install \
-        uninstall xed-data clean version bench lspbench
+        uninstall xed-data clean version bench lspbench rules-doc
 
 all: server
 
@@ -89,6 +90,12 @@ analyze:
 
 check:
 	ascii-check -r .
+
+# docs/RULES.md is generated; a test in internal/rules/all fails when it is
+# stale, so a new rule cannot land without its documentation.
+rules-doc:
+	$(GO) run ./cmd/falcon-asm rules --markdown > docs/RULES.md.tmp
+	mv docs/RULES.md.tmp docs/RULES.md
 
 # Output is kept whole (tee) so two runs can be compared with benchstat.
 bench: | $(BENCH_DIR)

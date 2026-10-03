@@ -55,7 +55,17 @@ type Options struct {
 	// own, whose line 3 is somewhere else entirely in the C file; nil means
 	// lines are shown as they are.
 	LineNumber func(line int) int
+	// Expansion returns what the macro invocation whose name token starts
+	// at (line, byte column) expands to: a gas .macro expanded in-process
+	// or a cpp macro run through the preprocessor. It is asked only for a
+	// word in mnemonic position that is not an instruction or a prefix;
+	// nil, or false, shows no expansion.
+	Expansion func(line, col int) (string, bool)
 }
+
+// MaxExpansionLines caps the expansion shown in a hover; a longer one is
+// cut with a note saying how much is left out.
+const MaxExpansionLines = 20
 
 // HoverWith is Hover with outside knowledge applied; see Options.
 func HoverWith(doc *docstore.Document, pos protocol.Position, opts Options) (*protocol.Hover, error) {
@@ -83,6 +93,14 @@ func HoverWith(doc *docstore.Document, pos protocol.Position, opts Options) (*pr
 		r.lineNo = func(line int) int { return line }
 	}
 	body := r.render(idx)
+	if t := toks[idx]; t.Kind == lexer.Mnemonic && opts.Expansion != nil && !isInstructionWord(t.Text) {
+		if x, ok := opts.Expansion(t.Line, t.Col); ok {
+			if body == "" {
+				body = bold(t.Text) + " - macro"
+			}
+			body += "\n\n" + expansionBlock(x)
+		}
+	}
 	if body == "" {
 		return nil, nil
 	}
@@ -660,4 +678,35 @@ func isSymbol(s string) bool {
 // markdown is a soft break and clients would run the lines together.
 func join(lines []string) string {
 	return strings.Join(lines, "\n\n")
+}
+
+// isInstructionWord reports a word the assembler reads as an instruction
+// or a prefix, which a hover explains rather than expands.
+func isInstructionWord(w string) bool {
+	if _, _, ok := isa.Lookup(w); ok {
+		return true
+	}
+	return isa.IsPrefix(w)
+}
+
+// expansionBlock renders an expansion as a fenced asm block, at most
+// MaxExpansionLines lines.
+func expansionBlock(x string) string {
+	lines := strings.Split(strings.TrimRight(x, "\n"), "\n")
+	more := 0
+	if len(lines) > MaxExpansionLines {
+		more = len(lines) - MaxExpansionLines
+		lines = lines[:MaxExpansionLines]
+	}
+	text := strings.Join(lines, "\n")
+	// A fence longer than any backtick run inside keeps the block closed.
+	fence := "```"
+	for strings.Contains(text, fence) {
+		fence += "`"
+	}
+	out := "Expands to:\n" + fence + "asm\n" + text + "\n" + fence
+	if more > 0 {
+		out += fmt.Sprintf("\n\n(%d more line%s)", more, map[bool]string{true: "", false: "s"}[more == 1])
+	}
+	return out
 }

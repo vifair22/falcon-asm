@@ -290,3 +290,10 @@ func levelValue(v string) (isa.Level, bool) {
 	}
 	return 0, false
 }
+
+// LevelOverrideTokens is LevelOverride over a token stream the caller
+// already has, also returning the zero-based lexer line of the comment, so
+// a caller resolving a document's target does not tokenize it again.
+func LevelOverrideTokens(toks []lexer.Token) (isa.Level, int, bool) {
+	return levelOverride(toks)
+}

@@ -56,11 +56,12 @@ func (e *Engine) publish(uri string) {
 		return
 	}
 	params := protocol.PublishDiagnosticsParams{URI: uri, Diagnostics: append([]protocol.Diagnostic{}, own...)}
+	shadow := shadowedLines(own)
 	if st != nil {
 		v := st.doc.Version
 		params.Version = &v
 		if st.asm != nil {
-			params.Diagnostics = append(params.Diagnostics, st.asm.Diagnostics[st.path]...)
+			params.Diagnostics = appendUnshadowed(params.Diagnostics, st.asm.Diagnostics[st.path], shadow)
 			for _, r := range st.asm.Inactive {
 				params.Diagnostics = append(params.Diagnostics, protocol.Diagnostic{
 					Range:    r,
@@ -74,11 +75,42 @@ func (e *Engine) publish(uri string) {
 	}
 	owners := e.ext[uri]
 	for _, owner := range sortedKeys(owners) {
-		params.Diagnostics = append(params.Diagnostics, owners[owner]...)
+		params.Diagnostics = appendUnshadowed(params.Diagnostics, owners[owner], shadow)
 	}
+	params.Diagnostics = append(params.Diagnostics, e.cfgDiags[uri]...)
 	fn := e.publishFn
 	e.mu.Unlock()
 	fn(params)
+}
+
+// shadowedLines are the lines where falcon-asm reports a warning or an
+// error (roadmap item 78). gas on the same line almost always describes the
+// same mistake with less context ("operand type mismatch" beside "%rax is
+// only valid in 64-bit code"), so its diagnostic is dropped there.
+// Information and hints never shadow: they do not claim the line is wrong.
+func shadowedLines(own []protocol.Diagnostic) map[int]bool {
+	var lines map[int]bool
+	for _, d := range own {
+		if d.Severity != protocol.SeverityError && d.Severity != protocol.SeverityWarning {
+			continue
+		}
+		if lines == nil {
+			lines = map[int]bool{}
+		}
+		for l := d.Range.Start.Line; l <= d.Range.End.Line; l++ {
+			lines[l] = true
+		}
+	}
+	return lines
+}
+
+func appendUnshadowed(dst, gas []protocol.Diagnostic, shadow map[int]bool) []protocol.Diagnostic {
+	for _, d := range gas {
+		if !shadow[d.Range.Start.Line] {
+			dst = append(dst, d)
+		}
+	}
+	return dst
 }
 
 // setExtLocked replaces the gas diagnostics owner attributes to other
@@ -109,7 +141,7 @@ func (e *Engine) setExtLocked(owner string, byURI map[string][]protocol.Diagnost
 // assembly file on disk with compile flags, toolchain enabled, engine live.
 // The run is asynchronous; results publish when it finishes.
 func (e *Engine) startRunLocked(st *docState) {
-	if e.closed || !e.toolchainOn || st.lang != langAsm || st.path == "" || !st.hasFlags {
+	if e.closed || !e.toolchainOn || st.lang != langAsm && st.lang != langC || st.path == "" || !st.hasFlags {
 		return
 	}
 	st.runSeq++
@@ -136,12 +168,17 @@ func (e *Engine) execute(r run) {
 		}
 		macros = nil
 	}
-	res, err := e.tc.Assemble(e.ctx, r.path, r.flags)
-	if err != nil {
-		if e.quiet(err, r.path) {
-			return
+	var res *toolchain.AsmResult
+	if r.st.lang == langAsm {
+		// A C file is only preprocessed, for its macros (helper hover
+		// resolves PCI_DATA and MSR_EFER from its headers); assembling it
+		// is the C compiler's business, not ours.
+		if res, err = e.tc.Assemble(e.ctx, r.path, r.flags); err != nil {
+			if e.quiet(err, r.path) {
+				return
+			}
+			res = nil
 		}
-		res = nil
 	}
 	// The listing describes the file on disk. It matches the editor only
 	// when the buffer was not dirty at save (or at open, where a client
@@ -159,6 +196,10 @@ func (e *Engine) execute(r run) {
 	}
 	if macros != nil {
 		st.macros = macros
+	}
+	// New macros change the parse; a new result changes the listing rules
+	// see. Either way the version's derived data is rebuilt.
+	if macros != nil || res != nil {
 		st.gen++
 	}
 	var targets []string

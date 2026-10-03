@@ -160,3 +160,37 @@ type DocumentSymbolParams struct {
 type FoldingRangeParams struct {
 	TextDocument TextDocumentIdentifier `json:"textDocument"`
 }
+
+// MethodCodeAction asks for the quick fixes available over a range.
+const MethodCodeAction = "textDocument/codeAction"
+
+// CodeActionKindQuickFix is the only code action kind the server offers.
+const CodeActionKindQuickFix = "quickfix"
+
+// CodeActionOptions advertises code actions and the kinds offered.
+type CodeActionOptions struct {
+	CodeActionKinds []string `json:"codeActionKinds,omitempty"`
+}
+
+// CodeActionContext carries the diagnostics the client shows over the
+// range and, optionally, the kinds it wants.
+type CodeActionContext struct {
+	Diagnostics []Diagnostic `json:"diagnostics"`
+	Only        []string     `json:"only,omitempty"`
+}
+
+// CodeActionParams is the textDocument/codeAction payload.
+type CodeActionParams struct {
+	TextDocument TextDocumentIdentifier `json:"textDocument"`
+	Range        Range                  `json:"range"`
+	Context      CodeActionContext      `json:"context"`
+}
+
+// CodeAction is one quick fix: an edit, and the diagnostics it resolves.
+type CodeAction struct {
+	Title       string         `json:"title"`
+	Kind        string         `json:"kind,omitempty"`
+	Diagnostics []Diagnostic   `json:"diagnostics,omitempty"`
+	IsPreferred bool           `json:"isPreferred,omitempty"`
+	Edit        *WorkspaceEdit `json:"edit,omitempty"`
+}

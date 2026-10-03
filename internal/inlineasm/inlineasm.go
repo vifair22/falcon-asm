@@ -76,6 +76,12 @@ type Stmt struct {
 	// that contributed to Asm, in order.
 	Template []Span
 
+	// Colons are the byte offsets of the ':' opening each operand section
+	// (outputs, inputs, clobbers, goto labels), in order. A fix that adds a
+	// clobber to a statement with no clobber section yet needs to know how
+	// many sections exist and where the last one starts.
+	Colons []int
+
 	Basic    bool // no colon at all: basic asm, no operand substitution
 	TopLevel bool // outside any braces: file-scope asm
 	Volatile bool
@@ -292,6 +298,7 @@ func (p *parser) stmt(start int) (Stmt, bool) {
 		switch {
 		case p.isPunct(t, ':'):
 			section = 1
+			st.Colons = append(st.Colons, t.start)
 			p.i++
 		case p.isPunct(t, ')'):
 			section = -1
@@ -399,6 +406,7 @@ func (p *parser) lists(st *Stmt) {
 		}
 		switch term {
 		case ':':
+			st.Colons = append(st.Colons, end-1)
 			section++
 			continue
 		case ')':

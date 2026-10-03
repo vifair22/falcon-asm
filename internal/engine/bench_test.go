@@ -121,3 +121,26 @@ func BenchmarkEditThenQuery(b *testing.B) {
 		}
 	}
 }
+
+// BenchmarkDiagnostics is one version's published findings from scratch:
+// tokens, analysis, the program parse and every lint rule. Comparing it
+// with BenchmarkSnapshot gives what the lint engine adds on top of the
+// analysis it reuses.
+func BenchmarkDiagnostics(b *testing.B) {
+	for _, lines := range sizes {
+		b.Run(fmt.Sprintf("%dk", lines/1000), func(b *testing.B) {
+			e := benchEngine(b)
+			ed := newEditor(b, e, lines)
+			e.mu.Lock()
+			st := e.docs[ed.uri]
+			e.mu.Unlock()
+			b.ReportAllocs()
+			for b.Loop() {
+				e.mu.Lock()
+				s := e.newSnapshotLocked(st, st.doc)
+				e.mu.Unlock()
+				s.diagnostics()
+			}
+		})
+	}
+}

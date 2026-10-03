@@ -613,3 +613,364 @@ current mode; after `.` at statement start directives; at mnemonic
 position mnemonics (with prefix list) ranked by exact prefix; in operand
 position labels and macros from the index. Items carry a one-line detail
 (the hover summary).
+
+## Lint engine
+
+Recorded with the lint engine foundation (roadmap items 78, 80-83, 86).
+Every check of the roadmap is a rule plugged into it.
+
+### Packages
+
+```
+internal/lint/          registry, Context, runner, .falcon-asm.json, suppressions, RULES.md rendering
+internal/rules/<area>/  rules, registered from init(); rules/target holds section 2
+internal/rules/all/     imports every rule package; the engine and the CLI import it
+internal/project/       shared by the engine and the CLI: target resolution, linting one document
+```
+
+`lint` depends on `asm`, `flow`, `toolchain` and `inlineasm`, never on
+`hwdb`: the hardware tables reach rules through the `lint.Tables`
+interface, built by a loader `internal/rules/hw` registers with
+`lint.RegisterTables` (from there rather than from `hwdb`, so `hwdb` stays
+free of the lint engine); the engine and the CLI call
+`lint.LoadTables(fileConfig.Tables)`, and `ParseConfig` calls it too, so a
+bad `tables` entry is a configuration problem at the JSON path the loader
+names. With no loader registered the tables are nil and rules must treat
+that as "nothing known". `lint.MSRChecker` is the optional part rules
+type-assert for wrmsr checks.
+
+### Registry
+
+`lint.Register(*Rule)` panics on a code that is not lowercase kebab-case
+(or is `all`), a duplicate, a section outside 1..12, a nil Check, an
+invalid default severity, no language or an empty `Doc.Summary`.
+`lint.Rules()` is sorted by section, then code; `lint.Lookup(code)` finds
+one. A default of `Off` makes a rule opt-in.
+
+### Context (what a rule sees)
+
+`Prog`, `Target`, `Listing` (only for `NeedsListing` rules; such a rule is
+skipped when there is no listing for the current text), `Tables`, plus
+`Lang()`, `Config()`, `Inline()` (the C document's asm statements, for
+`LangC` rules), `Severity()` and `Rule()`.
+
+- Reporting: `Report(range, msg, fixes...)`, `ReportStmt(i, ...)`,
+  `ReportOp(i, j, ...)`, `ReportRange(startByte, endByte, ...)`,
+  `ReportFinding(f)` (for `Related`). Code and severity are always the
+  running rule's. Out-of-range indices and offsets are ignored.
+- `Flow()` builds the CFG and dataflow once per document, shared by every
+  rule; `NeedsFlow` rules get it up front and are skipped when it could not
+  be built (a panic in `flow`, logged once).
+- `Memo(key, fn)` computes a value once per document run and shares it;
+  a caller may seed values it already has (`Input.Memo`).
+- Fix helpers return `protocol.TextEdit`s: `InsertBefore(stmt, text)`,
+  `ReplaceRange(start, end, text)` (clamped), `InsertLineAbove(stmt, text)`
+  (indented like the statement's line, keeping the file's line ending);
+  `lint.NewFix(title, edits...)` bundles them.
+
+### Runner
+
+`lint.Run(Input)` lints one assembly program; `lint.Batch` collects several
+runs over one document (a C file is one `LangInline` run per complete asm
+statement plus one `LangC` run) and `Finish` applies suppressions once.
+Per rule: skipped when its `Langs` miss the input's language, its resolved
+severity is `Off`, or it needs a listing there is none of. A panicking
+rule is recovered, logged once per process, and its findings for that
+document dropped; the other rules still run. Findings are sorted by start,
+end, code and message, and exact duplicates removed. `Input.MapRange` and
+`MapEdit` carry findings and fixes from an inline asm template into the C
+document; an edit is kept only when the C text under it reads exactly like
+the template text and the new text needs no escaping (`"`, `\`, `%`, line
+breaks), which is why rule fixes should edit names rather than whole
+operands (`rax` -> `eax`, not `%rax` -> `%eax`).
+
+### Configuration: .falcon-asm.json
+
+```json
+{
+  "rules":     { "<code>": "off" | "hint" | "info" | "warning" | "error" },
+  "overrides": [ { "paths": ["glob", ...], "rules": { ... }, "target": { ... } } ],
+  "target":    { "cpu": "pentium", "level": "v3", "cc": "sysv", "mode": 16 },
+  "tables":    { "ports": [...], "msrs": [...], "bios": [...], "helpers": [...] }
+}
+```
+
+- Found by walking up from the file (the nearest wins), in the engine and
+  the CLI alike; `--config` overrides it for the CLI. Overrides apply in
+  order after the top level.
+- Globs are relative to the configuration's directory, `path.Match` per
+  segment, `**` for any number of directories; a pattern without a slash
+  matches the base name at any depth, and a pattern matching a directory
+  covers everything below it.
+- `tables` is kept as raw JSON for `hwdb`.
+- Problems are positioned in the file. Syntax errors, wrong types and
+  invalid values (severity, level, mode, glob) are errors; unknown keys,
+  rule codes and calling conventions are warnings and the entry is
+  ignored. A file with a syntax error is not used at all. The engine
+  publishes problems on the configuration's URI (code `config`); the CLI
+  prints them and exits 2 on an error.
+- An open `.falcon-asm.json` buffer is the live configuration: edits apply
+  to every open document at once; closing the buffer rereads the file.
+
+### Target resolution (internal/project)
+
+Highest precedence first:
+
+- mode: `target.mode`, then the `-m` flag, else 64
+- level: the in-file `falcon-asm: level=` comment, then `target.level`,
+  then the editor's `falcon-asm.level` setting, then `-march=x86-64-vN`
+- cpu: `target.cpu`, then a `-march` naming a CPU (not native, not an
+  x86-64 level)
+- cc: `target.cc` (`none` clears it), then inferred from the flags: 64-bit
+  `sysv` (`ms` for a mingw compiler), 32-bit `cdecl` (`regparm(N)` for
+  `-mregparm=N`, `stdcall` for `-mrtd`; the last flag wins), 16-bit none.
+  Spellings are `internal/callconv`'s, which the configuration validator
+  also uses. Per-file and per-function overrides are comments, resolved by
+  the convention rules (see "Calling conventions" below).
+
+`Target.Sources` says where each value came from, for messages.
+
+### Suppressions
+
+Inside any comment (`/* */`, `#`, `//` in assembly; `//` and `/* */` in C,
+so inline asm findings are silenced from the C source):
+
+- `falcon-asm: ignore=<code>[,<code>...]` - findings starting on this line
+- `falcon-asm: ignore-next=<code>` - the next line holding code
+- `falcon-asm: ignore-file=<code>`
+- `falcon-asm: ignore-begin=<code>` ... `falcon-asm: ignore-end=<code>` -
+  inclusive; nested regions pair innermost first; an unclosed begin runs
+  to the end of the file
+- `all` matches every rule; several items may share one comment, and
+  other `key=value` items (`level=`) and free text after them are ignored.
+
+`unused-suppression` (default Info) reports a suppression that matched
+nothing, but only for codes whose rule ran on the document (a rule turned
+off is not a reason to report its suppressions), `all`, unknown codes and
+an `ignore-end` without a begin. A suppression never hides its own report.
+
+### Engine wiring
+
+- The snapshot (per version and configuration generation) computes the
+  target once and the lint result once (`snapshot.lintResult`), sharing
+  its tokens and seeding its analysis into the target rules
+  (`target.Seed`), so the mode rules cost nothing beyond the analysis the
+  hover and the semantic tokens already used. The analysis configuration
+  is `target.AnalysisConfig` of the resolved target, which is what makes
+  the seeded result interchangeable with the rules' own.
+- A toolchain result now bumps the generation like new macros do, so rules
+  needing a listing see it; the listing is passed only when it describes
+  the buffer's version.
+- Published per document: lint findings (`Code` = rule code, `Source`
+  `falcon-asm`, `codeDescription.href` pointing at this rule's section of
+  docs/RULES.md), gas diagnostics, inactive regions, other files' gas
+  diagnostics and configuration problems. A gas diagnostic on a line where
+  a lint finding of Warning or Error starts or ends is dropped (item 78).
+- `textDocument/codeAction` (capability `{"codeActionKinds":["quickfix"]}`):
+  for every finding touching the range, one action per fix (the first is
+  preferred) and one "Ignore <code> on this line" action that appends to an
+  `ignore=` already on the line or adds `/* falcon-asm: ignore=code */`
+  (assembly) or `// falcon-asm: ignore=code` (C) at its end, before a
+  trailing line-continuation backslash when there is one. Rule fixes come
+  first. `unused-suppression` offers no ignore action.
+- `internal/analysis` keeps its API: mode tracking, symbols and the
+  semantic tokens' deprecated painting still use it; only publishing moved
+  to lint. `analysis.Config.InitialModeSource` names where the initial mode
+  came from in messages, and `analysis.LevelOverrideTokens` reads the level
+  comment from tokens already in hand.
+
+### CLI
+
+`falcon-asm lint [flags] [paths...]` (paths default `.`; flags may follow
+paths): walks directories for `.S`/`.s` and, with `--c` (default on),
+`.c/.h/.cc/.cpp/.cxx/.hpp/.hh`, skipping `build`, `.git` and
+`node_modules`; a file named explicitly is linted whatever its extension.
+Files are linted on a pool of `--jobs` workers (default GOMAXPROCS).
+Compile flags come from `--compile-commands`, else `./` or `./build/`, else
+the nearest database above each file. `--toolchain` also assembles each
+assembly file with flags (macros, listing and gas diagnostics, deduplicated
+as in the editor). `--fix` applies the first fix of every finding whose
+edits overlap no fix already taken (never ignore comments), writes the
+file, and reports what is left after linting it again. `--changed` keeps
+the files git reports changed against HEAD plus untracked ones, and lints
+everything outside a repository. Output: `text` (`file:line:col: severity:
+message [code]`, byte columns, summary on stderr), `json` (file, line,
+column, LSP range, code, severity, source, message, fixes) or `sarif`
+(2.1.0, rule metadata from the registry, `SRCROOT`-relative locations,
+UTF-16 columns, fixes). `--severity` (default warning) sets the exit
+threshold: 0 below it, 1 at or above, 2 for usage and configuration
+errors. `falcon-asm rules` lists the rules, `falcon-asm rules <code>`
+prints one, `--markdown` prints docs/RULES.md, which `make rules-doc`
+regenerates and `internal/rules/all`'s test keeps current.
+
+## Layout rules and editor features (items 47-49, 79, 85)
+
+- **Optional engine features.** `internal/server/extra.go` defines
+  `CodeLensEngine`, `WorkspaceSymbolEngine` and `CallHierarchyEngine`. The
+  server advertises `codeLensProvider` (`{"resolveProvider":false}`),
+  `workspaceSymbolProvider` and `callHierarchyProvider` only when the engine
+  implements them, and dispatches `textDocument/codeLens`,
+  `workspace/symbol`, `textDocument/prepareCallHierarchy` and
+  `callHierarchy/incomingCalls`/`outgoingCalls` from there; other engines
+  answer MethodNotFound. workspace/symbol answers `[]`, never null.
+- **Size budgets** (`internal/rules/layout`, `layout.Budgets`). A stage is
+  the region from a start symbol to a `.org sym + N` or `. = sym + N`; each
+  (section, symbol) gets one lens, bounded by its outermost move, placed on
+  the symbol's line: `stage1: 440 / 510 bytes (70 free)`. Used is the target
+  minus the padding the move inserts (`AsmResult.PadBytes`), so it is exact.
+  The name is the last component of a dotted section, else the symbol. A
+  section budget comes from `falcon-asm: budget=<bytes>` (or
+  `budget=<section>:<bytes>`) and is measured with `SectionSizes`. When gas
+  failed, only listed bytes are known: a lower bound, shown (`at least ...`)
+  only when already over. Lenses, like listing hints, exist only while the
+  last run describes the buffer. `budget-exceeded` (Error) replaces gas's
+  "attempt to move .org backwards" with the stage, its budget and the
+  overflow; the Error on the same line drops gas's own (item 78).
+  `org-overlap` (Error, no listing needed) catches targets that go
+  backwards or coincide with data between, relative to the same symbol;
+  budget-exceeded leaves those lines to it.
+- **Alignment.** `table-alignment` (Info): GDT/IDT bases found through
+  `lgdt`/`lidt` and the `.word`/`.long` pseudo-descriptor, 8 bytes (16 for a
+  64-bit IDT); `page-table-alignment` (Error): tables traced from the
+  register moved into `%cr3` (straight-line, explicit writers only) and then
+  through entries `.quad tbl + flags`. A label's offset comes from the
+  listing; a section's alignment is the largest `.align`/`.balign`/
+  `.p2align` in it (a lower bound). Misaligned in a section aligned at least
+  as much is certain; misaligned otherwise is table-alignment's "depends on
+  section placement"; aligned offsets are quiet. `simd-alignment` (Error)
+  covers movdqa/movaps/vmovdqa and the non-temporal moves with a label
+  operand, certain cases only. TSS alignment is not checked.
+- **section-overlap** reads `*.ld`/`*.lds` from the file's directory up to
+  the project root (`.git` or `.falcon-asm.json`, at most 8 levels), cached
+  by mtime. Only `. = <number>;` and literal output section addresses are
+  used; anything unsupported stops the parse. A script applies only if it
+  names one of the file's non-standard sections literally; sections are
+  placed first-match like ld, sizes are this object's (a lower bound).
+- **On-type gas** (`toolchainOnType`, default off; VS Code
+  `falcon-asm.toolchain.onType`). A change restarts a 400 ms timer
+  (`Config.OnTypeDelay`); the run writes the buffer exclusively to
+  `.falcon-asm-<pid>-<n>-<base>` beside the source, so quoted includes
+  resolve, assembles it (no macro run: their locations would name the
+  copy), removes it, files the copy's diagnostics under the source and
+  applies the listing to that version. Save and close cancel a pending or
+  running on-type run; shutdown cancels all, and the copy is removed on
+  every path. The extension hides `**/.falcon-asm-*-*` from the explorer
+  and the watcher.
+- **Workspace symbols and call hierarchy** live in `internal/symbols`
+  (`wsymbols.go`, `callhier.go`). Symbols: labels (private ones too),
+  `.set`, `#define`, `.macro`; ranked exact, prefix, substring,
+  subsequence, globals first; capped at 500. A function is a call target or
+  a `.globl` label; calls are `call`/`lcall`, tail calls are `jmp`/`ljmp` to
+  another function, marked in the item detail; a call counts for an item
+  only when its name resolves to that item's definition from the calling
+  file. Code before a file's first function is a File item.
+
+## Performance lints (items 58-61)
+
+Rules live in `internal/rules/perf`. Performance advice must not drown
+correctness findings, so everything defaults to Info (div-by-constant to
+Hint) except `missing-vzeroupper` and `inc-no-carry`, which are Warnings:
+the first because the psABI expects clean upper state at function
+boundaries and the penalty is large, the second because a CF read right
+after `inc`/`dec` reads a stale carry, which is usually a bug. Codes:
+
+- 58 `missing-vzeroupper`: `call`, `ret` or a `jmp` to a label outside the
+  document where `flow` proves some ymm/zmm upper half dirty on every path
+  (`State.UpperDirty`). Quiet for an in-document callee that uses ymm/zmm
+  or runs no legacy SSE and never leaves the document, when the call's
+  block writes ymm0-ymm7 (vector arguments), at a `ret` where only ymm0 is
+  dirty (a `__m256` return value), and for AMD CPU targets. The fix inserts
+  `vzeroupper` (after the statement's label, inline when the line holds an
+  earlier statement, never between a prefix and its mnemonic).
+- 59 `false-dependency`, `partial-flags-stall`, `inc-no-carry`. The first
+  applies to popcnt (Sandy Bridge to Skylake) and lzcnt/tzcnt (Haswell to
+  Skylake), and to no CPU target, a level target or an unknown CPU; the
+  last writer of the destination (`Value.Def`) being a zeroing idiom or an
+  immediate move exempts it. The flag rules read `State.FlagDef`: a CF
+  reader whose ZF comes from an `inc`/`dec`. `inc-no-carry` takes the
+  jcc/setcc/cmovcc immediately after the inc/dec unless the instruction
+  just before the inc/dec wrote CF (`cmp; inc; jb` is an idiom);
+  everything else is the Info merge note. `pushf` and other readers of
+  non-status flags are excluded: they save flags, they do not consume CF.
+- 60 `slow-loop` (not in 16-bit code), `slow-enter` (a nesting level in any
+  mode, level 0 only in 64-bit code; the fix uses `lea` because `enter`
+  leaves the flags alone), `xchg-mem-lock`, `bt-mem`, `lea-three-component`
+  (only for the sandybridge..icelake-server profiles), `div-by-constant`
+  (a divisor `flow` knows; powers of two in every mode, other constants
+  only outside 16-bit code).
+
+Item 61 (latency/throughput/uop hover) is declined. uops.info is the only
+measured source of that breadth, and neither the site, its XML download
+page nor the paper states a licence for the data (the paper carries the
+ACM "not for redistribution" notice), so derived tables cannot be shipped
+in a GPL project. A hand-written table was considered and rejected: the
+numbers would be unverifiable recollection rather than measurement, and a
+hover that is confidently wrong about latency is worse than none. The rule
+docs above cite their sources in prose instead. Revisit if uops.info (or
+another measured source) publishes a redistributable licence.
+
+## Calling conventions (items 31-37, stack frames of 48)
+
+- **Model** (`internal/callconv`, pure, depends only on `flow`). A `Conv`
+  names its integer argument and result registers, the callee-saved
+  (`Preserved`) and caller-saved (`Clobbered`) register families, red zone,
+  shadow space, call alignment, whether the callee pops, and whether the
+  x87 CW and MXCSR control bits are callee-saved. sysv, ms, cdecl,
+  stdcall, fastcall, regparm(N), custom and none. A custom convention
+  holds only what its comment declares (`clobbers=`, `preserves=`, `args=`,
+  `returns=`, with `all` for "every other general register"); a register
+  in neither set is unknown and never reported. The model also parses the
+  `falcon-asm:` items it owns (`cc=`, the lists, `handler[=errcode|
+  noerrcode|service]`, `vector=N`); other items and trailing free text are
+  ignored, as the suppression parser does.
+- **Resolution** (`internal/rules/cc`, once per document through `Memo`).
+  An annotation on a label's line, or above it with only comments and
+  declaration directives (.globl, .type, .align, ...) between, belongs to
+  the function starting there; any other annotation with `cc=` sets the
+  file default (the first wins). A function without its own annotation
+  takes the file default, else `Target.CC`, but only when the convention
+  fits its entry mode (sysv/ms 64-bit, the i386 ones 32-bit), and a 16-bit
+  function only takes a comment's: real-mode helpers have no standard
+  convention. `custom` from the configuration declares nothing and counts
+  as none. External callees follow the default for the call's mode.
+- **Dataflow.** The engine's shared solution makes every register unknown
+  after a call it cannot see, which would make every callee-saved register
+  look written by every external call. When a file has a convention the
+  model runs `flow.Analyze` again with `CallClobbers` set to its
+  caller-saved set (about 1% of lint time over arch/x86 of Linux). Calls to
+  in-document functions use flow's summaries either way.
+- **Reaching definitions per path.** flow keeps one `Def` per statement
+  and meets disagreeing paths into `DefMerged`. The rules walk back from a
+  merged definition through predecessor exit states (`Result.Out`) until
+  each path names its writer, which is what "on some path" means for
+  callee-saved, argument and result registers. A merge made inside a block
+  (a pop of a slot whose pushed value was merged, an opaque statement) is
+  unknown. A call whose callee preserves the register is looked through to
+  the definition reaching the call; an `int` or a call to code with no
+  convention is opaque, but a write before it still counts, since the
+  entry value is gone either way. Restores the stack model cannot pair
+  (a pop on an unknown stack, popa, leave) are restores; a load from a
+  stack slot, or from the operand a store before it saved the register
+  to (in the function or the owner of a shared epilogue), is a spill
+  reload.
+- **Reads.** `rules/cc/reads.go` under-approximates which general
+  registers an instruction reads (operands, addresses, the fixed implicit
+  inputs of string, multiply/divide, loop, MSR and sign-extension
+  instructions); pusha is not counted. `rules/flowrules/reads.go` grew an
+  equivalent model concurrently; the two should move into `flow`.
+- **Returns.** A ret or lret is a return only at the entry depth: with
+  something still pushed it is a jump (`push $sel; push $addr; lretq`), and
+  an lret on an unknown stack is assumed to be one.
+- **Handlers.** Found by a move of `$label` (or a relocation expression
+  whose only added label it is) to an absolute address below 0x400 (IVT,
+  vector = address / 4; vectors other than 00-0F, 1C and 70-77 are
+  software services), by `mov $label`/`lea label` in a function that runs
+  lidt (a table of addresses there gives vectors by index), or by
+  `falcon-asm: handler`. Pushes of labels are not installs. Service
+  handlers are exempt from handler-preserve, and `lret $n` (the flag-
+  discarding INT hook idiom) from handler-ret.
+- **Stack.** The 64-bit checks assume rsp is 8 past a 16-byte boundary at
+  entry, so they run only for functions something calls or that are
+  global (not `_start`/`start`, not a numeric local label: `call 1f`
+  tricks). Depth comes from `State.Stack`, or `FrameDepth` for rbp-based
+  operands; a realigned stack has an unknown depth and is skipped.

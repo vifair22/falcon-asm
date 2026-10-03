@@ -52,10 +52,14 @@ func (m Mode) valid() bool { return m == Mode16 || m == Mode32 || m == Mode64 }
 // Config is what the caller knows about the document from outside it,
 // normally from the compile database.
 type Config struct {
-	InitialMode Mode              // mode at the top of the file; 0 means 64, as with no -m flag
-	Level       isa.Level         // target level; 0 = no target and no level diagnostics
-	LevelSource string            // where Level came from, for messages, e.g. "-march=x86-64-v3"; may be empty
-	Macros      map[string]string // cpp macros from the toolchain; nil when unavailable
+	InitialMode Mode // mode at the top of the file; 0 means 64, as with no -m flag
+	// InitialModeSource names where a non-zero InitialMode came from, for
+	// messages ("compile flags", ".falcon-asm.json target.mode"); empty
+	// means compile flags, which was the only source before it existed.
+	InitialModeSource string
+	Level             isa.Level         // target level; 0 = no target and no level diagnostics
+	LevelSource       string            // where Level came from, for messages, e.g. "-march=x86-64-v3"; may be empty
+	Macros            map[string]string // cpp macros from the toolchain; nil when unavailable
 }
 
 // Result is everything Analyze derives from one document snapshot.
@@ -164,10 +168,12 @@ type modeState struct {
 	line int    // zero-based token line of that directive
 }
 
-func (s modeState) origin(fromFlags bool) string {
+func (s modeState) origin(fromFlags bool, source string) string {
 	switch {
 	case s.dir != "":
 		return fmt.Sprintf("set by %s at line %d", s.dir, s.line+1)
+	case fromFlags && source != "":
+		return "from " + source
 	case fromFlags:
 		return "from compile flags"
 	default:
@@ -472,7 +478,7 @@ func (a *analyzer) instruction(stmt []lexer.Token, mi int) {
 	if inst.Modes != "" && !modeIn(a.mode.mode, inst.Modes) {
 		a.report(m, protocol.SeverityWarning, CodeModeInstruction, fmt.Sprintf(
 			"%s is only valid in %s code (current mode: %s, %s)",
-			word, modesText(inst.Modes), a.mode.mode, a.mode.origin(a.initialFromFlags)))
+			word, modesText(inst.Modes), a.mode.mode, a.mode.origin(a.initialFromFlags, a.cfg.InitialModeSource)))
 	}
 	for _, t := range stmt[mi+1:] {
 		if t.Kind != lexer.Register {
@@ -484,7 +490,7 @@ func (a *analyzer) instruction(stmt []lexer.Token, mi int) {
 		}
 		a.report(t, protocol.SeverityWarning, CodeModeRegister, fmt.Sprintf(
 			"%%%s is only valid in %s code (current mode: %s, %s)",
-			r.Name, modesText(r.Modes), a.mode.mode, a.mode.origin(a.initialFromFlags)))
+			r.Name, modesText(r.Modes), a.mode.mode, a.mode.origin(a.initialFromFlags, a.cfg.InitialModeSource)))
 	}
 	if a.cfg.Level > 0 {
 		a.levelCheck(stmt, mi, inst, word)
