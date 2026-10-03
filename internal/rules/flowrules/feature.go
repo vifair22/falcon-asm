@@ -410,3 +410,29 @@ func cpuidSource(f *facts, i int, r flow.Reg, depth int) (int, flow.Reg, bool) {
 	}
 	return -1, flow.NoReg, false
 }
+
+// FeatureJudged reports whether feature-unguarded decides about statement
+// i in this run: the rule is on for the file, the dataflow exists, and the
+// statement is reachable code in a function needing a CPUID bit the rule
+// can name. level-outside then stays quiet on it, since the two would
+// tell the same story (an extension the target does not promise) and
+// feature-unguarded also knows whether a CPUID test guards it.
+func FeatureJudged(c *lint.Context, i int) bool {
+	r, ok := lint.Lookup(CodeFeatureUnguarded)
+	if !ok || c.Lang()&r.Langs == 0 || c.Config().SeverityOf(r) == lint.Off || c.Prog == nil || i < 0 || i >= len(c.Prog.Stmts) {
+		return false
+	}
+	g, res := c.Flow()
+	if g == nil || res == nil || !res.Reachable(i) {
+		return false
+	}
+	if b := g.BlockOf[i]; b < 0 || g.FuncOf[b] < 0 {
+		return false
+	}
+	st := &c.Prog.Stmts[i]
+	if st.Kind != asm.Instr || st.Inst == nil || len(st.Inst.Forms) == 0 {
+		return false
+	}
+	fbs := featuresOf(st)
+	return len(fbs) > 0 && fbs[0].Name != "LM"
+}

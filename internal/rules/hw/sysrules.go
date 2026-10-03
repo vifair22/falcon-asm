@@ -40,6 +40,11 @@ var sipiRe = regexp.MustCompile(`([A-Za-z_.$][A-Za-z0-9_.$]*)\s*\)?\s*>>\s*12`)
 // value with delivery mode 110b (`$(0x4600 | (ap_start >> 12))`), or marked
 // with a `falcon-asm: trampoline` comment.
 func (ix *Index) trampolines() map[string]int {
+	ix.trampOnce.Do(func() { ix.tramp = ix.findTrampolines() })
+	return ix.tramp
+}
+
+func (ix *Index) findTrampolines() map[string]int {
 	out := map[string]int{}
 	for i := range ix.Prog.Stmts {
 		s := &ix.Prog.Stmts[i]
@@ -59,7 +64,9 @@ func (ix *Index) trampolines() map[string]int {
 			continue
 		}
 		for _, op := range s.Ops {
-			if op.Kind != asm.OpImm {
+			// The regexp is the expensive part; nearly no immediate
+			// shifts at all.
+			if op.Kind != asm.OpImm || !strings.Contains(op.Imm, ">>") {
 				continue
 			}
 			m := sipiRe.FindStringSubmatch(op.Imm)

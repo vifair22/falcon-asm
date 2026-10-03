@@ -29,7 +29,7 @@ rule. See docs/DESIGN.md (Lint engine) for the full reference.
 | [far-jump-mode](#far-jump-mode) | 2 | warning | Far jump into code assembled for a different mode than the selector's descriptor runs it in. |
 | [feature-unguarded](#feature-unguarded) | 2 | info | Instruction needing a CPUID feature (rdtsc, cmov, AVX2, rdrand) with no CPUID test of it on every path, beyond what the target guarantees. |
 | [level](#level) | 2 | warning | Instruction form above the x86-64 level the file targets (v1-v4). |
-| [level-outside](#level-outside) | 2 | info | Instruction outside the x86-64 level scheme (AES, SHA, VMX ...) in a file with a level target. |
+| [level-outside](#level-outside) | 2 | info | Instruction outside the x86-64 level scheme (AES, SHA, VMX ...) in a file with a level target, unless feature-unguarded judges it. |
 | [mode-instruction](#mode-instruction) | 2 | warning | Instruction not valid in the .code16/.code32/.code64 mode in effect. |
 | [mode-register](#mode-register) | 2 | warning | Register not encodable in the mode in effect (%rax, %r8d, %sil, %xmm8 outside 64-bit code). |
 | [bios-cf-unchecked](#bios-cf-unchecked) | 3 | warning | BIOS call that reports errors in CF whose CF is overwritten before anything tests it. |
@@ -554,23 +554,23 @@ Good:
 - Default severity: info
 - Runs on: assembly, inline asm
 
-Instruction outside the x86-64 level scheme (AES, SHA, VMX ...) in a file with a level target.
+Instruction outside the x86-64 level scheme (AES, SHA, VMX ...) in a file with a level target, unless feature-unguarded judges it.
 
-The psABI levels do not cover every extension: AES-NI, PCLMULQDQ, SHA, VMX and the newer AVX-512 subsets are separate CPUID bits on top of any level. A level target therefore says nothing about them, and code using one needs its own CPUID check. Reported as information, since the instruction may well be guarded.
+The psABI levels do not cover every extension: AES-NI, PCLMULQDQ, SHA, VMX and the newer AVX-512 subsets are separate CPUID bits on top of any level. A level target therefore says nothing about them, and code using one needs its own CPUID check. Reported as information, since the instruction may well be guarded. In assembly, an instruction whose CPUID bit feature-unguarded can name is left to that rule while it is on: it reports the same missing promise only when no CPUID test guards the instruction. What remains here is inline asm and extensions without a named bit.
 
 Bad:
 
 ```asm
 # falcon-asm: level=v3
-	aesenc %xmm1, %xmm0
+	ptwrite %eax
 ```
 
 Good:
 
 ```asm
 # falcon-asm: level=v3
-	# CPUID.01H:ECX.AES checked by the caller
-	aesenc %xmm1, %xmm0 # falcon-asm: ignore=level-outside
+	# CPUID.(EAX=14h,ECX=0):EBX.PTWRITE checked by the caller
+	ptwrite %eax # falcon-asm: ignore=level-outside
 ```
 
 ## mode-instruction

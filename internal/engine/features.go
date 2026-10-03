@@ -34,7 +34,7 @@ func (e *Engine) Hover(doc *docstore.Document, pos protocol.Position) (*protocol
 		return h, err
 	}
 	h, err := hover.HoverWith(doc, pos, hover.Options{Tokens: s.tokens(), Macro: s.macro, Expansion: s.expansion})
-	if err != nil {
+	if err != nil || !s.mayHaveHardware(pos) {
 		return h, err
 	}
 	return s.withHardware(pos, h), nil
@@ -315,6 +315,15 @@ func (e *Engine) CodeActions(doc *docstore.Document, rng protocol.Range, ctx pro
 	}
 	s := e.snapshotFor(doc)
 	if s.lang == langConfig || s.lang == langNone {
+		return nil
+	}
+	// The editor asks on its own after every cursor move and edit (VS
+	// Code's light bulb). Answering such a request for a version not yet
+	// linted would run every rule on the keystroke path, ahead of the
+	// debounce; the editor asks again when the version's diagnostics
+	// arrive, which is also when there is something to fix. A request the
+	// user made (or one without a trigger kind) is answered in full.
+	if ctx.TriggerKind == protocol.CodeActionTriggerAutomatic && !s.lintDone.Load() {
 		return nil
 	}
 	res := s.lintResult()

@@ -1,0 +1,232 @@
+# Means of two interleaved runs per binary (linter-run{1,2}-{caaab5f,head,linter}.json),
+# beside the caaab5f final numbers (final-lspbench.json). Times in ms, RSS in kB.
+metric                                           final50    base50    head50    lint50   final95    base95    head95    lint95
+cold/spawn->initialize                             1.581     1.579     1.813     1.831     2.211     1.907     2.099     2.006
+cold/spawn->semanticTokens-20k                    23.213    22.413    22.719    22.665    23.519    23.928    24.203    23.291
+fixtures/semanticTokens/full                       0.076     0.074     0.070     0.078     0.217     0.228     0.160     0.179
+fixtures/definition                                0.033     0.031     0.031     0.030     0.103     0.064     0.060     0.076
+fixtures/references                                0.037     0.032     0.035     0.033     0.059     0.051     0.057     0.049
+fixtures/hover                                     0.029     0.029     0.031     0.032     0.055     0.056     0.160     0.074
+fixtures/completion                                0.066     0.058     0.058     0.058     0.195     0.172     0.169     0.170
+fixtures/documentSymbol                            0.040     0.033     0.036     0.035     0.069     0.059     0.063     0.054
+fixtures/foldingRange                              0.027     0.023     0.027     0.027     0.046     0.065     0.043     0.038
+fixtures/inlayHint                                 0.025     0.021     0.025     0.024     0.034     0.038     0.034     0.030
+features/hover                                         -         -     0.027     0.028         -         -     0.043     0.044
+features/codeAction-cursor                             -         -     0.021     0.021         -         -     0.028     0.029
+features/codeLens                                      -         -     0.017     0.019         -         -     0.024     0.029
+features/inlayHint-registers                           -         -     0.024     0.026         -         -     0.340     0.051
+features/codeAction                                    -         -     0.033     0.036         -         -     0.054     0.051
+features/workspaceSymbol                               -         -     0.043     0.045         -         -     0.262     0.231
+features/prepareCallHierarchy                          -         -     0.193     0.218         -         -     0.405     0.344
+features/incomingCalls                                 -         -     0.161     0.155         -         -     0.231     0.299
+features/outgoingCalls                                 -         -     0.157     0.156         -         -     0.226     0.235
+features/hover-after-edit                              -         -     0.329     0.310         -         -     0.681     0.577
+diagnostics/edit->publish                              -         -   151.106   151.030         -         -   151.953   151.708
+diagnostics/edit->publish-minus-debounce               -         -     1.107     1.030         -         -     1.953     1.708
+diagnostics-20k/open->publish                          -         -   215.308   205.473         -         -   215.308   205.473
+diagnostics-20k/edit->publish                          -         -   194.548   187.494         -         -   196.151   189.692
+diagnostics-20k/edit->publish-minus-debounce           -         -    44.548    37.494         -         -    46.151    39.692
+diagnostics-20k/completion-during-lint                 -         -     1.187     1.605         -         -     2.148     3.125
+diagnostics-20k/codeAction-after-edit                  -         -    39.862     0.310         -         -    41.382     0.375
+diagnostics-20k/hover-after-edit                       -         -    17.468    15.866         -         -    20.957    16.296
+diagnostics-100k/open->publish                         -         -   471.253   431.289         -         -   471.253   431.289
+diagnostics-100k/edit->publish                         -         -   397.144   350.138         -         -   402.894   363.060
+diagnostics-100k/edit->publish-minus-debounce          -         -   247.144   200.138         -         -   252.894   213.060
+diagnostics-100k/completion-during-lint                -         -    12.271    12.294         -         -    13.965    14.116
+diagnostics-100k/codeAction-after-edit                 -         -   222.448     1.154         -         -   227.764     1.337
+diagnostics-100k/hover-after-edit                      -         -   103.760    93.044         -         -   115.579    97.852
+typing-20k/open+semanticTokens                    20.803    20.576    20.819    20.611    20.803    20.576    20.819    20.611
+typing-20k/completion                              2.936     3.071     3.059     3.086     5.435     5.550     5.466     5.489
+typing-20k/semanticTokens/full/delta               5.987     6.143     6.224     6.089     7.987     8.210     8.213     8.038
+typing-20k/semanticTokens/full                     7.307     7.382     7.155     7.187     8.960     9.314     9.009     9.033
+typing-20k/documentSymbol                          3.747     3.808     3.508     3.447     4.159     4.386     4.219     4.041
+typing-20k/foldingRange                            0.479     0.504     0.475     0.488     0.595     0.563     0.555     0.549
+typing-20k/burst-drain                            53.792    68.782    58.370    59.645    53.792    68.782    58.370    59.645
+typing-20k/burst-last-semanticTokens              45.512    61.493    51.447    53.838    45.512    61.493    51.447    53.838
+typing-100k/open+semanticTokens                   92.337    92.380    89.196    91.064    92.337    92.380    89.196    91.064
+typing-100k/completion                            12.975    12.744    12.991    12.825    23.404    23.323    23.185    23.023
+typing-100k/semanticTokens/full/delta             28.265    27.997    28.047    27.832    39.221    37.621    37.963    36.677
+typing-100k/semanticTokens/full                   34.517    33.858    33.252    33.776    43.799    43.025    42.883    43.052
+typing-100k/documentSymbol                        21.025    20.791    20.553    20.622    23.986    22.437    22.050    22.040
+typing-100k/foldingRange                           1.900     1.916     1.905     1.873     2.209     2.268     2.146     2.063
+typing-100k/burst-drain                          216.253   221.608   221.971   202.388   216.253   221.608   221.971   202.388
+typing-100k/burst-last-semanticTokens            210.660   216.351   216.404   197.683   210.660   216.351   216.404   197.683
+workspace/references-first                        13.487    12.970    12.308    14.181    13.487    12.970    12.308    14.181
+workspace/references                               0.362     0.382     0.351     0.363     0.496     0.450     0.452     0.454
+workspace/definition                               0.129     0.137     0.136     0.138     0.202     0.179     0.174     0.178
+workspace/completion                               0.785     0.815     0.807     0.811     1.065     0.945     0.984     0.944
+workspace/edit->publish                                -   150.512   151.947   152.011         -   150.591   152.218   152.435
+workspace/edit->publish-minus-debounce                 -     0.512     1.948     2.010         -     0.591     2.218     2.436
+tree/open-all->settled                           153.644   153.259   153.210   153.250   153.644   153.259   153.210   153.250
+tree/didSave->diagnostics                         15.754    14.809    15.910    15.574    19.400    16.537    18.707    18.294
+tree/inlayHint                                     0.262     0.260     0.230     0.232     1.014     0.789     0.807     0.827
+tree/codeLens                                          -         -     0.107     0.044         -         -     0.252     0.096
+cli/lint-tree                                          -         -    72.198    77.101         -         -    78.171    83.042
+cli/lint-tree-toolchain                                -         -   128.387   123.232         -         -   130.927   139.528
+cli/lint-ws500                                         -         -   215.308   217.105         -         -   215.493   219.634
+
+value                                              final      base      head    linter
+cold/peak-rss                                      19900     20162     22812     23890
+fixtures/peak-rss                                  21284     20486     24810     24762
+features/hovers-with-content                           -         -       870       870
+features/hover-longest                                 -         -        55        19
+features/hovers-over-12-lines                          -         -        35        22
+features/peak-rss                                      -         -     38374     37758
+diagnostics/peak-rss                                   -         -     24914     30430
+diagnostics-20k/peak-rss                               -         -    147068     78964
+diagnostics-100k/peak-rss                              -         -    613340    336688
+typing-20k/burst-answered                              1         1         1         1
+typing-20k/burst-cancelled                           499       499       499       499
+typing-20k/peak-rss                                35772     35960     37130     40922
+typing-100k/burst-answered                             1         1         1         1
+typing-100k/burst-cancelled                          499       499       499       499
+typing-100k/peak-rss                              108656    106854    117270    114596
+workspace/peak-rss                                 70352     69360     70728     74760
+tree/files                                            18        18        18        18
+tree/save-timeouts                                     0         0         0         0
+tree/peak-rss                                      30364     30486     71642     70182
+cli/lint-tree/peak-rss                                 -         -     90160     84534
+cli/lint-tree-toolchain/peak-rss                       -         -    106406    103286
+cli/lint-ws500/peak-rss                                -         -    206502    205950
+
+# caaab5f final (final-lspbench.json) -> the last linter run (linter-lspbench.json)
+                                 metric  old p50  new p50   delta  old p95  new p95   delta  old max  new max    delta
+                 cold/spawn->initialize    1.581    1.945  +23.0%    2.211    2.080   -5.9%    2.211    2.080    -5.9%
+         cold/spawn->semanticTokens-20k   23.213   24.067   +3.7%   23.519   24.717   +5.1%   23.519   24.717    +5.1%
+           fixtures/semanticTokens/full    0.076    0.067  -11.8%    0.217    0.149  -31.3%    0.306    0.235   -23.2%
+                    fixtures/definition    0.033    0.035   +6.1%    0.103    0.064  -37.9%    1.619    1.686    +4.1%
+                    fixtures/references    0.037    0.037   +0.0%    0.059    0.050  -15.3%    0.120    0.198   +65.0%
+                         fixtures/hover    0.029    0.039  +34.5%    0.055    0.081  +47.3%    0.129    0.359  +178.3%
+                    fixtures/completion    0.066    0.061   -7.6%    0.195    0.176   -9.7%    1.206    1.637   +35.7%
+                fixtures/documentSymbol    0.040    0.043   +7.5%    0.069    0.068   -1.4%    0.082    0.073   -11.0%
+                  fixtures/foldingRange    0.027    0.029   +7.4%    0.046    0.045   -2.2%    0.112    0.059   -47.3%
+                     fixtures/inlayHint    0.025    0.025   +0.0%    0.034    0.033   -2.9%    0.043    0.044    +2.3%
+         typing-20k/open+semanticTokens   20.803   20.187   -3.0%   20.803   20.187   -3.0%   20.803   20.187    -3.0%
+                  typing-20k/completion    2.936    3.103   +5.7%    5.435    5.432   -0.1%    6.440    6.831    +6.1%
+   typing-20k/semanticTokens/full/delta    5.987    6.094   +1.8%    7.987    7.915   -0.9%    8.338    8.261    -0.9%
+         typing-20k/semanticTokens/full    7.307    7.301   -0.1%    8.960    8.649   -3.5%    9.250    9.026    -2.4%
+              typing-20k/documentSymbol    3.747    3.563   -4.9%    4.159    4.203   +1.1%    4.341    4.522    +4.2%
+                typing-20k/foldingRange    0.479    0.496   +3.5%    0.595    0.552   -7.2%    0.596    0.626    +5.0%
+                 typing-20k/burst-drain   53.792   56.086   +4.3%   53.792   56.086   +4.3%   53.792   56.086    +4.3%
+   typing-20k/burst-last-semanticTokens   45.512   49.156   +8.0%   45.512   49.156   +8.0%   45.512   49.156    +8.0%
+        typing-100k/open+semanticTokens   92.337   90.598   -1.9%   92.337   90.598   -1.9%   92.337   90.598    -1.9%
+                 typing-100k/completion   12.975   12.932   -0.3%   23.404   23.736   +1.4%   28.140   28.106    -0.1%
+  typing-100k/semanticTokens/full/delta   28.265   28.371   +0.4%   39.221   38.448   -2.0%   40.585   38.680    -4.7%
+        typing-100k/semanticTokens/full   34.517   33.547   -2.8%   43.799   42.998   -1.8%   45.061   45.857    +1.8%
+             typing-100k/documentSymbol   21.025   20.460   -2.7%   23.986   22.777   -5.0%   24.715   22.997    -7.0%
+               typing-100k/foldingRange    1.900    1.921   +1.1%    2.209    2.028   -8.2%    2.363    2.164    -8.4%
+                typing-100k/burst-drain  216.253  228.861   +5.8%  216.253  228.861   +5.8%  216.253  228.861    +5.8%
+  typing-100k/burst-last-semanticTokens  210.660  223.941   +6.3%  210.660  223.941   +6.3%  210.660  223.941    +6.3%
+             workspace/references-first   13.487   13.371   -0.9%   13.487   13.371   -0.9%   13.487   13.371    -0.9%
+                   workspace/references    0.362    0.359   -0.8%    0.496    0.432  -12.9%    0.662    1.052   +58.9%
+                   workspace/definition    0.129    0.136   +5.4%    0.202    0.175  -13.4%    0.238    0.190   -20.2%
+                   workspace/completion    0.785    0.790   +0.6%    1.065    0.972   -8.7%    1.952    1.486   -23.9%
+                 tree/open-all->settled  153.644  152.601   -0.7%  153.644  152.601   -0.7%  153.644  152.601    -0.7%
+              tree/didSave->diagnostics   15.754   15.900   +0.9%   19.400   18.459   -4.9%   20.799   20.665    -0.6%
+                         tree/inlayHint    0.262    0.239   -8.8%    1.014    0.800  -21.1%    1.214    1.135    -6.5%
+
+                        value      unit     old     new    delta
+                cold/peak-rss        kB   19900   24352   +22.4%
+            fixtures/peak-rss        kB   21284   25504   +19.8%
+    typing-20k/burst-answered  requests       1       1    +0.0%
+   typing-20k/burst-cancelled  requests     499     499    +0.0%
+          typing-20k/peak-rss        kB   35772   41100   +14.9%
+   typing-100k/burst-answered  requests       1       1    +0.0%
+  typing-100k/burst-cancelled  requests     499     499    +0.0%
+         typing-100k/peak-rss        kB  108656  115556    +6.4%
+           workspace/peak-rss        kB   70352   76340    +8.5%
+                   tree/files     files      18      18    +0.0%
+           tree/save-timeouts     saves       0       0       0%
+                tree/peak-rss        kB   30364   68580  +125.9%
+
+only in the new report: features/hover, features/codeAction-cursor, features/codeLens, features/inlayHint-registers, features/codeAction, features/workspaceSymbol, features/prepareCallHierarchy, features/incomingCalls, features/outgoingCalls, features/hover-after-edit, diagnostics/edit->publish, diagnostics/edit->publish-minus-debounce, diagnostics-20k/open->publish, diagnostics-20k/edit->publish, diagnostics-20k/edit->publish-minus-debounce, diagnostics-20k/completion-during-lint, diagnostics-20k/codeAction-after-edit, diagnostics-20k/hover-after-edit, diagnostics-100k/open->publish, diagnostics-100k/edit->publish, diagnostics-100k/edit->publish-minus-debounce, diagnostics-100k/completion-during-lint, diagnostics-100k/codeAction-after-edit, diagnostics-100k/hover-after-edit, workspace/edit->publish, workspace/edit->publish-minus-debounce, tree/codeLens, cli/lint-tree, cli/lint-tree-toolchain, cli/lint-ws500, features/hovers-with-content, features/hover-longest, features/hovers-over-12-lines, features/peak-rss, diagnostics/peak-rss, diagnostics-20k/peak-rss, diagnostics-100k/peak-rss, cli/lint-tree/peak-rss, cli/lint-tree-toolchain/peak-rss, cli/lint-ws500/peak-rss
+
+# before this pass, HEAD 2ac496c (linter-run1-head.json) -> the last linter run (linter-lspbench.json)
+                                         metric  old p50  new p50   delta  old p95  new p95   delta  old max  new max   delta
+                         cold/spawn->initialize    1.764    1.945  +10.3%    1.877    2.080  +10.8%    1.877    2.080  +10.8%
+                 cold/spawn->semanticTokens-20k   22.444   24.067   +7.2%   23.858   24.717   +3.6%   23.858   24.717   +3.6%
+                   fixtures/semanticTokens/full    0.071    0.067   -5.6%    0.162    0.149   -8.0%    0.620    0.235  -62.1%
+                            fixtures/definition    0.032    0.035   +9.4%    0.065    0.064   -1.5%    1.460    1.686  +15.5%
+                            fixtures/references    0.034    0.037   +8.8%    0.054    0.050   -7.4%    0.153    0.198  +29.4%
+                                 fixtures/hover    0.032    0.039  +21.9%    0.164    0.081  -50.6%    0.773    0.359  -53.6%
+                            fixtures/completion    0.059    0.061   +3.4%    0.174    0.176   +1.1%    1.658    1.637   -1.3%
+                        fixtures/documentSymbol    0.038    0.043  +13.2%    0.057    0.068  +19.3%    0.080    0.073   -8.8%
+                          fixtures/foldingRange    0.028    0.029   +3.6%    0.035    0.045  +28.6%    0.045    0.059  +31.1%
+                             fixtures/inlayHint    0.026    0.025   -3.8%    0.031    0.033   +6.5%    0.049    0.044  -10.2%
+                                 features/hover    0.027    0.026   -3.7%    0.042    0.039   -7.1%    0.742    0.217  -70.8%
+                     features/codeAction-cursor    0.020    0.022  +10.0%    0.026    0.030  +15.4%    0.132    0.159  +20.5%
+                              features/codeLens    0.017    0.019  +11.8%    0.022    0.027  +22.7%    0.027    0.031  +14.8%
+                   features/inlayHint-registers    0.024    0.028  +16.7%    0.385    0.059  -84.7%    0.508    0.065  -87.2%
+                            features/codeAction    0.032    0.037  +15.6%    0.053    0.070  +32.1%    0.099    0.181  +82.8%
+                       features/workspaceSymbol    0.042    0.044   +4.8%    0.268    0.244   -9.0%    0.284    0.309   +8.8%
+                  features/prepareCallHierarchy    0.199    0.191   -4.0%    0.384    0.324  -15.6%    0.602    0.455  -24.4%
+                         features/incomingCalls    0.166    0.148  -10.8%    0.243    0.207  -14.8%    0.385    0.322  -16.4%
+                         features/outgoingCalls    0.163    0.145  -11.0%    0.255    0.286  +12.2%    0.425    0.446   +4.9%
+                      features/hover-after-edit    0.330    0.296  -10.3%    0.668    0.584  -12.6%    0.805    1.030  +28.0%
+                      diagnostics/edit->publish  151.057  151.073   +0.0%  151.897  151.623   -0.2%  152.042  151.920   -0.1%
+       diagnostics/edit->publish-minus-debounce    1.057    1.073   +1.5%    1.897    1.623  -14.4%    2.042    1.920   -6.0%
+                  diagnostics-20k/open->publish  216.017  205.608   -4.8%  216.017  205.608   -4.8%  216.017  205.608   -4.8%
+                  diagnostics-20k/edit->publish  193.665  188.931   -2.4%  196.460  190.246   -3.2%  196.460  190.246   -3.2%
+   diagnostics-20k/edit->publish-minus-debounce   43.665   38.931  -10.8%   46.460   40.246  -13.4%   46.460   40.246  -13.4%
+         diagnostics-20k/completion-during-lint    1.130    1.494  +32.2%    2.170    2.848  +31.2%    2.170    2.848  +31.2%
+          diagnostics-20k/codeAction-after-edit   39.872    0.305  -99.2%   42.378    0.374  -99.1%   42.378    0.374  -99.1%
+               diagnostics-20k/hover-after-edit   18.216   15.521  -14.8%   21.285   16.324  -23.3%   21.285   16.324  -23.3%
+                 diagnostics-100k/open->publish  475.114  436.803   -8.1%  475.114  436.803   -8.1%  475.114  436.803   -8.1%
+                 diagnostics-100k/edit->publish  394.254  355.669   -9.8%  399.785  369.965   -7.5%  399.785  369.965   -7.5%
+  diagnostics-100k/edit->publish-minus-debounce  244.254  205.669  -15.8%  249.785  219.965  -11.9%  249.785  219.965  -11.9%
+        diagnostics-100k/completion-during-lint   12.062   12.030   -0.3%   13.773   12.904   -6.3%   13.773   12.904   -6.3%
+         diagnostics-100k/codeAction-after-edit  222.792    1.037  -99.5%  228.874    1.306  -99.4%  228.874    1.306  -99.4%
+              diagnostics-100k/hover-after-edit  102.680   89.971  -12.4%  116.770   96.059  -17.7%  116.770   96.059  -17.7%
+                 typing-20k/open+semanticTokens   20.300   20.187   -0.6%   20.300   20.187   -0.6%   20.300   20.187   -0.6%
+                          typing-20k/completion    3.070    3.103   +1.1%    5.599    5.432   -3.0%    6.372    6.831   +7.2%
+           typing-20k/semanticTokens/full/delta    6.331    6.094   -3.7%    8.524    7.915   -7.1%    8.620    8.261   -4.2%
+                 typing-20k/semanticTokens/full    7.222    7.301   +1.1%    8.996    8.649   -3.9%    9.445    9.026   -4.4%
+                      typing-20k/documentSymbol    3.613    3.563   -1.4%    4.280    4.203   -1.8%    4.446    4.522   +1.7%
+                        typing-20k/foldingRange    0.484    0.496   +2.5%    0.575    0.552   -4.0%    0.590    0.626   +6.1%
+                         typing-20k/burst-drain   66.109   56.086  -15.2%   66.109   56.086  -15.2%   66.109   56.086  -15.2%
+           typing-20k/burst-last-semanticTokens   59.835   49.156  -17.8%   59.835   49.156  -17.8%   59.835   49.156  -17.8%
+                typing-100k/open+semanticTokens   92.032   90.598   -1.6%   92.032   90.598   -1.6%   92.032   90.598   -1.6%
+                         typing-100k/completion   12.834   12.932   +0.8%   22.860   23.736   +3.8%   28.355   28.106   -0.9%
+          typing-100k/semanticTokens/full/delta   28.033   28.371   +1.2%   38.149   38.448   +0.8%   38.752   38.680   -0.2%
+                typing-100k/semanticTokens/full   33.155   33.547   +1.2%   42.710   42.998   +0.7%   43.663   45.857   +5.0%
+                     typing-100k/documentSymbol   20.807   20.460   -1.7%   21.971   22.777   +3.7%   22.134   22.997   +3.9%
+                       typing-100k/foldingRange    1.896    1.921   +1.3%    2.273    2.028  -10.8%    2.548    2.164  -15.1%
+                        typing-100k/burst-drain  231.261  228.861   -1.0%  231.261  228.861   -1.0%  231.261  228.861   -1.0%
+          typing-100k/burst-last-semanticTokens  224.975  223.941   -0.5%  224.975  223.941   -0.5%  224.975  223.941   -0.5%
+                     workspace/references-first   12.622   13.371   +5.9%   12.622   13.371   +5.9%   12.622   13.371   +5.9%
+                           workspace/references    0.360    0.359   -0.3%    0.490    0.432  -11.8%    0.877    1.052  +20.0%
+                           workspace/definition    0.137    0.136   -0.7%    0.177    0.175   -1.1%    0.527    0.190  -63.9%
+                           workspace/completion    0.826    0.790   -4.4%    1.013    0.972   -4.0%    1.841    1.486  -19.3%
+                        workspace/edit->publish  151.909  152.307   +0.3%  152.046  153.785   +1.1%  152.046  153.785   +1.1%
+         workspace/edit->publish-minus-debounce    1.909    2.307  +20.8%    2.046    3.785  +85.0%    2.046    3.785  +85.0%
+                         tree/open-all->settled  153.576  152.601   -0.6%  153.576  152.601   -0.6%  153.576  152.601   -0.6%
+                      tree/didSave->diagnostics   15.990   15.900   -0.6%   18.529   18.459   -0.4%   19.637   20.665   +5.2%
+                                 tree/inlayHint    0.224    0.239   +6.7%    0.818    0.800   -2.2%    1.011    1.135  +12.3%
+                                  tree/codeLens    0.103    0.050  -51.5%    0.250    0.145  -42.0%    0.304    0.273  -10.2%
+                                  cli/lint-tree   70.306   75.130   +6.9%   74.233   82.955  +11.7%   74.233   82.955  +11.7%
+                        cli/lint-tree-toolchain  122.348  126.227   +3.2%  125.265  145.042  +15.8%  125.265  145.042  +15.8%
+                                 cli/lint-ws500  213.993  218.288   +2.0%  214.218  219.420   +2.4%  214.218  219.420   +2.4%
+
+                             value      unit     old     new   delta
+                     cold/peak-rss        kB   22780   24352   +6.9%
+                 fixtures/peak-rss        kB   24940   25504   +2.3%
+      features/hovers-with-content    hovers     870     870   +0.0%
+            features/hover-longest     lines      55      19  -65.5%
+     features/hovers-over-12-lines    hovers      35      22  -37.1%
+                 features/peak-rss        kB   38344   36932   -3.7%
+              diagnostics/peak-rss        kB   24392   30628  +25.6%
+          diagnostics-20k/peak-rss        kB  137976   75444  -45.3%
+         diagnostics-100k/peak-rss        kB  604624  335676  -44.5%
+         typing-20k/burst-answered  requests       1       1   +0.0%
+        typing-20k/burst-cancelled  requests     499     499   +0.0%
+               typing-20k/peak-rss        kB   36848   41100  +11.5%
+        typing-100k/burst-answered  requests       1       1   +0.0%
+       typing-100k/burst-cancelled  requests     499     499   +0.0%
+              typing-100k/peak-rss        kB  122632  115556   -5.8%
+                workspace/peak-rss        kB   70156   76340   +8.8%
+                        tree/files     files      18      18   +0.0%
+                tree/save-timeouts     saves       0       0      0%
+                     tree/peak-rss        kB   71144   68580   -3.6%
+            cli/lint-tree/peak-rss        kB   89216   90148   +1.0%
+  cli/lint-tree-toolchain/peak-rss        kB  107780  100572   -6.7%
+           cli/lint-ws500/peak-rss        kB  203824  207704   +1.9%

@@ -71,6 +71,9 @@ type Memo struct {
 type memoEntry struct {
 	once sync.Once
 	v    any
+	// provide, when set by Provide, computes the value in place of the
+	// first Get's own function.
+	provide func() any
 }
 
 // NewMemo returns an empty memo.
@@ -95,8 +98,31 @@ func (m *Memo) entry(key string) *memoEntry {
 // that panics leaves the value nil for every later caller.
 func (m *Memo) Get(key string, fn func() any) any {
 	e := m.entry(key)
-	e.once.Do(func() { e.v = fn() })
+	e.once.Do(func() {
+		m.mu.Lock()
+		provide := e.provide
+		m.mu.Unlock()
+		if provide != nil {
+			fn = provide
+		}
+		e.v = fn()
+	})
 	return e.v
+}
+
+// Provide registers how the caller computes the value under key, for a
+// value it shares with something outside the run (the engine's per-version
+// parse and dataflow, which hover also uses): the first Get calls fn
+// instead of its own function, so the work is done once, by whichever
+// side needs it first, and not at all when no rule asks. It has no effect
+// once the key has a value or a provider; call it before the run starts.
+func (m *Memo) Provide(key string, fn func() any) {
+	e := m.entry(key)
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if e.provide == nil {
+		e.provide = fn
+	}
 }
 
 // Set stores a value the caller already has, so the rules reuse it rather
@@ -107,6 +133,18 @@ func (m *Memo) Set(key string, v any) {
 }
 
 const flowKey = "lint/flow"
+
+// ProvideFlow makes fn the source of the run's CFG and dataflow solution
+// (see Memo.Provide). fn must analyze the same program as the run's Prog
+// with flow.Config{}; it may return nils when the analysis failed, which
+// skips the rules that need flow, as a panic in the run's own analysis
+// would.
+func ProvideFlow(m *Memo, fn func() (*flow.CFG, *flow.Result)) {
+	m.Provide(flowKey, func() any {
+		g, r := fn()
+		return flowPair{cfg: g, res: r}
+	})
+}
 
 type flowPair struct {
 	cfg *flow.CFG

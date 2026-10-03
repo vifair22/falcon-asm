@@ -1,0 +1,342 @@
+# caaab5f vs linter pass: test binaries of both trees run alternately, 6 rounds (linter-bench-caaab5f.txt, linter-bench.txt)
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+                 |   caaab5f   |            linter            |
+                 |   sec/op    |   sec/op     vs base         |
+AnalyzeTokens-32   3.252m +/- 3%   3.271m +/- 3%  ~ (p=0.310 n=6)
+
+                 |   caaab5f    |            linter             |
+                 |     B/s      |     B/s       vs base         |
+AnalyzeTokens-32   168.5Mi +/- 3%   167.6Mi +/- 3%  ~ (p=0.310 n=6)
+
+                 |   caaab5f    |            linter             |
+                 |     B/op     |     B/op      vs base         |
+AnalyzeTokens-32   1.229Mi +/- 0%   1.229Mi +/- 0%  ~ (p=0.240 n=6)
+
+                 |  caaab5f   |           linter            |
+                 | allocs/op  | allocs/op   vs base         |
+AnalyzeTokens-32   463.0 +/- 0%   464.0 +/- 0%  ~ (p=0.242 n=6)
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+                                  |   caaab5f   |              linter               |
+                                  |   sec/op    |   sec/op     vs base              |
+Complete/register-32                865.8u +/- 6%   884.2u +/- 4%       ~ (p=0.589 n=6)
+Complete/mnemonic-32                877.9u +/- 6%   903.8u +/- 1%       ~ (p=0.240 n=6)
+Complete/mnemonic-empty-32          1.326m +/- 3%   1.343m +/- 3%       ~ (p=0.310 n=6)
+Complete/symbol-32                  903.3u +/- 4%   890.1u +/- 6%       ~ (p=0.485 n=6)
+Complete/single-line-fast-path-32   4.918u +/- 5%   5.142u +/- 5%       ~ (p=0.258 n=6)
+geomean                             339.0u        345.3u       +1.86%
+
+                                  |   caaab5f    |                linter                |
+                                  |     B/op     |     B/op      vs base                |
+Complete/register-32                1.838Mi +/- 0%   1.838Mi +/- 0%       ~ (p=0.589 n=6)
+Complete/mnemonic-32                1.841Mi +/- 0%   1.841Mi +/- 0%       ~ (p=0.087 n=6)
+Complete/mnemonic-empty-32          2.128Mi +/- 0%   2.128Mi +/- 0%       ~ (p=0.788 n=6)
+Complete/symbol-32                  1.831Mi +/- 0%   1.831Mi +/- 0%       ~ (p=0.310 n=6)
+Complete/single-line-fast-path-32   5.120Ki +/- 0%   5.120Ki +/- 0%       ~ (p=1.000 n=6) (1)
+geomean                             594.4Ki        594.4Ki       -0.00%
+(1) all samples are equal
+
+                                  |  caaab5f   |               linter               |
+                                  | allocs/op  | allocs/op   vs base                |
+Complete/register-32                86.00 +/- 1%   86.00 +/- 1%       ~ (p=1.000 n=6)
+Complete/mnemonic-32                146.0 +/- 0%   146.0 +/- 0%       ~ (p=1.000 n=6) (1)
+Complete/mnemonic-empty-32          790.0 +/- 0%   790.0 +/- 0%       ~ (p=1.000 n=6) (1)
+Complete/symbol-32                  21.00 +/- 0%   21.00 +/- 0%       ~ (p=1.000 n=6) (1)
+Complete/single-line-fast-path-32   62.00 +/- 0%   62.00 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean                             105.2        105.2       +0.00%
+(1) all samples are equal
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+               |   caaab5f    |               linter               |
+               |    sec/op    |    sec/op     vs base              |
+Change/20k-32    87.37u +/- 37%   77.97u +/- 23%       ~ (p=0.394 n=6)
+Change/100k-32   332.9u +/-  9%   306.3u +/- 16%  -7.98% (p=0.026 n=6)
+Position-32      7.018u +/-  4%   6.964u +/-  4%       ~ (p=0.485 n=6)
+geomean          58.88u         54.99u        -6.60%
+
+               |    caaab5f     |                linter                |
+               |      B/op      |     B/op      vs base                |
+Change/20k-32    732.1Ki +/- 1%     732.4Ki +/- 1%       ~ (p=0.729 n=6)
+Change/100k-32   3.499Mi +/- 0%     3.499Mi +/- 0%       ~ (p=0.589 n=6)
+Position-32        0.000 +/- 0%       0.000 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean                       (2)                 +0.02%               (2)
+(1) all samples are equal
+(2) summaries must be >0 to compute geomean
+
+               |   caaab5f    |               linter               |
+               |  allocs/op   | allocs/op   vs base                |
+Change/20k-32    3.000 +/- 0%     3.000 +/- 0%       ~ (p=1.000 n=6) (1)
+Change/100k-32   3.000 +/- 0%     3.000 +/- 0%       ~ (p=1.000 n=6) (1)
+Position-32      0.000 +/- 0%     0.000 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean                     (2)               +0.00%               (2)
+(1) all samples are equal
+(2) summaries must be >0 to compute geomean
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+                                     |   caaab5f    |              linter               |
+                                     |    sec/op    |   sec/op     vs base              |
+Change/20k-32                          403.2n +/-  3%   391.7n +/- 2%       ~ (p=0.065 n=6)
+Change/100k-32                         371.9n +/-  3%   358.8n +/- 3%  -3.50% (p=0.004 n=6)
+Snapshot/20k-32                        4.309m +/- 12%   4.218m +/- 2%  -2.11% (p=0.009 n=6)
+Snapshot/100k-32                       19.49m +/-  1%   19.03m +/- 1%  -2.35% (p=0.002 n=6)
+EditThenQuery/semanticTokens/20k-32    7.060m +/-  2%   6.837m +/- 1%  -3.16% (p=0.002 n=6)
+EditThenQuery/semanticTokens/100k-32   31.88m +/-  2%   31.44m +/- 1%       ~ (p=0.065 n=6)
+EditThenQuery/completion/20k-32        2.461m +/-  6%   2.427m +/- 3%       ~ (p=0.485 n=6)
+EditThenQuery/completion/100k-32       10.17m +/- 10%   10.26m +/- 1%       ~ (p=0.485 n=6)
+EditThenQuery/documentSymbol/20k-32    3.523m +/-  3%   3.513m +/- 2%       ~ (p=0.937 n=6)
+EditThenQuery/documentSymbol/100k-32   18.66m +/-  1%   19.09m +/- 2%  +2.31% (p=0.002 n=6)
+EditThenQuery/foldingRange/20k-32      1.807m +/-  3%   1.820m +/- 6%       ~ (p=0.310 n=6)
+EditThenQuery/foldingRange/100k-32     8.482m +/-  3%   8.611m +/- 3%       ~ (p=0.132 n=6)
+EditThenQuery/hover/20k-32             4.668m +/- 10%   4.685m +/- 8%       ~ (p=0.937 n=6)
+EditThenQuery/hover/100k-32            20.71m +/-  1%   21.12m +/- 2%  +1.98% (p=0.041 n=6)
+geomean                                1.880m         1.868m       -0.68%
+
+                                     |   caaab5f    |                linter                |
+                                     |     B/op     |     B/op      vs base                |
+Change/20k-32                            352.0 +/- 0%     352.0 +/- 0%       ~ (p=1.000 n=6) (1)
+Change/100k-32                           352.0 +/- 0%     352.0 +/- 0%       ~ (p=1.000 n=6) (1)
+Snapshot/20k-32                        4.522Mi +/- 0%   4.523Mi +/- 0%       ~ (p=0.093 n=6)
+Snapshot/100k-32                       23.66Mi +/- 0%   23.66Mi +/- 0%  +0.00% (p=0.002 n=6)
+EditThenQuery/semanticTokens/20k-32    6.203Mi +/- 0%   6.204Mi +/- 0%  +0.02% (p=0.002 n=6)
+EditThenQuery/semanticTokens/100k-32   32.03Mi +/- 0%   32.03Mi +/- 0%  +0.00% (p=0.002 n=6)
+EditThenQuery/completion/20k-32        4.349Mi +/- 0%   4.350Mi +/- 0%  +0.02% (p=0.002 n=6)
+EditThenQuery/completion/100k-32       21.45Mi +/- 0%   21.45Mi +/- 0%  +0.01% (p=0.002 n=6)
+EditThenQuery/documentSymbol/20k-32    6.194Mi +/- 0%   6.196Mi +/- 0%  +0.02% (p=0.002 n=6)
+EditThenQuery/documentSymbol/100k-32   31.74Mi +/- 0%   31.75Mi +/- 0%  +0.01% (p=0.002 n=6)
+EditThenQuery/foldingRange/20k-32      4.075Mi +/- 0%   4.076Mi +/- 0%  +0.03% (p=0.002 n=6)
+EditThenQuery/foldingRange/100k-32     20.26Mi +/- 0%   20.26Mi +/- 0%  +0.00% (p=0.002 n=6)
+EditThenQuery/hover/20k-32             5.224Mi +/- 0%   5.226Mi +/- 0%  +0.03% (p=0.002 n=6)
+EditThenQuery/hover/100k-32            27.16Mi +/- 0%   27.16Mi +/- 0%  +0.01% (p=0.002 n=6)
+geomean                                2.558Mi        2.559Mi       +0.01%
+(1) all samples are equal
+
+                                     |   caaab5f   |                linter                |
+                                     |  allocs/op  |  allocs/op   vs base                 |
+Change/20k-32                           5.000 +/- 0%    5.000 +/- 0%        ~ (p=1.000 n=6) (1)
+Change/100k-32                          5.000 +/- 0%    5.000 +/- 0%        ~ (p=1.000 n=6) (1)
+Snapshot/20k-32                         489.5 +/- 2%    492.0 +/- 1%        ~ (p=0.403 n=6)
+Snapshot/100k-32                       1.754k +/- 0%   1.758k +/- 0%   +0.23% (p=0.002 n=6)
+EditThenQuery/semanticTokens/20k-32     411.0 +/- 0%    415.0 +/- 0%   +0.97% (p=0.002 n=6)
+EditThenQuery/semanticTokens/100k-32   1.773k +/- 0%   1.777k +/- 0%   +0.23% (p=0.002 n=6)
+EditThenQuery/completion/20k-32         123.0 +/- 0%    127.0 +/- 0%   +3.25% (p=0.002 n=6)
+EditThenQuery/completion/100k-32        123.0 +/- 1%    127.0 +/- 0%   +3.25% (p=0.002 n=6)
+EditThenQuery/documentSymbol/20k-32    3.582k +/- 0%   3.590k +/- 0%   +0.22% (p=0.002 n=6)
+EditThenQuery/documentSymbol/100k-32   8.066k +/- 0%   8.077k +/- 0%   +0.14% (p=0.002 n=6)
+EditThenQuery/foldingRange/20k-32       26.00 +/- 0%    30.00 +/- 0%  +15.38% (p=0.002 n=6)
+EditThenQuery/foldingRange/100k-32      30.00 +/- 0%    34.00 +/- 0%  +13.33% (p=0.002 n=6)
+EditThenQuery/hover/20k-32              403.0 +/- 0%    424.0 +/- 0%   +5.21% (p=0.002 n=6)
+EditThenQuery/hover/100k-32            1.765k +/- 0%   1.842k +/- 0%   +4.36% (p=0.002 n=6)
+geomean                                 250.3         258.5        +3.26%
+(1) all samples are equal
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+         |   caaab5f   |            linter            |
+         |   sec/op    |   sec/op     vs base         |
+Hover-32   430.4u +/- 3%   433.4u +/- 4%  ~ (p=0.937 n=6)
+
+         |   caaab5f    |            linter             |
+         |     B/op     |     B/op      vs base         |
+Hover-32   311.2Ki +/- 0%   311.2Ki +/- 0%  ~ (p=0.589 n=6)
+
+         |   caaab5f   |            linter            |
+         |  allocs/op  |  allocs/op   vs base         |
+Hover-32   4.986k +/- 0%   4.986k +/- 0%  ~ (p=1.000 n=6)
+
+         |   caaab5f   |            linter            |
+         |  sec/hover  |  sec/hover   vs base         |
+Hover-32   4.678u +/- 3%   4.711u +/- 4%  ~ (p=0.937 n=6)
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+          |   caaab5f   |              linter               |
+          |   sec/op    |   sec/op     vs base              |
+Load-32     8.102m +/- 5%   8.342m +/- 3%       ~ (p=0.310 n=6)
+Lookup-32   185.6n +/- 1%   186.9n +/- 5%       ~ (p=0.102 n=6)
+geomean     38.77u        39.49u       +1.84%
+
+          |    caaab5f     |                linter                |
+          |      B/op      |     B/op      vs base                |
+Load-32     4.291Mi +/- 0%     4.291Mi +/- 0%       ~ (p=0.608 n=6)
+Lookup-32     0.000 +/- 0%       0.000 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean                  (2)                 +0.00%               (2)
+(1) all samples are equal
+(2) summaries must be >0 to compute geomean
+
+          |    caaab5f    |               linter                |
+          |   allocs/op   |  allocs/op   vs base                |
+Load-32     26.36k +/- 0%     26.36k +/- 0%       ~ (p=1.000 n=6) (1)
+Lookup-32    0.000 +/- 0%      0.000 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean                 (2)                +0.00%               (2)
+(1) all samples are equal
+(2) summaries must be >0 to compute geomean
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+                       |   caaab5f   |              linter               |
+                       |   sec/op    |   sec/op     vs base              |
+ReplyLarge-32            1.193m +/- 1%   1.221m +/- 3%       ~ (p=0.065 n=6)
+ReplySemanticTokens-32   413.4u +/- 1%   421.5u +/- 2%  +1.95% (p=0.009 n=6)
+geomean                  702.3u        717.4u       +2.15%
+
+                       |   caaab5f    |               linter               |
+                       |     B/op     |     B/op      vs base              |
+ReplyLarge-32            630.1Ki +/- 6%   683.0Ki +/- 9%  +8.39% (p=0.026 n=6)
+ReplySemanticTokens-32   280.9Ki +/- 0%   280.9Ki +/- 0%       ~ (p=0.665 n=6)
+geomean                  420.7Ki        438.0Ki       +4.12%
+
+                       |  caaab5f   |                linter                 |
+                       | allocs/op  |  allocs/op    vs base                 |
+ReplyLarge-32            9.500 +/- 5%   11.000 +/- 18%  +15.79% (p=0.041 n=6)
+ReplySemanticTokens-32   5.000 +/- 0%    5.000 +/-  0%        ~ (p=1.000 n=6) (1)
+geomean                  6.892         7.416         +7.61%
+(1) all samples are equal
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+                    |   caaab5f   |              linter               |
+                    |   sec/op    |   sec/op     vs base              |
+TokenizeFixtures-32   253.1u +/- 7%   242.5u +/- 5%       ~ (p=0.240 n=6)
+TokenizeLarge-32      1.401m +/- 4%   1.370m +/- 4%       ~ (p=0.394 n=6)
+geomean               595.5u        576.5u       -3.19%
+
+                    |   caaab5f    |               linter               |
+                    |     B/s      |     B/s       vs base              |
+TokenizeFixtures-32   300.3Mi +/- 8%   313.9Mi +/- 5%       ~ (p=0.240 n=6)
+TokenizeLarge-32      391.1Mi +/- 4%   399.9Mi +/- 4%       ~ (p=0.394 n=6)
+geomean               342.7Mi        354.3Mi       +3.37%
+
+                    |   caaab5f    |               linter               |
+                    |     B/op     |     B/op      vs base              |
+TokenizeFixtures-32   590.5Ki +/- 0%   590.5Ki +/- 0%       ~ (p=0.485 n=6)
+TokenizeLarge-32      3.289Mi +/- 0%   3.289Mi +/- 0%       ~ (p=1.000 n=6)
+geomean               1.377Mi        1.377Mi       +0.00%
+
+                    |  caaab5f   |               linter               |
+                    | allocs/op  | allocs/op   vs base                |
+TokenizeFixtures-32   16.00 +/- 0%   16.00 +/- 0%       ~ (p=1.000 n=6) (1)
+TokenizeLarge-32      1.000 +/- 0%   1.000 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean               4.000        4.000       +0.00%
+(1) all samples are equal
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+                         |   caaab5f   |            linter            |
+                         |   sec/op    |   sec/op     vs base         |
+MarshalSemanticTokens-32   2.028m +/- 3%   2.022m +/- 2%  ~ (p=0.699 n=6)
+
+                         |   caaab5f    |            linter             |
+                         |     B/op     |     B/op      vs base         |
+MarshalSemanticTokens-32   554.9Ki +/- 0%   554.9Ki +/- 0%  ~ (p=0.937 n=6)
+
+                         |  caaab5f   |            linter             |
+                         | allocs/op  | allocs/op   vs base           |
+MarshalSemanticTokens-32   4.000 +/- 0%   4.000 +/- 0%  ~ (p=1.000 n=6) (1)
+(1) all samples are equal
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+                  |   caaab5f   |            linter            |
+                  |   sec/op    |   sec/op     vs base         |
+EncodeFixtures-32   712.3u +/- 4%   736.3u +/- 4%  ~ (p=0.240 n=6)
+
+                  |   caaab5f    |            linter             |
+                  |     B/s      |     B/s       vs base         |
+EncodeFixtures-32   106.7Mi +/- 4%   103.2Mi +/- 5%  ~ (p=0.240 n=6)
+
+                  |   caaab5f    |            linter             |
+                  |     B/op     |     B/op      vs base         |
+EncodeFixtures-32   741.4Ki +/- 0%   741.5Ki +/- 0%  ~ (p=0.699 n=6)
+
+                  |  caaab5f   |           linter            |
+                  | allocs/op  | allocs/op   vs base         |
+EncodeFixtures-32   68.50 +/- 2%   69.00 +/- 1%  ~ (p=0.545 n=6)
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+                   |   caaab5f   |              linter               |
+                   |   sec/op    |   sec/op     vs base              |
+IndexUpdate-32       213.3n +/- 1%   222.7n +/- 3%  +4.41% (p=0.002 n=6)
+References-32        21.50u +/- 8%   22.74u +/- 6%       ~ (p=0.180 n=6)
+DocumentSymbols-32   3.348m +/- 3%   3.468m +/- 4%  +3.60% (p=0.041 n=6)
+FoldingRanges-32     1.687m +/- 1%   1.737m +/- 3%  +2.99% (p=0.009 n=6)
+geomean              71.33u        74.32u       +4.18%
+
+               |   caaab5f    |               linter               |
+               |     B/s      |     B/s       vs base              |
+IndexUpdate-32   2.450Ti +/- 1%   2.347Ti +/- 4%  -4.23% (p=0.002 n=6)
+
+                   |   caaab5f    |                linter                |
+                   |     B/op     |     B/op      vs base                |
+IndexUpdate-32         256.0 +/- 0%     256.0 +/- 0%       ~ (p=1.000 n=6) (1)
+References-32        47.50Ki +/- 0%   47.50Ki +/- 0%       ~ (p=0.117 n=6)
+DocumentSymbols-32   5.476Mi +/- 0%   5.476Mi +/- 0%  +0.00% (p=0.002 n=6)
+FoldingRanges-32     3.356Mi +/- 0%   3.356Mi +/- 0%       ~ (p=1.000 n=6)
+geomean              123.0Ki        123.0Ki       +0.00%
+(1) all samples are equal
+
+                   |   caaab5f   |               linter                |
+                   |  allocs/op  |  allocs/op   vs base                |
+IndexUpdate-32        3.000 +/- 0%    3.000 +/- 0%       ~ (p=1.000 n=6) (1)
+References-32         27.00 +/- 0%    27.00 +/- 0%       ~ (p=1.000 n=6) (1)
+DocumentSymbols-32   3.570k +/- 0%   3.574k +/- 0%  +0.11% (p=0.002 n=6)
+FoldingRanges-32      16.00 +/- 0%    16.00 +/- 0%       ~ (p=1.000 n=6) (1)
+geomean               46.38         46.39       +0.03%
+(1) all samples are equal
+
+# HEAD 2ac496c vs linter pass, the engine benchmarks the linter added, alternately, 6 rounds (linter-bench-engine-head.txt, linter-bench-engine.txt)
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+                                     |     head     |               linter               |
+                                     |    sec/op    |   sec/op     vs base               |
+EditThenQuery/semanticTokens/20k-32     7.009m +/- 2%   7.034m +/- 2%        ~ (p=0.937 n=6)
+EditThenQuery/semanticTokens/100k-32    31.74m +/- 4%   32.25m +/- 2%        ~ (p=0.394 n=6)
+EditThenQuery/completion/20k-32         2.441m +/- 3%   2.461m +/- 2%        ~ (p=0.937 n=6)
+EditThenQuery/completion/100k-32        10.35m +/- 4%   10.28m +/- 3%        ~ (p=0.699 n=6)
+EditThenQuery/documentSymbol/20k-32     3.614m +/- 5%   3.532m +/- 9%        ~ (p=0.093 n=6)
+EditThenQuery/documentSymbol/100k-32    19.36m +/- 3%   19.02m +/- 2%        ~ (p=0.132 n=6)
+EditThenQuery/foldingRange/20k-32       1.816m +/- 6%   1.814m +/- 4%        ~ (p=0.937 n=6)
+EditThenQuery/foldingRange/100k-32      8.771m +/- 3%   8.453m +/- 4%   -3.62% (p=0.041 n=6)
+EditThenQuery/hover/20k-32             21.571m +/- 3%   4.788m +/- 4%  -77.80% (p=0.002 n=6)
+EditThenQuery/hover/100k-32            128.62m +/- 3%   21.04m +/- 3%  -83.65% (p=0.002 n=6)
+Diagnostics/20k-32                      35.69m +/- 1%   28.78m +/- 3%  -19.35% (p=0.002 n=6)
+Diagnostics/100k-32                     213.7m +/- 1%   173.8m +/- 1%  -18.66% (p=0.002 n=6)
+RegisterHints-32                        174.8n +/- 2%   179.9n +/- 2%   +2.92% (p=0.009 n=6)
+RegisterHintsCold-32                    340.1u +/- 4%   305.0u +/- 3%  -10.32% (p=0.002 n=6)
+geomean                                 5.092m        3.861m       -24.18%
+
+                                     |     head      |                linter                 |
+                                     |     B/op      |     B/op      vs base                 |
+EditThenQuery/semanticTokens/20k-32     6.230Mi +/- 0%   6.230Mi +/- 0%        ~ (p=0.699 n=6)
+EditThenQuery/semanticTokens/100k-32    32.03Mi +/- 0%   32.03Mi +/- 0%        ~ (p=0.509 n=6)
+EditThenQuery/completion/20k-32         4.350Mi +/- 0%   4.350Mi +/- 0%        ~ (p=0.818 n=6)
+EditThenQuery/completion/100k-32        21.45Mi +/- 0%   21.45Mi +/- 0%        ~ (p=0.394 n=6)
+EditThenQuery/documentSymbol/20k-32     6.196Mi +/- 0%   6.196Mi +/- 0%        ~ (p=0.180 n=6)
+EditThenQuery/documentSymbol/100k-32    31.75Mi +/- 0%   31.75Mi +/- 0%        ~ (p=0.394 n=6)
+EditThenQuery/foldingRange/20k-32       4.076Mi +/- 0%   4.076Mi +/- 0%        ~ (p=0.368 n=6)
+EditThenQuery/foldingRange/100k-32      20.26Mi +/- 0%   20.26Mi +/- 0%        ~ (p=0.485 n=6)
+EditThenQuery/hover/20k-32             46.115Mi +/- 0%   5.225Mi +/- 0%  -88.67% (p=0.002 n=6)
+EditThenQuery/hover/100k-32            235.39Mi +/- 0%   27.16Mi +/- 0%  -88.46% (p=0.002 n=6)
+Diagnostics/20k-32                      43.07Mi +/- 0%   40.85Mi +/- 0%   -5.17% (p=0.002 n=6)
+Diagnostics/100k-32                     228.0Mi +/- 0%   215.1Mi +/- 0%   -5.66% (p=0.002 n=6)
+RegisterHints-32                          400.0 +/- 0%     400.0 +/- 0%        ~ (p=1.000 n=6) (1)
+RegisterHintsCold-32                    524.0Ki +/- 0%   506.1Ki +/- 0%   -3.42% (p=0.002 n=6)
+geomean                                 8.207Mi        5.958Mi       -27.40%
+(1) all samples are equal
+
+                                     |     head     |                linter                |
+                                     |  allocs/op   |  allocs/op   vs base                 |
+EditThenQuery/semanticTokens/20k-32      573.0 +/- 1%    572.5 +/- 0%        ~ (p=0.461 n=6)
+EditThenQuery/semanticTokens/100k-32    1.777k +/- 0%   1.777k +/- 0%        ~ (p=1.000 n=6)
+EditThenQuery/completion/20k-32          127.0 +/- 0%    127.0 +/- 0%        ~ (p=1.000 n=6) (1)
+EditThenQuery/completion/100k-32         127.0 +/- 0%    127.0 +/- 0%        ~ (p=1.000 n=6) (1)
+EditThenQuery/documentSymbol/20k-32     3.590k +/- 0%   3.590k +/- 0%        ~ (p=1.000 n=6) (1)
+EditThenQuery/documentSymbol/100k-32    8.077k +/- 0%   8.077k +/- 0%        ~ (p=1.000 n=6) (1)
+EditThenQuery/foldingRange/20k-32        30.00 +/- 0%    30.00 +/- 0%        ~ (p=1.000 n=6) (1)
+EditThenQuery/foldingRange/100k-32       34.00 +/- 0%    34.00 +/- 0%        ~ (p=1.000 n=6) (1)
+EditThenQuery/hover/20k-32             19569.0 +/- 0%    424.0 +/- 0%  -97.83% (p=0.002 n=6)
+EditThenQuery/hover/100k-32            94.471k +/- 0%   1.842k +/- 0%  -98.05% (p=0.002 n=6)
+Diagnostics/20k-32                      96.63k +/- 0%   72.87k +/- 0%  -24.59% (p=0.002 n=6)
+Diagnostics/100k-32                     479.1k +/- 0%   360.7k +/- 0%  -24.71% (p=0.002 n=6)
+RegisterHints-32                         3.000 +/- 0%    3.000 +/- 0%        ~ (p=1.000 n=6) (1)
+RegisterHintsCold-32                     695.0 +/- 0%    673.0 +/- 0%   -3.17% (p=0.002 n=6)
+geomean                                 1.375k         756.5       -45.00%
+(1) all samples are equal

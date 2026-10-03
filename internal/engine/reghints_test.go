@@ -207,7 +207,11 @@ func BenchmarkFlowHover(b *testing.B) {
 	src := string(data)
 	e := New(Config{Toolchain: &fakeTC{}})
 	defer e.Shutdown()
-	doc := &docstore.Document{URI: "file:///bench/boot.S", Version: 1, Text: src}
+	// Through a store, as the server does: a bare Document recomputes its
+	// line starts on every position conversion.
+	store := docstore.New()
+	store.Open("file:///bench/boot.S", 1, src)
+	doc, _ := store.Get("file:///bench/boot.S")
 	e.Open(doc, "falcon-asm")
 	i := strings.Index(src, "inb     %dx")
 	line := strings.Count(src[:i], "\n")

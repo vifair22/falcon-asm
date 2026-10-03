@@ -1,0 +1,546 @@
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkAnalyzeTokens-32    	     364	   3238522 ns/op	 177.44 MB/s	 1288383 B/op	     463 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkComplete/register-32         	    1209	    847114 ns/op	 1927509 B/op	      86 allocs/op
+BenchmarkComplete/mnemonic-32         	    1376	    904119 ns/op	 1930635 B/op	     146 allocs/op
+BenchmarkComplete/mnemonic-empty-32   	     921	   1308936 ns/op	 2230899 B/op	     790 allocs/op
+BenchmarkComplete/symbol-32           	    1303	    893197 ns/op	 1920043 B/op	      21 allocs/op
+BenchmarkComplete/single-line-fast-path-32         	  242655	      4910 ns/op	    5243 B/op	      62 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32  	   13605	     87252 ns/op	  749514 B/op	       3 allocs/op
+BenchmarkChange/100k-32 	    4094	    310433 ns/op	 3668863 B/op	       3 allocs/op
+BenchmarkPosition-32    	  160964	      7232 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32       	 3010904	       396.8 ns/op	     352 B/op	       5 allocs/op
+BenchmarkChange/100k-32      	 3214718	       367.1 ns/op	     352 B/op	       5 allocs/op
+BenchmarkSnapshot/20k-32     	     276	   4230202 ns/op	 4742732 B/op	     492 allocs/op
+BenchmarkSnapshot/100k-32    	      54	  18958639 ns/op	24813725 B/op	    1758 allocs/op
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     175	   6831426 ns/op	 6505664 B/op	     415 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      33	  31630802 ns/op	33582833 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     487	   2419767 ns/op	 4561249 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     115	  10344606 ns/op	22495991 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     334	   3586821 ns/op	 6496572 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      62	  18935895 ns/op	33287438 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     630	   1930417 ns/op	 4274285 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     140	   8454805 ns/op	21240634 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	     276	   4297253 ns/op	 5479475 B/op	     424 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	      51	  21515442 ns/op	28476591 B/op	    1842 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkHover-32    	    2766	    433875 ns/op	      4716 ns/hover	  318640 B/op	    4986 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkLoad-32      	     139	   8568486 ns/op	 4499921 B/op	   26359 allocs/op
+BenchmarkLookup-32    	 6222645	       193.2 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkReplyLarge-32             	     990	   1194466 ns/op	  704640 B/op	      11 allocs/op
+BenchmarkReplySemanticTokens-32    	    2905	    422835 ns/op	  287586 B/op	       5 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkTokenizeFixtures-32    	    5026	    230327 ns/op	 346.03 MB/s	  604677 B/op	      16 allocs/op
+BenchmarkTokenizeLarge-32       	     866	   1352935 ns/op	 424.73 MB/s	 3448832 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkMarshalSemanticTokens-32    	     580	   2018441 ns/op	  568730 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEncodeFixtures-32    	    1507	    704007 ns/op	 113.21 MB/s	  759170 B/op	      68 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkIndexUpdate-32        	 5438104	       222.9 ns/op	2577783.47 MB/s	     256 B/op	       3 allocs/op
+BenchmarkReferences-32         	   52477	     22974 ns/op	   48642 B/op	      27 allocs/op
+BenchmarkDocumentSymbols-32    	     332	   3603085 ns/op	 5741984 B/op	    3574 allocs/op
+BenchmarkFoldingRanges-32      	     662	   1783040 ns/op	 3519192 B/op	      16 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkAnalyzeTokens-32    	     362	   3218861 ns/op	 178.52 MB/s	 1288453 B/op	     463 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkComplete/register-32         	    1210	    884870 ns/op	 1927500 B/op	      86 allocs/op
+BenchmarkComplete/mnemonic-32         	    1312	    899704 ns/op	 1930238 B/op	     146 allocs/op
+BenchmarkComplete/mnemonic-empty-32   	     858	   1344783 ns/op	 2230903 B/op	     790 allocs/op
+BenchmarkComplete/symbol-32           	    1230	    902509 ns/op	 1919796 B/op	      21 allocs/op
+BenchmarkComplete/single-line-fast-path-32         	  232798	      5146 ns/op	    5243 B/op	      62 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32  	   14044	     80901 ns/op	  749646 B/op	       3 allocs/op
+BenchmarkChange/100k-32 	    4426	    303116 ns/op	 3668955 B/op	       3 allocs/op
+BenchmarkPosition-32    	  167056	      6990 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32       	 3131716	       383.1 ns/op	     352 B/op	       5 allocs/op
+BenchmarkChange/100k-32      	 3374301	       357.4 ns/op	     352 B/op	       5 allocs/op
+BenchmarkSnapshot/20k-32     	     289	   4127876 ns/op	 4741996 B/op	     487 allocs/op
+BenchmarkSnapshot/100k-32    	      54	  19294024 ns/op	24813725 B/op	    1758 allocs/op
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     174	   6842762 ns/op	 6505649 B/op	     415 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      33	  31289302 ns/op	33582680 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     505	   2392540 ns/op	 4561201 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     116	  10214413 ns/op	22496026 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     339	   3496312 ns/op	 6496582 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      55	  18965794 ns/op	33287371 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     649	   1822026 ns/op	 4274303 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     142	   8383370 ns/op	21240673 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	     249	   4758422 ns/op	 5479322 B/op	     424 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	      49	  20780856 ns/op	28476596 B/op	    1842 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkHover-32    	    2830	    423038 ns/op	      4598 ns/hover	  318593 B/op	    4985 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkLoad-32      	     147	   8053040 ns/op	 4499909 B/op	   26359 allocs/op
+BenchmarkLookup-32    	 6349689	       187.6 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkReplyLarge-32             	     956	   1231628 ns/op	  717502 B/op	      11 allocs/op
+BenchmarkReplySemanticTokens-32    	    2824	    427535 ns/op	  287688 B/op	       5 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkTokenizeFixtures-32    	    4576	    233218 ns/op	 341.74 MB/s	  604676 B/op	      16 allocs/op
+BenchmarkTokenizeLarge-32       	     852	   1364614 ns/op	 421.09 MB/s	 3448833 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkMarshalSemanticTokens-32    	     585	   2025185 ns/op	  568232 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEncodeFixtures-32    	    1434	    733368 ns/op	 108.68 MB/s	  759329 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkIndexUpdate-32        	 5374362	       222.9 ns/op	2577483.61 MB/s	     256 B/op	       3 allocs/op
+BenchmarkReferences-32         	   51496	     22776 ns/op	   48643 B/op	      27 allocs/op
+BenchmarkDocumentSymbols-32    	     339	   3475569 ns/op	 5741985 B/op	    3574 allocs/op
+BenchmarkFoldingRanges-32      	     673	   1740319 ns/op	 3519192 B/op	      16 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkAnalyzeTokens-32    	     348	   3365944 ns/op	 170.72 MB/s	 1288940 B/op	     466 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkComplete/register-32         	    1183	    883602 ns/op	 1927602 B/op	      87 allocs/op
+BenchmarkComplete/mnemonic-32         	    1290	    908817 ns/op	 1930239 B/op	     146 allocs/op
+BenchmarkComplete/mnemonic-empty-32   	     920	   1336486 ns/op	 2230913 B/op	     790 allocs/op
+BenchmarkComplete/symbol-32           	    1297	    861888 ns/op	 1919659 B/op	      21 allocs/op
+BenchmarkComplete/single-line-fast-path-32         	  239140	      4944 ns/op	    5243 B/op	      62 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32  	   13659	     86473 ns/op	  749530 B/op	       3 allocs/op
+BenchmarkChange/100k-32 	    3642	    312887 ns/op	 3668711 B/op	       3 allocs/op
+BenchmarkPosition-32    	  166621	      6967 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32       	 3038402	       395.1 ns/op	     352 B/op	       5 allocs/op
+BenchmarkChange/100k-32      	 3253089	       369.3 ns/op	     352 B/op	       5 allocs/op
+BenchmarkSnapshot/20k-32     	     278	   4174265 ns/op	 4742614 B/op	     491 allocs/op
+BenchmarkSnapshot/100k-32    	      61	  19105957 ns/op	24813403 B/op	    1758 allocs/op
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     172	   6890453 ns/op	 6505624 B/op	     415 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  31163671 ns/op	33583028 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     495	   2433697 ns/op	 4561231 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     116	  10234784 ns/op	22495981 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     334	   3563089 ns/op	 6496568 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      55	  19348685 ns/op	33287680 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     678	   1800963 ns/op	 4274338 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     138	   8651785 ns/op	21240558 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	     256	   4659172 ns/op	 5479363 B/op	     424 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	      50	  20680378 ns/op	28476712 B/op	    1842 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkHover-32    	    2773	    432907 ns/op	      4706 ns/hover	  318623 B/op	    4985 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkLoad-32      	     147	   8140525 ns/op	 4499310 B/op	   26359 allocs/op
+BenchmarkLookup-32    	 6483520	       185.1 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkReplyLarge-32             	     981	   1223980 ns/op	  694139 B/op	      11 allocs/op
+BenchmarkReplySemanticTokens-32    	    2802	    420073 ns/op	  287740 B/op	       5 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkTokenizeFixtures-32    	    4618	    251807 ns/op	 316.51 MB/s	  604675 B/op	      16 allocs/op
+BenchmarkTokenizeLarge-32       	     829	   1394292 ns/op	 412.13 MB/s	 3448832 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkMarshalSemanticTokens-32    	     612	   2004608 ns/op	  568222 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEncodeFixtures-32    	    1453	    739379 ns/op	 107.79 MB/s	  759288 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkIndexUpdate-32        	 5482813	       219.3 ns/op	2620216.22 MB/s	     256 B/op	       3 allocs/op
+BenchmarkReferences-32         	   52530	     22697 ns/op	   48641 B/op	      27 allocs/op
+BenchmarkDocumentSymbols-32    	     344	   3460446 ns/op	 5741984 B/op	    3574 allocs/op
+BenchmarkFoldingRanges-32      	     681	   1733610 ns/op	 3519192 B/op	      16 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkAnalyzeTokens-32    	     354	   3303027 ns/op	 173.97 MB/s	 1288720 B/op	     465 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkComplete/register-32         	    1203	    887096 ns/op	 1927530 B/op	      86 allocs/op
+BenchmarkComplete/mnemonic-32         	    1311	    905723 ns/op	 1930235 B/op	     146 allocs/op
+BenchmarkComplete/mnemonic-empty-32   	     843	   1340441 ns/op	 2230906 B/op	     790 allocs/op
+BenchmarkComplete/symbol-32           	    1244	    943880 ns/op	 1920338 B/op	      21 allocs/op
+BenchmarkComplete/single-line-fast-path-32         	  229010	      5158 ns/op	    5243 B/op	      62 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32  	   20540	     59998 ns/op	  753069 B/op	       3 allocs/op
+BenchmarkChange/100k-32 	    4528	    300260 ns/op	 3668980 B/op	       3 allocs/op
+BenchmarkPosition-32    	  170066	      6952 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32       	 3074382	       388.3 ns/op	     352 B/op	       5 allocs/op
+BenchmarkChange/100k-32      	 3428158	       355.4 ns/op	     352 B/op	       5 allocs/op
+BenchmarkSnapshot/20k-32     	     274	   4287125 ns/op	 4742852 B/op	     492 allocs/op
+BenchmarkSnapshot/100k-32    	      56	  18980303 ns/op	24813513 B/op	    1758 allocs/op
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     174	   6920986 ns/op	 6505651 B/op	     415 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  31592322 ns/op	33582995 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     481	   2445034 ns/op	 4561261 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     115	  10302376 ns/op	22495981 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     334	   3522183 ns/op	 6496565 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      54	  19501529 ns/op	33287276 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     633	   1836667 ns/op	 4274288 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     134	   8773204 ns/op	21240722 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	     248	   4780613 ns/op	 5479313 B/op	     424 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	      51	  21365210 ns/op	28476593 B/op	    1842 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkHover-32    	    2728	    438479 ns/op	      4766 ns/hover	  318655 B/op	    4986 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkLoad-32      	     139	   8622102 ns/op	 4499290 B/op	   26359 allocs/op
+BenchmarkLookup-32    	 6430272	       185.7 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkReplyLarge-32             	     976	   1189586 ns/op	  638699 B/op	       9 allocs/op
+BenchmarkReplySemanticTokens-32    	    2853	    416767 ns/op	  287688 B/op	       5 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkTokenizeFixtures-32    	    4585	    252058 ns/op	 316.20 MB/s	  604676 B/op	      16 allocs/op
+BenchmarkTokenizeLarge-32       	     868	   1376284 ns/op	 417.52 MB/s	 3448832 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkMarshalSemanticTokens-32    	     589	   2053912 ns/op	  568736 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEncodeFixtures-32    	    1438	    733678 ns/op	 108.63 MB/s	  759321 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkIndexUpdate-32        	 5403873	       223.4 ns/op	2572289.39 MB/s	     256 B/op	       3 allocs/op
+BenchmarkReferences-32         	   51052	     22661 ns/op	   48644 B/op	      27 allocs/op
+BenchmarkDocumentSymbols-32    	     358	   3340900 ns/op	 5741984 B/op	    3574 allocs/op
+BenchmarkFoldingRanges-32      	     686	   1695363 ns/op	 3519192 B/op	      16 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkAnalyzeTokens-32    	     352	   3343402 ns/op	 171.87 MB/s	 1288808 B/op	     465 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkComplete/register-32         	    1219	    898393 ns/op	 1927557 B/op	      86 allocs/op
+BenchmarkComplete/mnemonic-32         	    1297	    903408 ns/op	 1930236 B/op	     146 allocs/op
+BenchmarkComplete/mnemonic-empty-32   	     883	   1347275 ns/op	 2230909 B/op	     790 allocs/op
+BenchmarkComplete/symbol-32           	    1272	    886056 ns/op	 1919620 B/op	      21 allocs/op
+BenchmarkComplete/single-line-fast-path-32         	  227534	      5194 ns/op	    5243 B/op	      62 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32  	   24829	     61442 ns/op	  755075 B/op	       3 allocs/op
+BenchmarkChange/100k-32 	    3754	    309471 ns/op	 3668752 B/op	       3 allocs/op
+BenchmarkPosition-32    	  168967	      6940 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32       	 3111138	       383.2 ns/op	     352 B/op	       5 allocs/op
+BenchmarkChange/100k-32      	 3365419	       355.5 ns/op	     352 B/op	       5 allocs/op
+BenchmarkSnapshot/20k-32     	     271	   4206504 ns/op	 4743056 B/op	     493 allocs/op
+BenchmarkSnapshot/100k-32    	      55	  19081956 ns/op	24813514 B/op	    1758 allocs/op
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     176	   6794458 ns/op	 6505678 B/op	     415 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  31277558 ns/op	33582837 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     499	   2342997 ns/op	 4561221 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     116	  10237568 ns/op	22495979 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     340	   3503841 ns/op	 6496587 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      55	  19145898 ns/op	33287581 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     642	   1818797 ns/op	 4274296 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     139	   8569516 ns/op	21240718 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	     254	   4710050 ns/op	 5479352 B/op	     424 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	      49	  21413305 ns/op	28476480 B/op	    1842 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkHover-32    	    2709	    441906 ns/op	      4803 ns/hover	  318672 B/op	    4986 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkLoad-32      	     146	   8130181 ns/op	 4499947 B/op	   26359 allocs/op
+BenchmarkLookup-32    	 6459640	       186.2 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkReplyLarge-32             	    1034	   1218531 ns/op	  690301 B/op	      11 allocs/op
+BenchmarkReplySemanticTokens-32    	    2820	    419000 ns/op	  287572 B/op	       5 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkTokenizeFixtures-32    	    4885	    230586 ns/op	 345.64 MB/s	  604676 B/op	      16 allocs/op
+BenchmarkTokenizeLarge-32       	     870	   1347884 ns/op	 426.32 MB/s	 3448832 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkMarshalSemanticTokens-32    	     589	   2007757 ns/op	  568245 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEncodeFixtures-32    	    1448	    739760 ns/op	 107.74 MB/s	  759299 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkIndexUpdate-32        	 5591806	       215.2 ns/op	2670695.92 MB/s	     256 B/op	       3 allocs/op
+BenchmarkReferences-32         	   55045	     21338 ns/op	   48637 B/op	      27 allocs/op
+BenchmarkDocumentSymbols-32    	     358	   3380426 ns/op	 5742000 B/op	    3574 allocs/op
+BenchmarkFoldingRanges-32      	     705	   1725652 ns/op	 3519192 B/op	      16 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkAnalyzeTokens-32    	     363	   3204763 ns/op	 179.30 MB/s	 1288403 B/op	     463 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkComplete/register-32         	    1212	    876247 ns/op	 1927491 B/op	      86 allocs/op
+BenchmarkComplete/mnemonic-32         	    1327	    891670 ns/op	 1930235 B/op	     146 allocs/op
+BenchmarkComplete/mnemonic-empty-32   	     882	   1347178 ns/op	 2230901 B/op	     790 allocs/op
+BenchmarkComplete/symbol-32           	    1334	    886960 ns/op	 1919710 B/op	      21 allocs/op
+BenchmarkComplete/single-line-fast-path-32         	  230280	      5138 ns/op	    5243 B/op	      62 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32  	   15781	     75031 ns/op	  750400 B/op	       3 allocs/op
+BenchmarkChange/100k-32 	    4249	    256849 ns/op	 3668910 B/op	       3 allocs/op
+BenchmarkPosition-32    	  160774	      6960 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkChange/20k-32       	 2980848	       399.2 ns/op	     352 B/op	       5 allocs/op
+BenchmarkChange/100k-32      	 3322357	       360.3 ns/op	     352 B/op	       5 allocs/op
+BenchmarkSnapshot/20k-32     	     276	   4247236 ns/op	 4742712 B/op	     492 allocs/op
+BenchmarkSnapshot/100k-32    	      55	  18799953 ns/op	24813531 B/op	    1758 allocs/op
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     177	   6783740 ns/op	 6505689 B/op	     415 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  31633597 ns/op	33582847 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     470	   2492242 ns/op	 4561296 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     115	  10281882 ns/op	22496020 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     338	   3496271 ns/op	 6496581 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      62	  19043075 ns/op	33287439 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     655	   1802711 ns/op	 4274309 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     135	   8806528 ns/op	21240637 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	     256	   4659237 ns/op	 5479363 B/op	     424 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	      56	  20871767 ns/op	28476589 B/op	    1842 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkHover-32    	    2865	    416796 ns/op	      4530 ns/hover	  318560 B/op	    4985 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkLoad-32      	     139	   8544297 ns/op	 4499956 B/op	   26359 allocs/op
+BenchmarkLookup-32    	 6067352	       196.9 ns/op	       0 B/op	       0 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkReplyLarge-32             	     990	   1233180 ns/op	  730160 B/op	      12 allocs/op
+BenchmarkReplySemanticTokens-32    	    2844	    428605 ns/op	  287635 B/op	       5 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkTokenizeFixtures-32    	    4618	    254715 ns/op	 312.90 MB/s	  604676 B/op	      16 allocs/op
+BenchmarkTokenizeLarge-32       	     826	   1425934 ns/op	 402.99 MB/s	 3448832 B/op	       1 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkMarshalSemanticTokens-32    	     588	   2045491 ns/op	  568242 B/op	       4 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEncodeFixtures-32    	    1452	    738920 ns/op	 107.86 MB/s	  759290 B/op	      69 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkIndexUpdate-32        	 5435376	       222.5 ns/op	2582762.23 MB/s	     256 B/op	       3 allocs/op
+BenchmarkReferences-32         	   51055	     23228 ns/op	   48644 B/op	      27 allocs/op
+BenchmarkDocumentSymbols-32    	     338	   3538334 ns/op	 5741984 B/op	    3574 allocs/op
+BenchmarkFoldingRanges-32      	     668	   1752379 ns/op	 3519192 B/op	      16 allocs/op
+PASS

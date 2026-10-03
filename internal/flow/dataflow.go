@@ -74,6 +74,11 @@ func analyze(g *CFG, cfg Config) *Result {
 	a.order = a.rpo(starts)
 	r := &Result{CFG: g, In: make([]State, len(a.p.Stmts)), Out: make([]State, len(g.Blocks)), an: a}
 	a.solve(starts, r.In, r.Out)
+	// The result keeps the analyzer for After's transfer function only;
+	// the block entry states and the visit order are spent, and the
+	// block states are one State per block for as long as the result
+	// lives (a cached document version).
+	a.in, a.order = nil, nil
 	return r
 }
 

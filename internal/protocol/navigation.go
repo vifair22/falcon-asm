@@ -173,11 +173,21 @@ type CodeActionOptions struct {
 }
 
 // CodeActionContext carries the diagnostics the client shows over the
-// range and, optionally, the kinds it wants.
+// range and, optionally, the kinds it wants and why it asks.
 type CodeActionContext struct {
 	Diagnostics []Diagnostic `json:"diagnostics"`
 	Only        []string     `json:"only,omitempty"`
+	// TriggerKind is CodeActionTriggerInvoked, CodeActionTriggerAutomatic
+	// or 0 when the client does not say (before LSP 3.17).
+	TriggerKind int `json:"triggerKind,omitempty"`
 }
+
+// Code action trigger kinds: the user asked (a menu, a shortcut), or the
+// editor asked on its own (the light bulb, after a cursor move or an edit).
+const (
+	CodeActionTriggerInvoked   = 1
+	CodeActionTriggerAutomatic = 2
+)
 
 // CodeActionParams is the textDocument/codeAction payload.
 type CodeActionParams struct {

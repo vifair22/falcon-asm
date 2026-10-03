@@ -13,6 +13,7 @@ package hw
 
 import (
 	"strings"
+	"sync"
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/flow"
@@ -33,12 +34,16 @@ type Index struct {
 	tables []*DescTable // GDTs and IDTs, from lgdt/lidt and by shape
 	pages  map[string]*pageTable
 	notes  map[int][]string // line -> falcon-asm comment items
-	// commentLines are lines holding nothing but comments.
-	commentLines map[int]bool
-	code64       bool          // the document has 64-bit code
-	evAt         map[int][]int // statement -> tracker events recorded there
-	fjs          []farJump
-	uses         []selectorUse
+	// commentLines[l] is set for a line holding nothing but comments.
+	commentLines []bool
+	// tramp are the SIPI trampolines (sysrules.go), found once: three
+	// rules ask.
+	trampOnce sync.Once
+	tramp     map[string]int
+	code64    bool          // the document has 64-bit code
+	evAt      map[int][]int // statement -> tracker events recorded there
+	fjs       []farJump
+	uses      []selectorUse
 	// fl is the dataflow solution the constants were widened with (see
 	// flowvals.go); nil for the block-local index.
 	fl *flow.Result
@@ -92,6 +97,12 @@ func indexOf(c *lint.Context) *Index {
 // program.
 func Seed(m *lint.Memo, ix *Index) { m.Set(indexKey, ix) }
 
+// Provide makes fn the source of the run's index (see lint.Memo.Provide):
+// the engine builds one per document version for hover and register
+// hints, and the rules then share it instead of building their own. fn
+// must index the run's program with the run's flow solution.
+func Provide(m *lint.Memo, fn func() *Index) { m.Provide(indexKey, func() any { return fn() }) }
+
 // isLabel reports whether name is a label defined in this document and not
 // a macro: its value is an address, not a number.
 func (ix *Index) isLabel(name string) bool {
@@ -112,9 +123,16 @@ func (ix *Index) labelStmt(name string) (int, bool) {
 // `falcon-asm: struct=dap` items from comments. Suppression items
 // (ignore=...) share the prefix and are skipped by the readers.
 func (ix *Index) collectNotes() {
-	ix.commentLines = map[int]bool{}
-	other := map[int]bool{}
-	for _, t := range ix.Prog.Toks {
+	// Line-indexed slices rather than maps: this walks every token of the
+	// document, and a map operation per token was most of its cost.
+	toks := ix.Prog.Toks
+	n := 0
+	for i := range toks {
+		n = max(n, toks[i].Line+1)
+	}
+	ix.commentLines = make([]bool, n)
+	other := make([]bool, n)
+	for _, t := range toks {
 		if t.Kind != lexer.Comment {
 			other[t.Line] = true
 			continue
@@ -129,9 +147,16 @@ func (ix *Index) collectNotes() {
 			ix.notes[t.Line] = append(ix.notes[t.Line], strings.ToLower(f))
 		}
 	}
-	for l := range other {
-		delete(ix.commentLines, l)
+	for l, o := range other {
+		if o {
+			ix.commentLines[l] = false
+		}
 	}
+}
+
+// isCommentLine reports whether line holds nothing but comments.
+func (ix *Index) isCommentLine(line int) bool {
+	return line >= 0 && line < len(ix.commentLines) && ix.commentLines[line]
 }
 
 // note returns the value of a falcon-asm comment item ("struct" -> "dap",
@@ -147,7 +172,7 @@ func (ix *Index) note(i int, key string) (string, bool) {
 				return v, true
 			}
 		}
-		if line < s.Line && !has && !ix.commentLines[line] && !ix.silentLine(line) {
+		if line < s.Line && !has && !ix.isCommentLine(line) && !ix.silentLine(line) {
 			break
 		}
 	}

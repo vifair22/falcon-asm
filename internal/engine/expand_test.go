@@ -110,3 +110,29 @@ func TestLintWorkspaceAndExpansions(t *testing.T) {
 		return hasMsg("in expansion of m")(p) && hasMsg("undefined symbol missing_fn")(p)
 	})
 }
+
+// An unknown word in a file that defines no gas macro, includes no
+// assembly and names no cpp macro has nothing to expand: the hover is
+// answered from the tokens, without parsing the version.
+func TestHoverUnknownWordSkipsParse(t *testing.T) {
+	h := newHarness(t, setup{})
+	text := "#include <defs.h>\n\tbogus %eax\n\t.macro m1 a\n\t.endm\n"
+	_, uri := h.file("u.S", text)
+	d := h.open(uri, "falcon-asm", 1, text)
+	s := h.e.snapshotFor(d)
+	hoverText(t, h, d, 1, 2)
+	if s.exp.prog != nil {
+		t.Fatal("hover on an unknown word parsed the version")
+	}
+	if !s.mayExpand("M1") || s.mayExpand("bogus") {
+		t.Fatal("gas macro names are case-insensitive; others are not macros")
+	}
+	inc := "#include \"x.S\"\n\tbogus\n"
+	_, uri2 := h.file("v.S", inc)
+	if s2 := h.e.snapshotFor(h.open(uri2, "falcon-asm", 1, inc)); !s2.mayExpand("bogus") {
+		t.Fatal("an assembly include may define any macro")
+	}
+	if wordAt("ab", 5) != "" || wordAt("ab", -1) != "" || wordAt("x.y z", 0) != "x.y" {
+		t.Fatal("wordAt")
+	}
+}

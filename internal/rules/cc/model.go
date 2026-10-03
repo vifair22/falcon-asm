@@ -134,25 +134,25 @@ type annotation struct {
 // a blank line or code first, makes it a file-level annotation.
 func (m *model) annotations() []annotation {
 	p := m.prog
-	type line struct {
-		code bool
+	// Line-indexed slices, not a map: this runs over every token of the
+	// document on every lint, and a map entry per line dominated it.
+	n := 0
+	for i := range p.Toks {
+		n = max(n, p.Toks[i].Line+1)
 	}
-	lines := map[int]*line{}
+	lineExists := make([]bool, n)
+	lineCode := make([]bool, n)
 	for i := range p.Toks {
 		t := &p.Toks[i]
-		l := lines[t.Line]
-		if l == nil {
-			l = &line{}
-			lines[t.Line] = l
-		}
+		lineExists[t.Line] = true
 		if t.Kind != lexer.Comment {
-			l.code = true
+			lineCode[t.Line] = true
 		}
 	}
 	var out []annotation
 	for i := range p.Toks {
 		t := &p.Toks[i]
-		if t.Kind != lexer.Comment || !strings.Contains(strings.ToLower(t.Text), callconv.Marker) {
+		if t.Kind != lexer.Comment || !hasMarker(t.Text) {
 			continue
 		}
 		a, ok := callconv.ParseComment(t.Text)
@@ -168,11 +168,10 @@ func (m *model) annotations() []annotation {
 			m.problems = append(m.problems, problem{an.start, an.end, msg})
 		}
 		an.attach = m.attachment(t.Line, func(l int) (exists, code bool) {
-			li := lines[l]
-			if li == nil {
+			if l < 0 || l >= n {
 				return false, false
 			}
-			return true, li.code
+			return lineExists[l], lineCode[l]
 		})
 		out = append(out, an)
 	}
@@ -651,4 +650,25 @@ func (m *model) unrestored(fi int, r flow.Reg, ret int) (int, bool) {
 		}
 	}
 	return 0, false
+}
+
+// hasMarker reports whether a comment holds the falcon-asm marker in any
+// case, without lowering a copy of every comment in the file. The marker
+// ends in a colon, so only the few colons of a comment are candidates.
+func hasMarker(text string) bool {
+	const m = callconv.Marker
+	if strings.Contains(text, m) {
+		return true
+	}
+	for k := len(m) - 1; k < len(text); k++ {
+		j := strings.IndexByte(text[k:], ':')
+		if j < 0 {
+			return false
+		}
+		k += j
+		if k >= len(m)-1 && strings.EqualFold(text[k-len(m)+1:k+1], m) {
+			return true
+		}
+	}
+	return false
 }

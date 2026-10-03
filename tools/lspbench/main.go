@@ -26,8 +26,9 @@ func main() {
 	os.Exit(run(os.Args[1:], os.Stdout, os.Stderr))
 }
 
-// scenarioNames in run order. "tree" runs only with -root.
-var scenarioNames = []string{"cold", "fixtures", "typing", "workspace", "tree"}
+// scenarioNames in run order. "tree" runs only with -root; "cli" lints
+// the root only with -root, a generated workspace always.
+var scenarioNames = []string{"cold", "fixtures", "features", "diagnostics", "typing", "workspace", "tree", "cli"}
 
 // listFlag collects a repeatable string flag.
 type listFlag []string
@@ -53,6 +54,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 	fs.IntVar(&cfg.rounds, "rounds", 3, "repetitions of the per-file request sweeps")
 	fs.DurationVar(&cfg.timeout, "timeout", 2*time.Minute, "longest wait for any one reply")
 	fs.DurationVar(&cfg.settle, "settle", 3*time.Second, "quiet period after opening the tree before saves")
+	fs.IntVar(&cfg.diagEdits, "diag-edits", 5, "edits per file (fixtures) and per phase (large files) in the diagnostics scenario")
+	fs.DurationVar(&cfg.debounce, "debounce", 150*time.Millisecond, "the server's diagnostics debounce, subtracted in edit->publish-minus-debounce")
 	jsonOut := fs.String("json", "", "also write the report as JSON to this file")
 	doCompare := fs.Bool("compare", false, "compare two JSON reports given as arguments and exit")
 	if err := fs.Parse(args); err != nil {
@@ -164,10 +167,13 @@ func benchmark(cfg config, want map[string]bool) (Report, error) {
 	defer func() { _ = os.RemoveAll(tmp) }()
 	b := &bench{cfg: cfg, fx: fx, rec: newRecorder(), tmp: tmp}
 	steps := map[string]func() error{
-		"cold":      b.coldScenario,
-		"fixtures":  b.fixturesScenario,
-		"workspace": b.workspaceScenario,
-		"tree":      b.treeScenario,
+		"cold":        b.coldScenario,
+		"fixtures":    b.fixturesScenario,
+		"features":    b.featuresScenario,
+		"diagnostics": b.diagnosticsScenario,
+		"workspace":   b.workspaceScenario,
+		"tree":        b.treeScenario,
+		"cli":         b.cliScenario,
 		"typing": func() error {
 			for _, n := range cfg.sizes {
 				if err := b.typingScenario(n); err != nil {

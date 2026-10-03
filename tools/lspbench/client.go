@@ -31,10 +31,13 @@ type rpcError struct {
 	Message string `json:"message"`
 }
 
-// publish is one textDocument/publishDiagnostics as received.
+// publish is one textDocument/publishDiagnostics as received. version is
+// the document version it describes, -1 when the server sent none.
 type publish struct {
-	at    time.Time
-	count int
+	at      time.Time
+	count   int
+	version int
+	diags   []json.RawMessage
 }
 
 // client drives one server process over its stdin/stdout. Requests may be
@@ -152,11 +155,16 @@ func (c *client) dispatch(body []byte, at time.Time) {
 	if m.Method == "textDocument/publishDiagnostics" {
 		var p struct {
 			URI         string            `json:"uri"`
+			Version     *int              `json:"version"`
 			Diagnostics []json.RawMessage `json:"diagnostics"`
 		}
 		if json.Unmarshal(m.Params, &p) == nil {
+			v := -1
+			if p.Version != nil {
+				v = *p.Version
+			}
 			c.mu.Lock()
-			c.diags[p.URI] = append(c.diags[p.URI], publish{at: at, count: len(p.Diagnostics)})
+			c.diags[p.URI] = append(c.diags[p.URI], publish{at: at, count: len(p.Diagnostics), version: v, diags: p.Diagnostics})
 			c.cond.Broadcast()
 			c.mu.Unlock()
 		}
@@ -293,6 +301,47 @@ func (c *client) waitPublish(uri string, t time.Time, timeout time.Duration) (pu
 		}
 		c.cond.Wait()
 	}
+}
+
+// waitVersion blocks until uri gets a publish describing version v or a
+// later one, or the timeout. A burst of edits publishes once, for the
+// newest version, so "or later" is what an editor waits for too.
+func (c *client) waitVersion(uri string, v int, timeout time.Duration) (publish, error) {
+	deadline := time.Now().Add(timeout)
+	stop := time.AfterFunc(timeout, func() {
+		c.mu.Lock()
+		c.cond.Broadcast()
+		c.mu.Unlock()
+	})
+	defer stop.Stop()
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for {
+		ps := c.diags[uri]
+		for k := len(ps) - 1; k >= 0; k-- {
+			if ps[k].version >= v {
+				return ps[k], nil
+			}
+		}
+		if c.readErr != nil {
+			return publish{}, fmt.Errorf("publish for %s: stream ended: %w", uri, c.readErr)
+		}
+		if !time.Now().Before(deadline) {
+			return publish{}, fmt.Errorf("publish of version %d for %s: %w after %v", v, uri, errTimeout, timeout)
+		}
+		c.cond.Wait()
+	}
+}
+
+// latestPublish is the newest publish for uri; ok is false when none came.
+func (c *client) latestPublish(uri string) (publish, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ps := c.diags[uri]
+	if len(ps) == 0 {
+		return publish{}, false
+	}
+	return ps[len(ps)-1], true
 }
 
 // lastPublish is when anything was last published, for quiescence waits.

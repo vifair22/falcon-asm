@@ -335,3 +335,27 @@ func immToAH(s *asm.Stmt, op *asm.Operand) (uint64, bool) {
 	}
 	return 0, false
 }
+
+// hoverMnemonics are the instructions whose mnemonic Hover can say
+// something about (the consumers the tracker records events for): every
+// other mnemonic hover gets nothing from the index.
+var hoverMnemonics = map[string]bool{
+	"int": true, "in": true, "out": true, "rdmsr": true, "wrmsr": true,
+	"cpuid": true, "xsetbv": true, "mov": true,
+}
+
+// MnemonicMayHover reports whether a hover on the mnemonic name (as
+// written, with or without an AT&T size suffix) can carry hardware text.
+// mov only can when it moves to a control register, which the caller
+// knows from the line; it is reported here as possible. The engine uses
+// this to answer a hover on `add` or `jmp` without building the index.
+func MnemonicMayHover(name string) bool {
+	n := strings.ToLower(name)
+	if hoverMnemonics[n] {
+		return true
+	}
+	if k := len(n) - 1; k > 0 && strings.IndexByte("bwlq", n[k]) >= 0 {
+		return hoverMnemonics[n[:k]]
+	}
+	return false
+}

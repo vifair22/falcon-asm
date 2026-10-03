@@ -1,7 +1,6 @@
 package engine
 
 import (
-	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 	"git.airies.net/vifair22/falcon-asm/internal/rules/layout"
@@ -17,7 +16,7 @@ func (e *Engine) CodeLens(doc *docstore.Document) []protocol.CodeLens {
 	if s.lang != langAsm || s.listing == nil {
 		return nil
 	}
-	p := asm.Parse(doc, s.tokens(), asm.Config{InitialMode: s.targetOf().Mode, Macros: s.cfg.Macros})
+	p := s.program()
 	var out []protocol.CodeLens
 	for _, b := range layout.Budgets(p, s.listing) {
 		pos := protocol.Position{Line: b.Line}

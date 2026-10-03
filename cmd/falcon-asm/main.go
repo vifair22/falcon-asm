@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"git.airies.net/vifair22/falcon-asm/internal/engine"
+	"git.airies.net/vifair22/falcon-asm/internal/hwdb"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
 )
@@ -77,6 +78,16 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	go func() {
 		if err := isa.DataError(); err != nil {
 			fmt.Fprintf(stderr, "falcon-asm: instruction data: %v\n", err)
+		}
+	}()
+	// The hardware tables (ports, MSRs, BIOS services, CPUID: about 2.5
+	// ms) load beside them, on their own goroutine so the instruction
+	// tables are not delayed; both are done before the first document's
+	// requests, which would otherwise parse them on the request path
+	// (the first hardware hover, the first lint run).
+	go func() {
+		if err := hwdb.DataError(); err != nil {
+			fmt.Fprintf(stderr, "falcon-asm: hardware data: %v\n", err)
 		}
 	}()
 	srv := server.New(server.Options{

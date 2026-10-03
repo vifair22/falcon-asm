@@ -17,7 +17,11 @@ type Doc struct {
 	Doc *docstore.Document
 	C   bool // a C-family document: lint its inline asm and the C text
 	// Toks are the assembly document's tokens; nil tokenizes here.
-	Toks    []lexer.Token
+	Toks []lexer.Token
+	// Prog is the assembly document parsed from Toks with Target.Mode and
+	// Macros, when the caller already has it (the engine shares one per
+	// version with hover); nil parses here.
+	Prog    *asm.Program
 	Target  lint.Target
 	Config  lint.FileConfig
 	Macros  map[string]string // toolchain macro values, for the parse; may be nil
@@ -51,7 +55,10 @@ func Lint(d Doc) Result {
 	if toks == nil {
 		toks = lexer.Tokenize(d.Doc.Text)
 	}
-	prog := asm.Parse(d.Doc, toks, asm.Config{InitialMode: d.Target.Mode, Macros: d.Macros})
+	prog := d.Prog
+	if prog == nil {
+		prog = asm.Parse(d.Doc, toks, asm.Config{InitialMode: d.Target.Mode, Macros: d.Macros})
+	}
 	var b lint.Batch
 	b.Add(lint.Input{
 		Prog: prog, Lang: lint.LangAsm, Target: d.Target, Listing: d.Listing, Tables: d.Tables,

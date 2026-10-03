@@ -1,0 +1,738 @@
+{
+  "env": {
+    "go_version": "go1.26.7-X:nodwarf5",
+    "cpu": "AMD Ryzen 9 5900XT 16-Core Processor",
+    "kernel": "7.2.7-cachyos-gentoo-dist-mono",
+    "server": "falcon-asm 0.2.1_20261003.0954.release (built 20261003.0954)",
+    "date": "2026-10-03T10:30:26Z"
+  },
+  "latencies": [
+    {
+      "name": "cold/spawn-\u003einitialize",
+      "count": 10,
+      "p50_ms": 1.863,
+      "p95_ms": 2.32,
+      "p99_ms": 2.32,
+      "max_ms": 2.32,
+      "mean_ms": 1.946
+    },
+    {
+      "name": "cold/spawn-\u003esemanticTokens-20k",
+      "count": 10,
+      "p50_ms": 22.994,
+      "p95_ms": 24.547,
+      "p99_ms": 24.547,
+      "max_ms": 24.547,
+      "mean_ms": 23.107,
+      "mean_bytes": 470474
+    },
+    {
+      "name": "fixtures/semanticTokens/full",
+      "count": 42,
+      "p50_ms": 0.068,
+      "p95_ms": 0.158,
+      "p99_ms": 0.503,
+      "max_ms": 0.503,
+      "mean_ms": 0.091,
+      "mean_bytes": 4716
+    },
+    {
+      "name": "fixtures/definition",
+      "count": 66,
+      "p50_ms": 0.03,
+      "p95_ms": 0.055,
+      "p99_ms": 1.428,
+      "max_ms": 1.428,
+      "mean_ms": 0.053,
+      "mean_bytes": 185
+    },
+    {
+      "name": "fixtures/references",
+      "count": 43,
+      "p50_ms": 0.036,
+      "p95_ms": 0.061,
+      "p99_ms": 0.126,
+      "max_ms": 0.126,
+      "mean_ms": 0.041,
+      "mean_bytes": 463
+    },
+    {
+      "name": "fixtures/hover",
+      "count": 92,
+      "p50_ms": 0.03,
+      "p95_ms": 0.156,
+      "p99_ms": 0.935,
+      "max_ms": 0.935,
+      "mean_ms": 0.059,
+      "mean_bytes": 322
+    },
+    {
+      "name": "fixtures/completion",
+      "count": 371,
+      "p50_ms": 0.058,
+      "p95_ms": 0.164,
+      "p99_ms": 0.21,
+      "max_ms": 1.479,
+      "mean_ms": 0.076,
+      "mean_bytes": 10737
+    },
+    {
+      "name": "fixtures/documentSymbol",
+      "count": 42,
+      "p50_ms": 0.034,
+      "p95_ms": 0.069,
+      "p99_ms": 0.166,
+      "max_ms": 0.166,
+      "mean_ms": 0.041,
+      "mean_bytes": 3420
+    },
+    {
+      "name": "fixtures/foldingRange",
+      "count": 42,
+      "p50_ms": 0.026,
+      "p95_ms": 0.052,
+      "p99_ms": 0.078,
+      "max_ms": 0.078,
+      "mean_ms": 0.028,
+      "mean_bytes": 337
+    },
+    {
+      "name": "fixtures/inlayHint",
+      "count": 42,
+      "p50_ms": 0.023,
+      "p95_ms": 0.036,
+      "p99_ms": 0.096,
+      "max_ms": 0.096,
+      "mean_ms": 0.027,
+      "mean_bytes": 40
+    },
+    {
+      "name": "features/hover",
+      "count": 915,
+      "p50_ms": 0.027,
+      "p95_ms": 0.045,
+      "p99_ms": 0.126,
+      "max_ms": 0.666,
+      "mean_ms": 0.032,
+      "mean_bytes": 287
+    },
+    {
+      "name": "features/codeAction-cursor",
+      "count": 1695,
+      "p50_ms": 0.021,
+      "p95_ms": 0.029,
+      "p99_ms": 0.061,
+      "max_ms": 0.231,
+      "mean_ms": 0.023,
+      "mean_bytes": 45
+    },
+    {
+      "name": "features/codeLens",
+      "count": 42,
+      "p50_ms": 0.017,
+      "p95_ms": 0.025,
+      "p99_ms": 0.03,
+      "max_ms": 0.03,
+      "mean_ms": 0.019,
+      "mean_bytes": 40
+    },
+    {
+      "name": "features/inlayHint-registers",
+      "count": 42,
+      "p50_ms": 0.023,
+      "p95_ms": 0.295,
+      "p99_ms": 0.488,
+      "max_ms": 0.488,
+      "mean_ms": 0.085,
+      "mean_bytes": 660
+    },
+    {
+      "name": "features/codeAction",
+      "count": 51,
+      "p50_ms": 0.033,
+      "p95_ms": 0.055,
+      "p99_ms": 0.143,
+      "max_ms": 0.143,
+      "mean_ms": 0.039,
+      "mean_bytes": 649
+    },
+    {
+      "name": "features/workspaceSymbol",
+      "count": 21,
+      "p50_ms": 0.045,
+      "p95_ms": 0.256,
+      "p99_ms": 0.358,
+      "max_ms": 0.358,
+      "mean_ms": 0.089,
+      "mean_bytes": 10578
+    },
+    {
+      "name": "features/prepareCallHierarchy",
+      "count": 58,
+      "p50_ms": 0.186,
+      "p95_ms": 0.427,
+      "p99_ms": 0.757,
+      "max_ms": 0.757,
+      "mean_ms": 0.224,
+      "mean_bytes": 335
+    },
+    {
+      "name": "features/incomingCalls",
+      "count": 58,
+      "p50_ms": 0.156,
+      "p95_ms": 0.22,
+      "p99_ms": 0.454,
+      "max_ms": 0.454,
+      "mean_ms": 0.167,
+      "mean_bytes": 387
+    },
+    {
+      "name": "features/outgoingCalls",
+      "count": 58,
+      "p50_ms": 0.151,
+      "p95_ms": 0.196,
+      "p99_ms": 0.287,
+      "max_ms": 0.287,
+      "mean_ms": 0.158,
+      "mean_bytes": 417
+    },
+    {
+      "name": "features/hover-after-edit",
+      "count": 84,
+      "p50_ms": 0.327,
+      "p95_ms": 0.694,
+      "p99_ms": 0.895,
+      "max_ms": 0.895,
+      "mean_ms": 0.359,
+      "mean_bytes": 229
+    },
+    {
+      "name": "diagnostics/edit-\u003epublish",
+      "count": 70,
+      "p50_ms": 151.156,
+      "p95_ms": 152.009,
+      "p99_ms": 152.06,
+      "max_ms": 152.06,
+      "mean_ms": 151.198
+    },
+    {
+      "name": "diagnostics/edit-\u003epublish-minus-debounce",
+      "count": 70,
+      "p50_ms": 1.156,
+      "p95_ms": 2.009,
+      "p99_ms": 2.06,
+      "max_ms": 2.06,
+      "mean_ms": 1.198
+    },
+    {
+      "name": "diagnostics-20k/open-\u003epublish",
+      "count": 1,
+      "p50_ms": 214.598,
+      "p95_ms": 214.598,
+      "p99_ms": 214.598,
+      "max_ms": 214.598,
+      "mean_ms": 214.598
+    },
+    {
+      "name": "diagnostics-20k/edit-\u003epublish",
+      "count": 5,
+      "p50_ms": 195.431,
+      "p95_ms": 195.842,
+      "p99_ms": 195.842,
+      "max_ms": 195.842,
+      "mean_ms": 195.371
+    },
+    {
+      "name": "diagnostics-20k/edit-\u003epublish-minus-debounce",
+      "count": 5,
+      "p50_ms": 45.431,
+      "p95_ms": 45.842,
+      "p99_ms": 45.842,
+      "max_ms": 45.842,
+      "mean_ms": 45.371
+    },
+    {
+      "name": "diagnostics-20k/completion-during-lint",
+      "count": 5,
+      "p50_ms": 1.244,
+      "p95_ms": 2.126,
+      "p99_ms": 2.126,
+      "max_ms": 2.126,
+      "mean_ms": 1.373,
+      "mean_bytes": 263
+    },
+    {
+      "name": "diagnostics-20k/codeAction-after-edit",
+      "count": 5,
+      "p50_ms": 39.852,
+      "p95_ms": 40.386,
+      "p99_ms": 40.386,
+      "max_ms": 40.386,
+      "mean_ms": 39.546,
+      "mean_bytes": 38
+    },
+    {
+      "name": "diagnostics-20k/hover-after-edit",
+      "count": 5,
+      "p50_ms": 16.719,
+      "p95_ms": 20.629,
+      "p99_ms": 20.629,
+      "max_ms": 20.629,
+      "mean_ms": 17.315,
+      "mean_bytes": 202
+    },
+    {
+      "name": "diagnostics-100k/open-\u003epublish",
+      "count": 1,
+      "p50_ms": 467.393,
+      "p95_ms": 467.393,
+      "p99_ms": 467.393,
+      "max_ms": 467.393,
+      "mean_ms": 467.393
+    },
+    {
+      "name": "diagnostics-100k/edit-\u003epublish",
+      "count": 5,
+      "p50_ms": 400.035,
+      "p95_ms": 406.002,
+      "p99_ms": 406.002,
+      "max_ms": 406.002,
+      "mean_ms": 400.941
+    },
+    {
+      "name": "diagnostics-100k/edit-\u003epublish-minus-debounce",
+      "count": 5,
+      "p50_ms": 250.035,
+      "p95_ms": 256.002,
+      "p99_ms": 256.002,
+      "max_ms": 256.002,
+      "mean_ms": 250.941
+    },
+    {
+      "name": "diagnostics-100k/completion-during-lint",
+      "count": 5,
+      "p50_ms": 12.481,
+      "p95_ms": 14.157,
+      "p99_ms": 14.157,
+      "max_ms": 14.157,
+      "mean_ms": 12.611,
+      "mean_bytes": 263
+    },
+    {
+      "name": "diagnostics-100k/codeAction-after-edit",
+      "count": 5,
+      "p50_ms": 222.105,
+      "p95_ms": 226.654,
+      "p99_ms": 226.654,
+      "max_ms": 226.654,
+      "mean_ms": 222.702,
+      "mean_bytes": 38
+    },
+    {
+      "name": "diagnostics-100k/hover-after-edit",
+      "count": 5,
+      "p50_ms": 104.84,
+      "p95_ms": 114.389,
+      "p99_ms": 114.389,
+      "max_ms": 114.389,
+      "mean_ms": 105.704,
+      "mean_bytes": 218
+    },
+    {
+      "name": "typing-20k/open+semanticTokens",
+      "count": 1,
+      "p50_ms": 21.338,
+      "p95_ms": 21.338,
+      "p99_ms": 21.338,
+      "max_ms": 21.338,
+      "mean_ms": 21.338,
+      "mean_bytes": 470474
+    },
+    {
+      "name": "typing-20k/completion",
+      "count": 360,
+      "p50_ms": 3.048,
+      "p95_ms": 5.332,
+      "p99_ms": 5.932,
+      "max_ms": 6.793,
+      "mean_ms": 3.406,
+      "mean_bytes": 6109
+    },
+    {
+      "name": "typing-20k/semanticTokens/full/delta",
+      "count": 50,
+      "p50_ms": 6.117,
+      "p95_ms": 7.902,
+      "p99_ms": 8.277,
+      "max_ms": 8.277,
+      "mean_ms": 6.269,
+      "mean_bytes": 129
+    },
+    {
+      "name": "typing-20k/semanticTokens/full",
+      "count": 50,
+      "p50_ms": 7.088,
+      "p95_ms": 9.023,
+      "p99_ms": 9.612,
+      "max_ms": 9.612,
+      "mean_ms": 7.364,
+      "mean_bytes": 471068
+    },
+    {
+      "name": "typing-20k/documentSymbol",
+      "count": 20,
+      "p50_ms": 3.402,
+      "p95_ms": 4.158,
+      "p99_ms": 4.176,
+      "max_ms": 4.176,
+      "mean_ms": 3.424,
+      "mean_bytes": 357245
+    },
+    {
+      "name": "typing-20k/foldingRange",
+      "count": 20,
+      "p50_ms": 0.466,
+      "p95_ms": 0.536,
+      "p99_ms": 0.672,
+      "max_ms": 0.672,
+      "mean_ms": 0.479,
+      "mean_bytes": 33007
+    },
+    {
+      "name": "typing-20k/burst-drain",
+      "count": 1,
+      "p50_ms": 50.631,
+      "p95_ms": 50.631,
+      "p99_ms": 50.631,
+      "max_ms": 50.631,
+      "mean_ms": 50.631
+    },
+    {
+      "name": "typing-20k/burst-last-semanticTokens",
+      "count": 1,
+      "p50_ms": 43.058,
+      "p95_ms": 43.058,
+      "p99_ms": 43.058,
+      "max_ms": 43.058,
+      "mean_ms": 43.058,
+      "mean_bytes": 472787
+    },
+    {
+      "name": "typing-100k/open+semanticTokens",
+      "count": 1,
+      "p50_ms": 86.36,
+      "p95_ms": 86.36,
+      "p99_ms": 86.36,
+      "max_ms": 86.36,
+      "mean_ms": 86.36,
+      "mean_bytes": 2348185
+    },
+    {
+      "name": "typing-100k/completion",
+      "count": 360,
+      "p50_ms": 13.148,
+      "p95_ms": 23.511,
+      "p99_ms": 27.097,
+      "max_ms": 27.994,
+      "mean_ms": 14.964,
+      "mean_bytes": 6553
+    },
+    {
+      "name": "typing-100k/semanticTokens/full/delta",
+      "count": 50,
+      "p50_ms": 28.06,
+      "p95_ms": 37.777,
+      "p99_ms": 38.217,
+      "max_ms": 38.217,
+      "mean_ms": 29.934,
+      "mean_bytes": 129
+    },
+    {
+      "name": "typing-100k/semanticTokens/full",
+      "count": 50,
+      "p50_ms": 33.349,
+      "p95_ms": 43.057,
+      "p99_ms": 44.207,
+      "max_ms": 44.207,
+      "mean_ms": 34.798,
+      "mean_bytes": 2348779
+    },
+    {
+      "name": "typing-100k/documentSymbol",
+      "count": 20,
+      "p50_ms": 20.3,
+      "p95_ms": 22.129,
+      "p99_ms": 22.414,
+      "max_ms": 22.414,
+      "mean_ms": 19.57,
+      "mean_bytes": 1805783
+    },
+    {
+      "name": "typing-100k/foldingRange",
+      "count": 20,
+      "p50_ms": 1.914,
+      "p95_ms": 2.019,
+      "p99_ms": 2.189,
+      "max_ms": 2.189,
+      "mean_ms": 1.887,
+      "mean_bytes": 166171
+    },
+    {
+      "name": "typing-100k/burst-drain",
+      "count": 1,
+      "p50_ms": 212.682,
+      "p95_ms": 212.682,
+      "p99_ms": 212.682,
+      "max_ms": 212.682,
+      "mean_ms": 212.682
+    },
+    {
+      "name": "typing-100k/burst-last-semanticTokens",
+      "count": 1,
+      "p50_ms": 207.832,
+      "p95_ms": 207.832,
+      "p99_ms": 207.832,
+      "max_ms": 207.832,
+      "mean_ms": 207.832,
+      "mean_bytes": 2350498
+    },
+    {
+      "name": "workspace/references-first",
+      "count": 1,
+      "p50_ms": 11.994,
+      "p95_ms": 11.994,
+      "p99_ms": 11.994,
+      "max_ms": 11.994,
+      "mean_ms": 11.994,
+      "mean_bytes": 64163
+    },
+    {
+      "name": "workspace/references",
+      "count": 60,
+      "p50_ms": 0.342,
+      "p95_ms": 0.414,
+      "p99_ms": 0.655,
+      "max_ms": 0.655,
+      "mean_ms": 0.352,
+      "mean_bytes": 64164
+    },
+    {
+      "name": "workspace/definition",
+      "count": 60,
+      "p50_ms": 0.134,
+      "p95_ms": 0.172,
+      "p99_ms": 0.451,
+      "max_ms": 0.451,
+      "mean_ms": 0.144,
+      "mean_bytes": 164
+    },
+    {
+      "name": "workspace/completion",
+      "count": 60,
+      "p50_ms": 0.789,
+      "p95_ms": 0.955,
+      "p99_ms": 1.956,
+      "max_ms": 1.956,
+      "mean_ms": 0.813,
+      "mean_bytes": 475
+    },
+    {
+      "name": "workspace/edit-\u003epublish",
+      "count": 5,
+      "p50_ms": 151.986,
+      "p95_ms": 152.39,
+      "p99_ms": 152.39,
+      "max_ms": 152.39,
+      "mean_ms": 152.051
+    },
+    {
+      "name": "workspace/edit-\u003epublish-minus-debounce",
+      "count": 5,
+      "p50_ms": 1.986,
+      "p95_ms": 2.39,
+      "p99_ms": 2.39,
+      "max_ms": 2.39,
+      "mean_ms": 2.051
+    },
+    {
+      "name": "tree/open-all-\u003esettled",
+      "count": 1,
+      "p50_ms": 152.844,
+      "p95_ms": 152.844,
+      "p99_ms": 152.844,
+      "max_ms": 152.844,
+      "mean_ms": 152.844
+    },
+    {
+      "name": "tree/didSave-\u003ediagnostics",
+      "count": 54,
+      "p50_ms": 15.83,
+      "p95_ms": 18.886,
+      "p99_ms": 20.18,
+      "max_ms": 20.18,
+      "mean_ms": 16.245
+    },
+    {
+      "name": "tree/inlayHint",
+      "count": 54,
+      "p50_ms": 0.237,
+      "p95_ms": 0.797,
+      "p99_ms": 1.069,
+      "max_ms": 1.069,
+      "mean_ms": 0.29,
+      "mean_bytes": 17758
+    },
+    {
+      "name": "tree/codeLens",
+      "count": 54,
+      "p50_ms": 0.112,
+      "p95_ms": 0.254,
+      "p99_ms": 0.305,
+      "max_ms": 0.305,
+      "mean_ms": 0.127,
+      "mean_bytes": 143
+    },
+    {
+      "name": "cli/lint-tree",
+      "count": 3,
+      "p50_ms": 74.09,
+      "p95_ms": 82.109,
+      "p99_ms": 82.109,
+      "max_ms": 82.109,
+      "mean_ms": 75.915,
+      "mean_bytes": 7092
+    },
+    {
+      "name": "cli/lint-tree-toolchain",
+      "count": 3,
+      "p50_ms": 134.427,
+      "p95_ms": 136.589,
+      "p99_ms": 136.589,
+      "max_ms": 136.589,
+      "mean_ms": 131.279,
+      "mean_bytes": 8337
+    },
+    {
+      "name": "cli/lint-ws500",
+      "count": 3,
+      "p50_ms": 216.623,
+      "p95_ms": 216.769,
+      "p99_ms": 216.769,
+      "max_ms": 216.769,
+      "mean_ms": 216.45,
+      "mean_bytes": 778198
+    }
+  ],
+  "values": [
+    {
+      "name": "cold/peak-rss",
+      "unit": "kB",
+      "value": 22844
+    },
+    {
+      "name": "fixtures/peak-rss",
+      "unit": "kB",
+      "value": 24680
+    },
+    {
+      "name": "features/hovers-with-content",
+      "unit": "hovers",
+      "value": 870
+    },
+    {
+      "name": "features/hover-longest",
+      "unit": "lines",
+      "value": 55
+    },
+    {
+      "name": "features/hovers-over-12-lines",
+      "unit": "hovers",
+      "value": 35
+    },
+    {
+      "name": "features/peak-rss",
+      "unit": "kB",
+      "value": 38404
+    },
+    {
+      "name": "diagnostics/peak-rss",
+      "unit": "kB",
+      "value": 25436
+    },
+    {
+      "name": "diagnostics-20k/peak-rss",
+      "unit": "kB",
+      "value": 156160
+    },
+    {
+      "name": "diagnostics-100k/peak-rss",
+      "unit": "kB",
+      "value": 622056
+    },
+    {
+      "name": "typing-20k/burst-answered",
+      "unit": "requests",
+      "value": 1
+    },
+    {
+      "name": "typing-20k/burst-cancelled",
+      "unit": "requests",
+      "value": 499
+    },
+    {
+      "name": "typing-20k/peak-rss",
+      "unit": "kB",
+      "value": 37412
+    },
+    {
+      "name": "typing-100k/burst-answered",
+      "unit": "requests",
+      "value": 1
+    },
+    {
+      "name": "typing-100k/burst-cancelled",
+      "unit": "requests",
+      "value": 499
+    },
+    {
+      "name": "typing-100k/peak-rss",
+      "unit": "kB",
+      "value": 111908
+    },
+    {
+      "name": "workspace/peak-rss",
+      "unit": "kB",
+      "value": 71300
+    },
+    {
+      "name": "tree/files",
+      "unit": "files",
+      "value": 18
+    },
+    {
+      "name": "tree/save-timeouts",
+      "unit": "saves",
+      "value": 0
+    },
+    {
+      "name": "tree/peak-rss",
+      "unit": "kB",
+      "value": 72140
+    },
+    {
+      "name": "cli/lint-tree/peak-rss",
+      "unit": "kB",
+      "value": 91104
+    },
+    {
+      "name": "cli/lint-tree-toolchain/peak-rss",
+      "unit": "kB",
+      "value": 105032
+    },
+    {
+      "name": "cli/lint-ws500/peak-rss",
+      "unit": "kB",
+      "value": 209180
+    }
+  ]
+}

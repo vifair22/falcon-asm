@@ -130,8 +130,11 @@ func (ix *Index) scanWords(root string, paths []string) {
 	var wg sync.WaitGroup
 	for range min(runtime.GOMAXPROCS(0), len(paths)) {
 		wg.Go(func() {
+			// One set per worker, cleared per file: a fresh map per file
+			// was most of what a scan of a C tree allocated.
+			seen := map[string]bool{}
 			for p := range work {
-				ix.loadWords(p, root)
+				ix.loadWords(p, root, seen)
 			}
 		})
 	}
@@ -154,7 +157,7 @@ func (ix *Index) scanWords(root string, paths []string) {
 	ix.mu.Unlock()
 }
 
-func (ix *Index) loadWords(p, root string) {
+func (ix *Index) loadWords(p, root string, seen map[string]bool) {
 	st, err := os.Stat(p)
 	if err != nil {
 		return
@@ -169,7 +172,7 @@ func (ix *Index) loadWords(p, root string) {
 	if err != nil {
 		return
 	}
-	w := &wordFile{words: uniqueWords(text), ld: toolchain.IsLinkerScript(p), mod: st.ModTime(), size: st.Size(), root: root}
+	w := &wordFile{words: uniqueWordsInto(text, seen), ld: toolchain.IsLinkerScript(p), mod: st.ModTime(), size: st.Size(), root: root}
 	ix.mu.Lock()
 	if ix.ws.words == nil {
 		ix.ws.words = map[string]*wordFile{}
@@ -179,11 +182,18 @@ func (ix *Index) loadWords(p, root string) {
 	ix.mu.Unlock()
 }
 
-// uniqueWords returns the distinct C identifiers of text, each cloned so
-// the text itself is not kept alive by the index.
-func uniqueWords(text string) []string {
-	seen := map[string]bool{}
-	var out []string
+// uniqueWords returns the distinct C identifiers of text, in first-seen
+// order, without keeping text alive.
+func uniqueWords(text string) []string { return uniqueWordsInto(text, map[string]bool{}) }
+
+// uniqueWordsInto is uniqueWords with a caller's scratch set, which it
+// clears first. The words are copied into one string per file and sliced
+// from it, rather than cloned one by one, so the index keeps one
+// allocation per file instead of one per distinct word.
+func uniqueWordsInto(text string, seen map[string]bool) []string {
+	clear(seen)
+	var order []string
+	n := 0
 	for i := 0; i < len(text); {
 		c := text[i]
 		switch {
@@ -194,7 +204,8 @@ func uniqueWords(text string) []string {
 			}
 			if w := text[i:j]; !seen[w] {
 				seen[w] = true
-				out = append(out, strings.Clone(w))
+				order = append(order, w)
+				n += len(w)
 			}
 			i = j
 		case c >= '0' && c <= '9':
@@ -206,6 +217,24 @@ func uniqueWords(text string) []string {
 			i++
 		}
 	}
+	if len(order) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	b.Grow(n)
+	for _, w := range order {
+		b.WriteString(w)
+	}
+	arena := b.String()
+	out := make([]string, len(order))
+	at := 0
+	for k, w := range order {
+		out[k] = arena[at : at+len(w)]
+		at += len(w)
+	}
+	// The set's keys point into text; drop them so the scratch set does
+	// not keep the file alive until the worker's next one.
+	clear(seen)
 	return out
 }
 

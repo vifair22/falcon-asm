@@ -1,0 +1,114 @@
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     168	   7036606 ns/op	 6532489 B/op	     573 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      33	  31425933 ns/op	33583188 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     496	   2370583 ns/op	 4561231 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     116	  10183499 ns/op	22496031 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     337	   3590822 ns/op	 6496591 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      62	  19324941 ns/op	33287439 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     669	   1780435 ns/op	 4274322 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     133	   8866018 ns/op	21240810 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	      55	  21530772 ns/op	48353952 B/op	   19569 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	       8	 125505850 ns/op	246818919 B/op	   94470 allocs/op
+BenchmarkDiagnostics/20k-32                          	      33	  35267173 ns/op	45161771 B/op	   96629 allocs/op
+BenchmarkDiagnostics/100k-32                         	       5	 213733985 ns/op	239066006 B/op	  479079 allocs/op
+BenchmarkRegisterHints-32                            	 6692865	       177.9 ns/op	     400 B/op	       3 allocs/op
+BenchmarkRegisterHintsCold-32                        	    3481	    340295 ns/op	  536610 B/op	     695 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     168	   6982308 ns/op	 6532518 B/op	     573 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      33	  31100292 ns/op	33583174 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     488	   2412989 ns/op	 4561248 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     115	  10326249 ns/op	22495989 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     331	   3604510 ns/op	 6496556 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      63	  18996725 ns/op	33287436 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     637	   1821309 ns/op	 4274292 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     139	   8569114 ns/op	21240595 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	      48	  21611723 ns/op	48360896 B/op	   19570 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	       8	 130697873 ns/op	246824901 B/op	   94471 allocs/op
+BenchmarkDiagnostics/20k-32                          	      33	  35517079 ns/op	45160276 B/op	   96627 allocs/op
+BenchmarkDiagnostics/100k-32                         	       5	 213574933 ns/op	239059456 B/op	  479076 allocs/op
+BenchmarkRegisterHints-32                            	 7007578	       172.8 ns/op	     400 B/op	       3 allocs/op
+BenchmarkRegisterHintsCold-32                        	    3601	    325835 ns/op	  536593 B/op	     695 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     171	   6856580 ns/op	 6532121 B/op	     570 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  31422108 ns/op	33583334 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     498	   2436548 ns/op	 4561224 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     114	  10365429 ns/op	22496054 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     330	   3643694 ns/op	 6496552 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      50	  20027594 ns/op	33287505 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     650	   1814721 ns/op	 4274303 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     140	   8485179 ns/op	21240554 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	      55	  21429414 ns/op	48360643 B/op	   19569 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	       8	 125172166 ns/op	246803986 B/op	   94472 allocs/op
+BenchmarkDiagnostics/20k-32                          	      30	  35927286 ns/op	45190614 B/op	   96666 allocs/op
+BenchmarkDiagnostics/100k-32                         	       5	 213354261 ns/op	239043443 B/op	  479072 allocs/op
+BenchmarkRegisterHints-32                            	 6617702	       177.7 ns/op	     400 B/op	       3 allocs/op
+BenchmarkRegisterHintsCold-32                        	    3596	    339877 ns/op	  536582 B/op	     695 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     165	   7057257 ns/op	 6532929 B/op	     575 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      32	  32661931 ns/op	33583030 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     472	   2516763 ns/op	 4561277 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     110	  10761820 ns/op	22495982 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     316	   3792265 ns/op	 6496497 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      52	  19953520 ns/op	33287706 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     618	   1922621 ns/op	 4274272 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     132	   9062505 ns/op	21240600 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	      52	  22181738 ns/op	48353797 B/op	   19568 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	       8	 128267641 ns/op	246797269 B/op	   94468 allocs/op
+BenchmarkDiagnostics/20k-32                          	      33	  35861894 ns/op	45162420 B/op	   96627 allocs/op
+BenchmarkDiagnostics/100k-32                         	       5	 215145440 ns/op	239055638 B/op	  479082 allocs/op
+BenchmarkRegisterHints-32                            	 6670611	       172.3 ns/op	     400 B/op	       3 allocs/op
+BenchmarkRegisterHintsCold-32                        	    3483	    341831 ns/op	  536580 B/op	     695 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     165	   7158403 ns/op	 6532934 B/op	     575 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  32955866 ns/op	33583172 B/op	    1777 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     475	   2507013 ns/op	 4561272 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     115	  10400312 ns/op	22495977 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     328	   3622767 ns/op	 6496543 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      61	  19162519 ns/op	33287627 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     652	   1818024 ns/op	 4274306 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     135	   8785275 ns/op	21240555 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	      54	  21735981 ns/op	48352922 B/op	   19568 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	       8	 130765850 ns/op	246828461 B/op	   94476 allocs/op
+BenchmarkDiagnostics/20k-32                          	      33	  35301975 ns/op	45162547 B/op	   96628 allocs/op
+BenchmarkDiagnostics/100k-32                         	       5	 216668867 ns/op	239027654 B/op	  479070 allocs/op
+BenchmarkRegisterHints-32                            	 6743263	       174.2 ns/op	     400 B/op	       3 allocs/op
+BenchmarkRegisterHintsCold-32                        	    3499	    342268 ns/op	  536572 B/op	     695 allocs/op
+PASS
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+BenchmarkEditThenQuery/semanticTokens/20k-32         	     168	   6977818 ns/op	 6532517 B/op	     573 allocs/op
+BenchmarkEditThenQuery/semanticTokens/100k-32        	      34	  32053702 ns/op	33583494 B/op	    1778 allocs/op
+BenchmarkEditThenQuery/completion/20k-32             	     478	   2444624 ns/op	 4561273 B/op	     127 allocs/op
+BenchmarkEditThenQuery/completion/100k-32            	     115	  10272692 ns/op	22495941 B/op	     127 allocs/op
+BenchmarkEditThenQuery/documentSymbol/20k-32         	     332	   3577339 ns/op	 6496559 B/op	    3590 allocs/op
+BenchmarkEditThenQuery/documentSymbol/100k-32        	      54	  19400254 ns/op	33287581 B/op	    8077 allocs/op
+BenchmarkEditThenQuery/foldingRange/20k-32           	     656	   1810258 ns/op	 4274311 B/op	      30 allocs/op
+BenchmarkEditThenQuery/foldingRange/100k-32          	     138	   8756055 ns/op	21240677 B/op	      34 allocs/op
+BenchmarkEditThenQuery/hover/20k-32                  	      55	  21252796 ns/op	48356591 B/op	   19569 allocs/op
+BenchmarkEditThenQuery/hover/100k-32                 	       8	 128977071 ns/op	246820927 B/op	   94471 allocs/op
+BenchmarkDiagnostics/20k-32                          	      32	  36167118 ns/op	45173702 B/op	   96641 allocs/op
+BenchmarkDiagnostics/100k-32                         	       5	 212544396 ns/op	239013976 B/op	  479070 allocs/op
+BenchmarkRegisterHints-32                            	 6823150	       175.4 ns/op	     400 B/op	       3 allocs/op
+BenchmarkRegisterHintsCold-32                        	    3496	    334121 ns/op	  536601 B/op	     695 allocs/op
+PASS

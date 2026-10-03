@@ -2,6 +2,7 @@ package hw
 
 import (
 	"strings"
+	"sync"
 	"testing"
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
@@ -237,13 +238,22 @@ func TestFlowSelectorPE(t *testing.T) {
 	}
 }
 
+// probeIndex receives what the probe rule of TestIndexOf saw. The rule is
+// registered once per process, so the test also passes with -count=N.
+var (
+	probeIndex *Index
+	probeOnce  sync.Once
+)
+
 func TestIndexOf(t *testing.T) {
-	var got *Index
-	lint.Register(&lint.Rule{Code: "zz-hw-indexof-probe", Section: 7, Default: lint.Warning, Langs: lint.LangAsm,
-		Doc: lint.Doc{Summary: "test"}, Check: func(c *lint.Context) { got = IndexOf(c) }})
+	probeOnce.Do(func() {
+		lint.Register(&lint.Rule{Code: "zz-hw-indexof-probe", Section: 7, Default: lint.Warning, Langs: lint.LangAsm,
+			Doc: lint.Doc{Summary: "test"}, Check: func(c *lint.Context) { probeIndex = IndexOf(c) }})
+	})
+	probeIndex = nil
 	r, _ := lint.Lookup("zz-hw-indexof-probe")
 	lint.Run(lint.Input{Prog: prog("\tnop\n", asm.Mode16), Lang: lint.LangAsm, Rules: []*lint.Rule{r}, Tables: hwdb.Default()})
-	if got == nil || got.Flow() == nil {
+	if got := probeIndex; got == nil || got.Flow() == nil {
 		t.Fatalf("IndexOf = %+v", got)
 	}
 }

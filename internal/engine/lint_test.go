@@ -25,7 +25,7 @@ func TestGasDedupe(t *testing.T) {
 	h := newHarness(t, setup{opts: `{"level":"v3"}`})
 	text := "\t.code32\n" + // 0
 		"\tpushl %rax\n" + // 1: mode-register warning
-		"\taesenc %xmm1, %xmm0\n" + // 2: level-outside information
+		"\taesenc %xmm1, %xmm0\n" + // 2: feature-unguarded information
 		"\tbogus\n" // 3: nothing of ours
 	path, uri := h.file("d.S", text)
 	hdr := filepath.Join(h.dir, "inc.h")
@@ -43,7 +43,7 @@ func TestGasDedupe(t *testing.T) {
 			t.Errorf("no documentation link: %+v", d)
 		}
 	}
-	want := "falcon-asm:mode-register@1 falcon-asm:feature-unguarded@2 falcon-asm:level-outside@2 gas:@2 gas:@3"
+	want := "falcon-asm:mode-register@1 falcon-asm:feature-unguarded@2 gas:@2 gas:@3"
 	if strings.Join(got, " ") != want {
 		t.Fatalf("published %q\nwant %q", got, want)
 	}
@@ -231,17 +231,51 @@ func TestTablesFromConfig(t *testing.T) {
 	}
 	h.file(lint.ConfigFile, `{"tables": {"ports": [1]}}`)
 	var raws []string
-	lint.RegisterTables(func(raw json.RawMessage) (lint.Tables, error) {
+	orig := lint.RegisterTables(func(raw json.RawMessage) (lint.Tables, error) {
 		raws = append(raws, string(raw))
 		if string(raw) != "" {
 			return nil, os.ErrInvalid
 		}
 		return nil, nil
 	})
-	t.Cleanup(func() { lint.RegisterTables(nil) })
+	// The real loader (internal/rules/hw's) goes back, or every later
+	// test in the process (-count=2) would run without hardware tables.
+	t.Cleanup(func() { lint.RegisterTables(orig) })
 	_, uri := h.file("t.S", "\tnop\n")
 	h.open(uri, "falcon-asm", 1, "\tnop\n")
 	if len(raws) != 2 || raws[0] != `{"ports": [1]}` || !strings.Contains(h.log.String(), "hardware tables") {
 		t.Fatalf("loader saw %q, log %q", raws, h.log.String())
+	}
+}
+
+// An automatic code action request (the editor's light bulb after a cursor
+// move) never runs the rules for a version that has not been linted yet:
+// it would put every rule on the keystroke path. Once the version's
+// diagnostics are out, the same request is answered.
+func TestCodeActionsAutomaticWaitsForLint(t *testing.T) {
+	h := newHarness(t, setup{opts: `{"toolchain":false}`})
+	text := "\t.code32\n\tpushl %rax\n"
+	_, uri := h.file("auto.S", text)
+	doc := h.open(uri, "falcon-asm", 1, text)
+	line1 := protocol.Range{Start: protocol.Position{Line: 1, Character: 8}, End: protocol.Position{Line: 1, Character: 8}}
+	auto := protocol.CodeActionContext{TriggerKind: protocol.CodeActionTriggerAutomatic}
+	h.e.mu.Lock()
+	snap := h.e.snapshotLocked(h.e.docs[uri])
+	h.e.mu.Unlock()
+	if !snap.lintDone.Load() {
+		if got := h.e.CodeActions(doc, line1, auto); got != nil {
+			t.Fatalf("automatic request before lint = %q", titles(got))
+		}
+		if snap.lintDone.Load() {
+			t.Fatal("automatic request ran the rules")
+		}
+	}
+	h.waitPub(uri, hasMsg("%rax"))
+	if got := h.e.CodeActions(doc, line1, auto); len(got) != 2 {
+		t.Fatalf("automatic request after lint = %q", titles(got))
+	}
+	invoked := protocol.CodeActionContext{TriggerKind: protocol.CodeActionTriggerInvoked}
+	if got := h.e.CodeActions(doc, line1, invoked); len(got) != 2 {
+		t.Fatalf("invoked request = %q", titles(got))
 	}
 }

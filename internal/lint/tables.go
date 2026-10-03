@@ -22,12 +22,15 @@ type tablesResult struct {
 
 // RegisterTables installs the loader that builds the hardware tables with a
 // project's "tables" overrides (nil for none) merged over the built-in
-// ones. The last registration wins.
-func RegisterTables(load func(project json.RawMessage) (Tables, error)) {
+// ones. The last registration wins; the loader it replaced is returned,
+// so a test that installs its own can put the real one back.
+func RegisterTables(load func(project json.RawMessage) (Tables, error)) (previous func(project json.RawMessage) (Tables, error)) {
 	tables.mu.Lock()
 	defer tables.mu.Unlock()
+	previous = tables.load
 	tables.load = load
 	tables.cached = nil
+	return previous
 }
 
 // LoadTables returns the tables for a configuration's raw "tables" value,

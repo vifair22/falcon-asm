@@ -452,6 +452,54 @@ and dropped, are in `docs/BENCHMARKS.md`.
   supplies the inputs every package's benchmarks share; `make bench` and
   `make lspbench` run them, and CI runs `make bench` as a non-blocking job.
 
+### Linter performance and usability pass
+
+Recorded with the pass that closed the linter work; numbers in
+`docs/BENCHMARKS.md` ("Linter pass").
+
+- **One parse and one dataflow per version.** The snapshot owns
+  `program()` (the `asm.Parse` the rules use: target mode, toolchain
+  macros), `flow()` (CFG and solution, `flow.Config{}`, a panic logged and
+  turned into nils) and `hwIndex()` (built from both). The lint run gets
+  the program through `project.Doc.Prog` and the other two through
+  `lint.ProvideFlow` and `hw.Provide`, which register the snapshot's
+  functions with the run's memo (`Memo.Provide`): the first rule that asks
+  computes through them, so the run, hover, register hints and code lenses
+  share one of each, and a run whose rules never ask builds none.
+  `flow.Analyze` drops the analyzer's block states once solved.
+- **Rules stay off the keystroke path.** Semantic tokens use the analysis,
+  completion the modes table, hover the hardware index (below); none of
+  them runs a rule. `textDocument/codeAction` with `context.triggerKind`
+  Automatic (2, VS Code's light bulb after a cursor move or an edit) is
+  answered `null` while the version has not been linted
+  (`snapshot.lintDone`): the editor asks again when the diagnostics
+  arrive. An invoked request, or one without a trigger kind, still lints
+  on demand.
+- **Hover builds the hardware index only when it can add something.**
+  `snapshot.mayHaveHardware` looks at the token under the cursor: comments,
+  label definitions, cpp lines, prefixes and strings never get hardware
+  text, and a mnemonic only when `hw.MnemonicMayHover` says so (int,
+  in/out, rdmsr/wrmsr, cpuid, xsetbv, and mov when the line names a
+  control register).
+- **Hardware hovers are trimmed** (`trimHardware`): Notes and Quirks
+  lists, structure layout tables and confidence remarks are dropped, a
+  paragraph an earlier section already showed is not repeated, and the
+  rest is capped at 12 non-blank lines with a "(N more lines)" note. An
+  int whose AH differs by path lists one title line per candidate service.
+- **level-outside defers to feature-unguarded** for assembly
+  instructions the latter judges (`flowrules.FeatureJudged`: rule on,
+  flow available, reachable code in a function, a nameable CPUID bit),
+  since both would report the same missing promise on one mnemonic.
+- **Startup** loads the hardware tables (`hwdb.DataError`) on a goroutine
+  of their own beside the instruction tables, so neither waits for the
+  other and neither is parsed on a request.
+- **The macro expansion hover** parses the version only when the word can
+  be a macro (`snapshot.mayExpand`: a `.macro` of that name in the file,
+  an assembly include, or a cpp macro), and then uses `program()`.
+- `tools/lspbench` gained the `features`, `diagnostics` and `cli`
+  scenarios, edit-to-publish timing in `workspace` and code lenses in
+  `tree`; the client records the version of each publish.
+
 ## Phase 2 and 3
 
 Phase 2: mode tracking, x86-64 level diagnostics, toolchain integration

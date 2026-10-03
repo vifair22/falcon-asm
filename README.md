@@ -80,11 +80,15 @@ string is `release_version` plus build stamp and variant, e.g.
 `make lspbench` starts the built server and drives it over stdio the way an
 editor does (`tools/lspbench`): the falcon-bios fixtures, typing into 20k-
 and 100k-line files, a 500-file workspace and process cold start, with
-per-request p50/p95/p99/max and peak memory. `-root` adds a real project
-with the toolchain on; `-json` and `-compare old.json new.json` track
-changes. `make bench` runs the Go microbenchmarks. The method, scenarios,
-the before and after numbers of the performance pass and the remaining hot
-spots are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
+per-request p50/p95/p99/max and peak memory; the linter's paths
+(edit-to-diagnostics latency, code actions, code lenses, register hints,
+hardware hovers and their length, workspace symbols, the call hierarchy);
+and `falcon-asm lint` wall time and peak memory. `-root` adds a real
+project with the toolchain on; `-json` and `-compare old.json new.json`
+track changes. `make bench` runs the Go microbenchmarks. The method,
+scenarios, the before and after numbers of the performance pass and of the
+linter pass, and the remaining hot spots are in
+[docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ## Linting
 

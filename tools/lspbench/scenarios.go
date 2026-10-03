@@ -19,6 +19,7 @@ import (
 
 // JSON-RPC codes the burst scenario counts rather than fails on.
 const (
+	codeMethodNotFound   = -32601
 	codeRequestCancelled = -32800
 	codeContentModified  = -32801
 )
@@ -36,6 +37,8 @@ type config struct {
 	rounds     int
 	timeout    time.Duration
 	settle     time.Duration // quiet period that ends the tree scenario's open phase
+	diagEdits  int           // edits per file or phase in the diagnostics scenario
+	debounce   time.Duration // the server's publish debounce
 	log        io.Writer
 }
 
@@ -460,7 +463,17 @@ func (b *bench) workspace(c *client, dir string) error {
 			return err
 		}
 	}
-	return nil
+	// Diagnostics after an edit in a large workspace: the symbol rules
+	// consult the whole workspace (globals, includes, C references).
+	raw, err := os.ReadFile(filepath.Join(dir, wsFileName(1)))
+	if err != nil {
+		return fmt.Errorf("read workspace file: %w", err)
+	}
+	if _, err := c.waitVersion(uris[1], 1, b.cfg.timeout); err != nil {
+		return err
+	}
+	line, _ := codeLine(string(raw))
+	return b.editToPublish(c, "workspace", newToggler(uris[1], string(raw), 1, line), b.cfg.diagEdits)
 }
 
 // coldScenario measures process start to the initialize reply, and to the
@@ -608,6 +621,19 @@ func (b *bench) tree(c *client, files []string) error {
 			hp["range"] = protocol.Range{End: protocol.Position{Line: 1 << 20}}
 			if _, err := b.timed(c, "tree/inlayHint", "textDocument/inlayHint", hp); err != nil {
 				return err
+			}
+			// Size budget lenses exist while the listing describes the
+			// buffer, which a save just made true. A server without
+			// lenses (MethodNotFound) is compared on the rest.
+			r, d, err := c.call("textDocument/codeLens", docParams(u))
+			if err != nil {
+				return err
+			}
+			switch {
+			case r.err == nil:
+				b.rec.add("tree/codeLens", d, r.size)
+			case r.err.Code != codeMethodNotFound:
+				return fmt.Errorf("textDocument/codeLens: error %d: %s", r.err.Code, r.err.Message)
 			}
 		}
 	}

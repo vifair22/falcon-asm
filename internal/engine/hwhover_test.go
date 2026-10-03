@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -124,5 +125,56 @@ func TestCHelperToolchainMacros(t *testing.T) {
 	}
 	if hv := s.cHelperHover(posOf(t, src, "inb(FN)", 0)); hv != nil {
 		t.Fatalf("function-like macro = %+v", hv)
+	}
+}
+
+// The hardware tables' reference material stays out of hovers, a
+// paragraph two sections share is said once, and the rest is capped.
+func TestTrimHardware(t *testing.T) {
+	md := "**0xCF9** - Reset control\n\nchipset - 8-bit - write\n\nNotes:\n\n- write 2 then 6\n- byte access only\n\n" +
+		"_Confidence: chipset register_\n\nwrites 0x02: arm\n\n---\n\n**0xCF9** - Reset control\n\nchipset - 8-bit - write\n\n" +
+		"| off | size |\n|---|---|\n\nwrites 0x06: reset"
+	want := "**0xCF9** - Reset control\n\nchipset - 8-bit - write\n\nwrites 0x02: arm\n\n---\n\nwrites 0x06: reset"
+	if got := trimHardware(md); got != want {
+		t.Fatalf("trimHardware =\n%s\nwant\n%s", got, want)
+	}
+	if trimHardware("") != "" || trimHardware("Quirks:\n\n- a") != "" {
+		t.Fatal("nothing left must be empty")
+	}
+	var long []string
+	for i := range maxHardwareLines + 3 {
+		long = append(long, fmt.Sprintf("- item %d", i))
+	}
+	got := trimHardware("**T**\n\n" + strings.Join(long, "\n"))
+	if n := strings.Count(got, "- item"); n != maxHardwareLines-1 || !strings.HasSuffix(got, "_(4 more lines)_") {
+		t.Fatalf("capped hover:\n%s", got)
+	}
+	if got := capLines("a\nb\nc", 2); got != "a\nb\n\n_(1 more line)_" {
+		t.Fatalf("capLines = %q", got)
+	}
+}
+
+// A hover the hardware index cannot add to (an ordinary mnemonic, a mov
+// between general registers, a label, a comment) does not ask for it.
+// The check is on mayHaveHardware itself: the debounced lint builds the
+// index too, so its presence after a hover proves nothing.
+func TestHoverSkipsIndex(t *testing.T) {
+	h := newHarness(t, setup{})
+	src := "\t.code32\nstart:\taddl $1, %eax # note\n\tmovl %eax, %ebx\n\tmovl %eax, %cr0\n\tinb $0x60, %al\n"
+	_, uri := h.file("skip.S", src)
+	doc := h.open(uri, "falcon-asm", 1, src)
+	s := h.e.snapshotFor(doc)
+	for _, at := range []string{"addl", "movl %eax, %ebx", "start", "note"} {
+		if s.mayHaveHardware(posOf(t, src, at, 1)) {
+			t.Fatalf("%q: hardware hover not ruled out", at)
+		}
+	}
+	for _, at := range []string{"movl %eax, %cr0", "%eax, %cr0", "inb", "$0x60", "%eax, %ebx"} {
+		if !s.mayHaveHardware(posOf(t, src, at, 1)) {
+			t.Fatalf("%q: hardware hover ruled out", at)
+		}
+	}
+	if s.mayHaveHardware(protocol.Position{Line: 99}) {
+		t.Fatal("out of range")
 	}
 }

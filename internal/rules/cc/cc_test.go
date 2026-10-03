@@ -654,3 +654,21 @@ func TestQuiet(t *testing.T) {
 		t.Errorf("rule metadata: %+v", r)
 	}
 }
+
+func TestHasMarker(t *testing.T) {
+	for text, want := range map[string]bool{
+		"# falcon-asm: cc=sysv":       true,
+		"/* FALCON-ASM: cc=none */":   true,
+		"// Falcon-Asm:handler":       true,
+		"# a: b: c: no marker":        false,
+		"# falcon-asm cc=sysv":        false,
+		":falcon-asm:":                true,
+		"":                            false,
+		"# ends with falcon-as":       false,
+		"# x:falcon-asm: after colon": true,
+	} {
+		if got := hasMarker(text); got != want {
+			t.Errorf("hasMarker(%q) = %v", text, got)
+		}
+	}
+}

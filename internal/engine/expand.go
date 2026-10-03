@@ -44,14 +44,59 @@ type expandState struct {
 
 	mu  sync.Mutex
 	cpp map[int]string // statement -> preprocessor output; "" when it failed
+
+	// What the tokens alone say about macros, for a cheap "nothing to
+	// expand here" before the parse (see mayExpand).
+	namesOnce sync.Once
+	names     map[string]bool // .macro names the document defines, lower case
+	asmInc    bool            // the document includes something not a C header
 }
 
-// program parses the version once for expansions and walks every
+// mayExpand reports whether word, an unknown first word at a hover, can
+// have an expansion: a gas macro the document defines, any word when it
+// includes assembly (whose macros only the parse finds), or a cpp macro.
+// Every other unknown word (a typo, a half-typed mnemonic) is answered
+// from the tokens without parsing the whole version.
+func (s *snapshot) mayExpand(word string) bool {
+	e := &s.exp
+	e.namesOnce.Do(func() {
+		toks := s.tokens()
+		for i, t := range toks {
+			switch {
+			case t.Kind == lexer.Directive && strings.EqualFold(t.Text, ".macro"):
+				if i+1 < len(toks) && toks[i+1].Line == t.Line {
+					if e.names == nil {
+						e.names = map[string]bool{}
+					}
+					e.names[strings.ToLower(strings.TrimRight(toks[i+1].Text, ","))] = true
+				}
+			case t.Kind == lexer.Directive && strings.EqualFold(t.Text, ".include"):
+				e.asmInc = true
+			case t.Kind == lexer.CppDirective && strings.Contains(t.Text, "include") && i+1 < len(toks) && toks[i+1].Line == t.Line:
+				arg := strings.Trim(strings.TrimSpace(toks[i+1].Text), "<>\"")
+				switch strings.ToLower(filepath.Ext(arg)) {
+				case ".h", ".hh", ".hpp":
+				default:
+					e.asmInc = true
+				}
+			}
+		}
+	})
+	if e.asmInc || e.names[strings.ToLower(word)] {
+		return true
+	}
+	_, ok := s.macro(word)
+	return ok
+}
+
+// expansions walks, once per version, every
 // invocation of a gas macro the file defines or .includes, in order.
 func (s *snapshot) expansions() *expandState {
 	e := &s.exp
 	e.once.Do(func() {
-		e.prog = asm.Parse(s.doc, s.tokens(), asm.Config{InitialMode: s.targetOf().Mode, Macros: s.cfg.Macros})
+		// The version's shared parse (the one lint and the hardware
+		// hover use); the expander only reads it.
+		e.prog = s.program()
 		e.x = e.prog.NewExpander()
 		for name, d := range s.includedMacros() {
 			if e.x.Defs == nil {
@@ -113,6 +158,9 @@ func (s *snapshot) expansion(line, col int) (string, bool) {
 		return "", false
 	}
 	off := start + col
+	if word := wordAt(s.doc.Text, off); word == "" || !s.mayExpand(word) {
+		return "", false
+	}
 	e := s.expansions()
 	for _, i := range e.prog.StmtAt(line) {
 		st := &e.prog.Stmts[i]
@@ -178,4 +226,21 @@ func (s *snapshot) cppExpansion(e *expandState, i int) (string, bool) {
 	e.cpp[i] = out
 	e.mu.Unlock()
 	return out, out != ""
+}
+
+// wordAt is the identifier starting at byte off of text ("" when none).
+func wordAt(text string, off int) string {
+	if off < 0 || off > len(text) {
+		return ""
+	}
+	end := off
+	for end < len(text) {
+		c := text[end]
+		if c == '_' || c == '.' || c == '$' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' {
+			end++
+			continue
+		}
+		break
+	}
+	return text[off:end]
 }

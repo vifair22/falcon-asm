@@ -24,10 +24,14 @@ func (ix *Index) intHover(db *hwdb.DB, e event) string {
 	if !ok || len(ahs) < 2 {
 		return ""
 	}
+	// One title line per service: the full cards of every candidate do
+	// not fit a hover, and each is a hover away, on the instruction that
+	// loads AH on its path.
 	var parts, names []string
 	for _, ah := range ahs {
 		if md := db.BIOSHover(uint64(e.n), ah, 0, false); md != "" {
-			parts = append(parts, md)
+			title, _, _ := strings.Cut(md, "\n\n")
+			parts = append(parts, "- "+title)
 			names = append(names, fmt.Sprintf("%02Xh", ah))
 		}
 	}
@@ -35,7 +39,7 @@ func (ix *Index) intHover(db *hwdb.DB, e event) string {
 		return ""
 	}
 	head := fmt.Sprintf("AH depends on the path here: %s", strings.Join(names, " or "))
-	return head + "\n\n" + strings.Join(parts, "\n\n---\n\n")
+	return head + "\n\n" + strings.Join(parts, "\n")
 }
 
 func cpuidSub(e event) uint64 {

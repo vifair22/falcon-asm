@@ -306,8 +306,9 @@ func TestRunAll(t *testing.T) {
 	out := filepath.Join(dir, "r.json")
 	args := []string{
 		"-server", bin, "-fixtures", fixtureDir, "-sizes", "2000", "-edits", "40",
-		"-ws-files", "20", "-cold-runs", "2", "-rounds", "1", "-json", out, "-timeout", "30s",
+		"-ws-files", "20", "-cold-runs", "2", "-rounds", "1", "-json", out, "-timeout", "30s", "-diag-edits", "2",
 	}
+	var treeMetrics []string
 	if _, err := exec.LookPath("gcc"); err == nil {
 		root := filepath.Join(dir, "tree")
 		if err := os.MkdirAll(root, 0o755); err != nil {
@@ -322,6 +323,7 @@ func TestRunAll(t *testing.T) {
 			t.Fatal(err)
 		}
 		args = append(args, "-root", root, "-settle", "300ms")
+		treeMetrics = []string{"tree/didSave->diagnostics", "tree/codeLens", "cli/lint-tree", "cli/lint-tree-toolchain"}
 	}
 	var stdout, stderr bytes.Buffer
 	if code := run(args, &stdout, &stderr); code != 0 {
@@ -339,12 +341,17 @@ func TestRunAll(t *testing.T) {
 	for _, l := range rep.Latencies {
 		names[l.Name] = true
 	}
-	for _, want := range []string{
+	for _, want := range append([]string{
 		"cold/spawn->initialize", "cold/spawn->semanticTokens-20k", "fixtures/hover",
 		"fixtures/semanticTokens/full", "fixtures/completion", "fixtures/definition",
 		"fixtures/references", "fixtures/documentSymbol", "typing-2k/completion",
 		"typing-2k/burst-drain", "typing-2k/semanticTokens/full/delta", "workspace/references-first", "workspace/definition",
-	} {
+		"workspace/edit->publish", "features/hover", "features/codeAction", "features/codeAction-cursor", "features/codeLens",
+		"features/inlayHint-registers", "features/workspaceSymbol", "features/prepareCallHierarchy", "features/hover-after-edit",
+		"diagnostics/edit->publish", "diagnostics/edit->publish-minus-debounce", "diagnostics-2k/edit->publish",
+		"diagnostics-2k/completion-during-lint", "diagnostics-2k/codeAction-after-edit", "diagnostics-2k/hover-after-edit",
+		"cli/lint-ws20",
+	}, treeMetrics...) {
 		if !names[want] {
 			t.Errorf("report lacks %s", want)
 		}

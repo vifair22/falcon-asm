@@ -13,9 +13,11 @@ package target
 
 import (
 	"git.airies.net/vifair22/falcon-asm/internal/analysis"
+	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
 	"git.airies.net/vifair22/falcon-asm/internal/lint"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
+	"git.airies.net/vifair22/falcon-asm/internal/rules/flowrules"
 )
 
 const analysisKey = "target/analysis"
@@ -127,16 +129,55 @@ func init() {
 		Default: lint.Info,
 		Langs:   lint.LangAsm | lint.LangInline,
 		Doc: lint.Doc{
-			Summary: "Instruction outside the x86-64 level scheme (AES, SHA, VMX ...) in a file with a level target.",
+			Summary: "Instruction outside the x86-64 level scheme (AES, SHA, VMX ...) in a file with a level target, unless feature-unguarded judges it.",
 			Why: "The psABI levels do not cover every extension: AES-NI, PCLMULQDQ, SHA, VMX and the " +
 				"newer AVX-512 subsets are separate CPUID bits on top of any level. A level target " +
 				"therefore says nothing about them, and code using one needs its own CPUID check. " +
-				"Reported as information, since the instruction may well be guarded.",
-			Bad:  "# falcon-asm: level=v3\n\taesenc %xmm1, %xmm0",
-			Good: "# falcon-asm: level=v3\n\t# CPUID.01H:ECX.AES checked by the caller\n\taesenc %xmm1, %xmm0 # falcon-asm: ignore=level-outside",
+				"Reported as information, since the instruction may well be guarded. In assembly, an " +
+				"instruction whose CPUID bit feature-unguarded can name is left to that rule while it is " +
+				"on: it reports the same missing promise only when no CPUID test guards the instruction. " +
+				"What remains here is inline asm and extensions without a named bit.",
+			Bad:  "# falcon-asm: level=v3\n\tptwrite %eax",
+			Good: "# falcon-asm: level=v3\n\t# CPUID.(EAX=14h,ECX=0):EBX.PTWRITE checked by the caller\n\tptwrite %eax # falcon-asm: ignore=level-outside",
 		},
-		Check: func(c *lint.Context) { reportCode(c, analysis.CodeLevelOutside, nil) },
+		Check: checkLevelOutside,
 	})
+}
+
+// checkLevelOutside reports what the analysis found, except instructions
+// feature-unguarded decides about: it reports the same missing promise
+// when no CPUID test guards the instruction and stays quiet when one does,
+// so a second, vaguer note on the same mnemonic would only be noise.
+func checkLevelOutside(c *lint.Context) {
+	r, ok := result(c)
+	if !ok {
+		return
+	}
+	for _, d := range r.Diagnostics {
+		if d.Code != analysis.CodeLevelOutside || judged(c, d.Range.Start) {
+			continue
+		}
+		c.Report(d.Range, d.Message)
+	}
+}
+
+// judged reports whether flowrules.FeatureJudged holds for the
+// instruction starting at pos.
+func judged(c *lint.Context, pos protocol.Position) bool {
+	if c.Prog == nil || c.Prog.Doc == nil {
+		return false
+	}
+	off, err := c.Prog.Doc.Offset(pos)
+	if err != nil {
+		return false
+	}
+	for _, i := range c.Prog.StmtAt(pos.Line) {
+		st := &c.Prog.Stmts[i]
+		if st.Kind == asm.Instr && st.MnemStart <= off && off < st.MnemStart+len(st.Mnemonic) {
+			return flowrules.FeatureJudged(c, i)
+		}
+	}
+	return false
 }
 
 // legacyNames are the registers a 64-bit general register's low half is

@@ -4,15 +4,19 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"git.airies.net/vifair22/falcon-asm/internal/analysis"
+	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
+	"git.airies.net/vifair22/falcon-asm/internal/flow"
 	"git.airies.net/vifair22/falcon-asm/internal/hover"
 	"git.airies.net/vifair22/falcon-asm/internal/inlineasm"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/lint"
 	"git.airies.net/vifair22/falcon-asm/internal/project"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
+	"git.airies.net/vifair22/falcon-asm/internal/rules/hw"
 	"git.airies.net/vifair22/falcon-asm/internal/rules/target"
 	"git.airies.net/vifair22/falcon-asm/internal/symbols"
 	"git.airies.net/vifair22/falcon-asm/internal/toolchain"
@@ -46,6 +50,9 @@ type snapshot struct {
 
 	lintOnce sync.Once
 	lint     project.Result
+	// lintDone is set once lint holds the version's result, so a request
+	// can tell whether asking for it would mean running every rule now.
+	lintDone atomic.Bool
 
 	toksOnce sync.Once
 	toks     []lexer.Token
@@ -61,6 +68,14 @@ type snapshot struct {
 
 	symOnce sync.Once
 	sym     *symbols.File
+
+	// The program parse and its dataflow, shared by lint, hover, register
+	// hints and code lenses (hwhover.go).
+	progOnce sync.Once
+	prog     *asm.Program
+	flowOnce sync.Once
+	cfgG     *flow.CFG
+	flowRes  *flow.Result
 
 	diagOnce sync.Once
 	diags    []protocol.Diagnostic
@@ -186,8 +201,11 @@ func (s *snapshot) lintResult() project.Result {
 		switch s.lang {
 		case langAsm:
 			d.Toks = s.tokens()
+			d.Prog = s.program()
 			d.Memo = lint.NewMemo()
 			target.Seed(d.Memo, s.analysis())
+			lint.ProvideFlow(d.Memo, s.flow)
+			hw.Provide(d.Memo, s.hwIndex)
 		case langC:
 			d.C = true
 			d.Inline = s.statements()
@@ -195,6 +213,7 @@ func (s *snapshot) lintResult() project.Result {
 			return
 		}
 		s.lint = project.Lint(d)
+		s.lintDone.Store(true)
 	})
 	return s.lint
 }

@@ -37,7 +37,12 @@ func prog(text string) *asm.Program {
 
 func run(t *testing.T, text string, tgt lint.Target) []lint.Finding {
 	t.Helper()
-	return lint.Run(lint.Input{Prog: prog(text), Lang: lint.LangAsm, Target: tgt, Rules: rules(t)})
+	return runCfg(t, text, tgt, lint.FileConfig{})
+}
+
+func runCfg(t *testing.T, text string, tgt lint.Target, cfg lint.FileConfig) []lint.Finding {
+	t.Helper()
+	return lint.Run(lint.Input{Prog: prog(text), Lang: lint.LangAsm, Target: tgt, Rules: rules(t), Config: cfg})
 }
 
 func apply(t *testing.T, text string, fx lint.Fix) string {
@@ -75,7 +80,7 @@ func TestModeRules(t *testing.T) {
 }
 
 func TestLevelRules(t *testing.T) {
-	text := "\tandn %eax, %ebx, %ecx\n\taesenc %xmm1, %xmm0\n"
+	text := "\tandn %eax, %ebx, %ecx\n\tptwrite %eax\n"
 	if got := run(t, text, lint.Target{Mode: 64}); len(got) != 0 {
 		t.Fatalf("no level target: %v", got)
 	}
@@ -87,6 +92,16 @@ func TestLevelRules(t *testing.T) {
 	// The in-file comment wins, as in the analysis itself.
 	if got := run(t, "# falcon-asm: level=v3\n"+text, lint.Target{Mode: 64, Level: 1}); len(got) != 1 || got[0].Code != analysis.CodeLevelOutside {
 		t.Fatalf("with a v3 comment: %v", got)
+	}
+	// An extension feature-unguarded can name is left to it: it says the
+	// same, and knows whether a CPUID test guards the instruction.
+	aes := "# falcon-asm: level=v3\n\taesenc %xmm1, %xmm0\n"
+	if got := run(t, aes, lint.Target{Mode: 64}); len(got) != 0 {
+		t.Fatalf("aesenc with feature-unguarded on: %v", got)
+	}
+	off := lint.FileConfig{Rules: map[string]lint.Severity{"feature-unguarded": lint.Off}}
+	if got := runCfg(t, aes, lint.Target{Mode: 64}, off); len(got) != 1 || got[0].Code != analysis.CodeLevelOutside {
+		t.Fatalf("aesenc with feature-unguarded off: %v", got)
 	}
 }
 
