@@ -167,8 +167,11 @@ references and the PCI specification. No third-party data is copied.
 61. **[declined]** Latency, throughput and uop hover per form, if a source with a usable
     licence is available (uops.info). Optional. Declined: uops.info states
     no licence for its data and its paper carries a no-redistribution
-    notice, and a hand-written table would be unverifiable. See
-    docs/DESIGN.md, "Performance lints".
+    notice, and a hand-written table would be unverifiable. LLVM's
+    scheduling models (Apache-2.0, via llvm-mca) were also considered and
+    turned down: covering every CPU would embed more timing data than the
+    rest of the binary, for one hover line of modelled, not measured,
+    numbers. See docs/DESIGN.md, "Performance lints".
 
 ## 9. Inline asm in C
 
