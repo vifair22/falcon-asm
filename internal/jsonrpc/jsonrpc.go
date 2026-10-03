@@ -152,6 +152,11 @@ func Write(w io.Writer, m *Message) error {
 	if err != nil {
 		return fmt.Errorf("encode message: %w", err)
 	}
+	return writeFrame(w, body)
+}
+
+// writeFrame prefixes body with its header and writes both in one call.
+func writeFrame(w io.Writer, body []byte) error {
 	frame := make([]byte, 0, len(body)+32)
 	frame = fmt.Appendf(frame, "Content-Length: %d\r\n\r\n", len(body))
 	frame = append(frame, body...)

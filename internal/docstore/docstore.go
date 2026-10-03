@@ -6,6 +6,7 @@ package docstore
 import (
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"unicode/utf8"
 
@@ -58,7 +59,7 @@ func (s *Store) Change(uri string, version int, changes []protocol.TextDocumentC
 		if end < start {
 			return fmt.Errorf("change %s: edit %d: range end precedes start", uri, i)
 		}
-		cur = newDocument(uri, version, cur.Text[:start]+ch.Text+cur.Text[end:])
+		cur = cur.edit(version, start, end, ch.Text)
 	}
 	if cur.Version != version {
 		// An empty change list still advances the version.
@@ -118,6 +119,48 @@ func lineStarts(text string) []int {
 		}
 	}
 	return starts
+}
+
+// edit returns the document with bytes [start, end) replaced by text. The
+// line index is patched rather than rebuilt: lines before the edit keep
+// their starts, the edited region is rescanned, and lines after it are
+// shifted. Rebuilding meant scanning every byte of the document on every
+// keystroke, which on a 100k-line file cost more than the edit itself.
+func (d *Document) edit(version, start, end int, text string) *Document {
+	newText := d.Text[:start] + text + d.Text[end:]
+	old := d.starts()
+	delta := len(text) - (end - start)
+
+	// A start at or before the edit's first byte stays valid: the bytes
+	// that decided it lie before start. The terminator just before start is
+	// rescanned anyway, since a lone "\r" there pairs with a "\n" the edit
+	// may insert or remove.
+	keep := sort.SearchInts(old, start)
+	keep = max(keep, 1)
+	starts := make([]int, keep, len(old)+strings.Count(text, "\n")+strings.Count(text, "\r")+1)
+	copy(starts, old[:keep])
+
+	// Rescan from the byte before the edit to one byte past the inserted
+	// text, so a "\r\n" pair straddling either edge is classified once.
+	i := max(start-1, 0)
+	stop := min(start+len(text)+1, len(newText))
+	for ; i < stop; i++ {
+		switch newText[i] {
+		case '\n':
+			starts = append(starts, i+1)
+		case '\r':
+			if i+1 < len(newText) && newText[i+1] == '\n' {
+				i++
+			}
+			starts = append(starts, i+1)
+		}
+	}
+	// Everything from i on is unchanged text, so the old starts beyond it
+	// only move by the size difference.
+	for _, s := range old[sort.SearchInts(old, i-delta+1):] {
+		starts = append(starts, s+delta)
+	}
+	return &Document{URI: d.URI, Version: version, Text: newText, lineStarts: starts}
 }
 
 func (d *Document) starts() []int {

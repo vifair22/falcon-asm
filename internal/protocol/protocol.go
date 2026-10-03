@@ -6,6 +6,8 @@ package protocol
 
 import (
 	"encoding/json"
+	"slices"
+	"strconv"
 )
 
 // Method names the server dispatches on or emits.
@@ -20,8 +22,10 @@ const (
 	MethodDidClose           = "textDocument/didClose"
 	MethodHover              = "textDocument/hover"
 	MethodSemanticTokensFull = "textDocument/semanticTokens/full"
-	MethodLogMessage         = "window/logMessage"
-	MethodPublishDiagnostics = "textDocument/publishDiagnostics"
+	// MethodSemanticTokensDelta asks for the edits since an earlier result.
+	MethodSemanticTokensDelta = "textDocument/semanticTokens/full/delta"
+	MethodLogMessage          = "window/logMessage"
+	MethodPublishDiagnostics  = "textDocument/publishDiagnostics"
 )
 
 // Position is zero based. Character counts UTF-16 code units, which is the
@@ -117,9 +121,9 @@ type SemanticTokensLegend struct {
 	TokenModifiers []string `json:"tokenModifiers"`
 }
 
-// SemanticTokensOptions advertises semantic token support. Only full-document
-// requests are offered; range and delta are not worth the complexity for
-// files of a few hundred lines.
+// SemanticTokensOptions advertises semantic token support: whole-document
+// requests, and deltas against the previous result. Range requests are not
+// offered; a delta already makes an edit's reply as small as a range's.
 //
 // DocumentSelector makes this the registration-options shape, which clients
 // that honour it (VS Code) use to ask only for the listed languages, so C
@@ -127,8 +131,14 @@ type SemanticTokensLegend struct {
 type SemanticTokensOptions struct {
 	DocumentSelector []DocumentFilter     `json:"documentSelector,omitempty"`
 	Legend           SemanticTokensLegend `json:"legend"`
-	Full             bool                 `json:"full"`
-	Range            bool                 `json:"range"`
+	// Full is true, or SemanticTokensFullOptions to offer deltas.
+	Full  any  `json:"full"`
+	Range bool `json:"range"`
+}
+
+// SemanticTokensFullOptions is the object form of the full capability.
+type SemanticTokensFullOptions struct {
+	Delta bool `json:"delta"`
 }
 
 // ServerCapabilities lists what the server implements.
@@ -235,15 +245,57 @@ type SemanticTokens struct {
 	Data     []uint32 `json:"data"`
 }
 
+// SemanticTokensDeltaParams is the semanticTokens/full/delta payload.
+type SemanticTokensDeltaParams struct {
+	TextDocument     TextDocumentIdentifier `json:"textDocument"`
+	PreviousResultID string                 `json:"previousResultId"`
+}
+
+// SemanticTokensEdit replaces DeleteCount integers at Start with Data.
+type SemanticTokensEdit struct {
+	Start       int      `json:"start"`
+	DeleteCount int      `json:"deleteCount"`
+	Data        []uint32 `json:"data,omitempty"`
+}
+
+// SemanticTokensDelta answers a delta request whose previous result the
+// server still holds. Edits must encode as [], not null, when nothing
+// changed.
+type SemanticTokensDelta struct {
+	ResultID string               `json:"resultId,omitempty"`
+	Edits    []SemanticTokensEdit `json:"edits"`
+}
+
 // MarshalJSON guarantees "data":[] for an empty stream; a nil slice would
 // encode as null, which clients treat as a malformed result.
 func (t SemanticTokens) MarshalJSON() ([]byte, error) {
-	type plain SemanticTokens
-	out := plain(t)
-	if out.Data == nil {
-		out.Data = []uint32{}
+	return t.AppendJSON(nil), nil
+}
+
+// AppendJSON appends the JSON encoding to dst. A 20k-line document has
+// about 94k integers; encoding/json walks them by reflection, and then
+// re-scans the output of any MarshalJSON, so the reply path in
+// internal/jsonrpc calls this directly and the numbers are formatted once.
+func (t SemanticTokens) AppendJSON(dst []byte) []byte {
+	// Deltas and lengths are mostly one or two digits: three bytes per
+	// integer with the comma avoids regrowing a megabyte buffer.
+	dst = slices.Grow(dst, 3*len(t.Data)+64)
+	if t.ResultID != "" {
+		// strconv quoting is Go syntax, not JSON, for unusual bytes.
+		id, _ := json.Marshal(t.ResultID)
+		dst = append(dst, `{"resultId":`...)
+		dst = append(dst, id...)
+		dst = append(dst, `,"data":[`...)
+	} else {
+		dst = append(dst, `{"data":[`...)
 	}
-	return json.Marshal(out)
+	for i, v := range t.Data {
+		if i > 0 {
+			dst = append(dst, ',')
+		}
+		dst = strconv.AppendUint(dst, uint64(v), 10)
+	}
+	return append(dst, "]}"...)
 }
 
 // MessageType is the severity of a window/logMessage.

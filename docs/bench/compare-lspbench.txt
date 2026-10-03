@@ -1,0 +1,48 @@
+                                 metric    old p50  new p50   delta    old p95  new p95   delta    old max  new max   delta
+                 cold/spawn->initialize     11.487    1.581  -86.2%     13.275    2.211  -83.3%     13.275    2.211  -83.3%
+         cold/spawn->semanticTokens-20k     48.936   23.213  -52.6%     51.593   23.519  -54.4%     51.593   23.519  -54.4%
+           fixtures/semanticTokens/full      0.167    0.076  -54.5%      0.406    0.217  -46.6%      0.506    0.306  -39.5%
+                    fixtures/definition      0.027    0.033  +22.2%      0.104    0.103   -1.0%      1.174    1.619  +37.9%
+                    fixtures/references      0.032    0.037  +15.6%      0.074    0.059  -20.3%      0.222    0.120  -45.9%
+                         fixtures/hover      0.029    0.029   +0.0%      0.043    0.055  +27.9%      0.066    0.129  +95.5%
+                    fixtures/completion      0.142    0.066  -53.5%      0.638    0.195  -69.4%      1.504    1.206  -19.8%
+                fixtures/documentSymbol      0.098    0.040  -59.2%      0.249    0.069  -72.3%      0.523    0.082  -84.3%
+                  fixtures/foldingRange      0.044    0.027  -38.6%      0.114    0.046  -59.6%      0.200    0.112  -44.0%
+                     fixtures/inlayHint      0.020    0.025  +25.0%      0.049    0.034  -30.6%      0.071    0.043  -39.4%
+         typing-20k/open+semanticTokens     35.341   20.803  -41.1%     35.341   20.803  -41.1%     35.341   20.803  -41.1%
+                  typing-20k/completion     12.541    2.936  -76.6%     26.727    5.435  -79.7%     29.652    6.440  -78.3%
+         typing-20k/semanticTokens/full     16.055    7.307  -54.5%     31.655    8.960  -71.7%     35.772    9.250  -74.1%
+              typing-20k/documentSymbol      9.473    3.747  -60.4%     22.651    4.159  -81.6%     28.501    4.341  -84.8%
+                typing-20k/foldingRange      3.160    0.479  -84.8%      4.572    0.595  -87.0%      4.593    0.596  -87.0%
+                 typing-20k/burst-drain  12479.389   53.792  -99.6%  12479.389   53.792  -99.6%  12479.389   53.792  -99.6%
+   typing-20k/burst-last-semanticTokens   3036.852   45.512  -98.5%   3036.852   45.512  -98.5%   3036.852   45.512  -98.5%
+        typing-100k/open+semanticTokens    174.863   92.337  -47.2%    174.863   92.337  -47.2%    174.863   92.337  -47.2%
+                 typing-100k/completion     56.996   12.975  -77.2%    120.065   23.404  -80.5%    128.137   28.140  -78.0%
+        typing-100k/semanticTokens/full     74.625   34.517  -53.7%    153.408   43.799  -71.4%    155.343   45.061  -71.0%
+             typing-100k/documentSymbol     48.615   21.025  -56.8%    116.309   23.986  -79.4%    121.888   24.715  -79.7%
+               typing-100k/foldingRange     12.348    1.900  -84.6%     17.760    2.209  -87.6%     19.416    2.363  -87.8%
+                typing-100k/burst-drain  59272.536  216.253  -99.6%  59272.536  216.253  -99.6%  59272.536  216.253  -99.6%
+  typing-100k/burst-last-semanticTokens  13024.248  210.660  -98.4%  13024.248  210.660  -98.4%  13024.248  210.660  -98.4%
+             workspace/references-first     34.043   13.487  -60.4%     34.043   13.487  -60.4%     34.043   13.487  -60.4%
+                   workspace/references      0.927    0.362  -60.9%      1.272    0.496  -61.0%      1.471    0.662  -55.0%
+                   workspace/definition      0.117    0.129  +10.3%      0.171    0.202  +18.1%      0.182    0.238  +30.8%
+                   workspace/completion      0.736    0.785   +6.7%      0.961    1.065  +10.8%      1.734    1.952  +12.6%
+                 tree/open-all->settled    156.502  153.644   -1.8%    156.502  153.644   -1.8%    156.502  153.644   -1.8%
+              tree/didSave->diagnostics     15.562   15.754   +1.2%     17.305   19.400  +12.1%     18.932   20.799   +9.9%
+                         tree/inlayHint      0.388    0.262  -32.5%      1.556    1.014  -34.8%      1.583    1.214  -23.3%
+
+                        value      unit     old     new   delta
+                cold/peak-rss        kB   25872   19900  -23.1%
+            fixtures/peak-rss        kB   23400   21284   -9.0%
+    typing-20k/burst-answered  requests     500       1  -99.8%
+   typing-20k/burst-cancelled  requests       0     499     new
+          typing-20k/peak-rss        kB   69596   35772  -48.6%
+   typing-100k/burst-answered  requests     500       1  -99.8%
+  typing-100k/burst-cancelled  requests       0     499     new
+         typing-100k/peak-rss        kB  323468  108656  -66.4%
+           workspace/peak-rss        kB   67144   70352   +4.8%
+                   tree/files     files      18      18   +0.0%
+           tree/save-timeouts     saves       0       0      0%
+                tree/peak-rss        kB   34900   30364  -13.0%
+
+only in the new report: typing-20k/semanticTokens/full/delta, typing-100k/semanticTokens/full/delta

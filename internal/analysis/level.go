@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"sync"
 
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
@@ -82,32 +83,86 @@ func regNumber(name string) int {
 	return n
 }
 
-// selectForms narrows inst's forms to the family. When nothing matches (the
-// data has no form of that family, or the operands are wrong for the
-// mnemonic), every form is used: the assembler will report a mismatch
-// better than a guess here could.
-func selectForms(forms []isa.Form, fam family) []isa.Form {
-	var out []isa.Form
-	for _, f := range forms {
-		ops := strings.ToLower(f.Operands)
-		set := strings.ToUpper(f.ISASet)
-		var keep bool
-		switch fam {
-		case famAVX512:
-			keep = strings.HasPrefix(set, "AVX512")
-		case famYMM:
-			keep = strings.Contains(ops, "ymm")
-		default:
-			keep = !strings.Contains(ops, "zmm") && !strings.Contains(ops, "{k}") && !strings.HasPrefix(set, "AVX512")
-		}
-		if keep {
-			out = append(out, f)
+// formInFamily reports whether a form belongs to the operand family.
+//
+// It is a predicate rather than a filtered copy: levelCheck runs for every
+// instruction of a document, and copying the forms of mov and friends was
+// most of what an analysis allocated.
+func formInFamily(f *isa.Form, fam family) bool {
+	ops := strings.ToLower(f.Operands)
+	set := strings.ToUpper(f.ISASet)
+	switch fam {
+	case famAVX512:
+		return strings.HasPrefix(set, "AVX512")
+	case famYMM:
+		return strings.Contains(ops, "ymm")
+	default:
+		return !strings.Contains(ops, "zmm") && !strings.Contains(ops, "{k}") && !strings.HasPrefix(set, "AVX512")
+	}
+}
+
+// selectForms narrows inst's forms to the family and returns the
+// lowest-level form with a known level (nil if none) and the first selected
+// form, which names the ISA set when no level is known. When nothing
+// matches (the data has no form of that family, or the operands are wrong
+// for the mnemonic), every form is used: the assembler will report a
+// mismatch better than a guess here could.
+func selectForms(forms []isa.Form, fam family) (best, first *isa.Form) {
+	for pass := 0; pass < 2 && first == nil; pass++ {
+		for i := range forms {
+			f := &forms[i]
+			if pass == 0 && !formInFamily(f, fam) {
+				continue
+			}
+			if first == nil {
+				first = f
+			}
+			if f.Level > 0 && (best == nil || f.Level < best.Level) {
+				best = f
+			}
 		}
 	}
-	if len(out) == 0 {
-		return forms
+	return best, first
+}
+
+// familyForms caches selectForms per instruction and family: instructions
+// are immutable once the tables load, and classifying every form of mov on
+// every mov of a document was most of an analysis' time. Indexes are -1
+// when there is no such form.
+type familyForms struct {
+	best, first [famAVX512 + 1]int
+}
+
+var formCache sync.Map // *isa.Instruction -> *familyForms
+
+func cachedForms(inst *isa.Instruction, fam family) (best, first *isa.Form) {
+	v, ok := formCache.Load(inst)
+	if !ok {
+		ff := &familyForms{}
+		for f := famPlain; f <= famAVX512; f++ {
+			b, fi := selectForms(inst.Forms, f)
+			ff.best[f], ff.first[f] = formIndex(inst.Forms, b), formIndex(inst.Forms, fi)
+		}
+		v, _ = formCache.LoadOrStore(inst, ff)
 	}
-	return out
+	ff := v.(*familyForms)
+	if i := ff.best[fam]; i >= 0 {
+		best = &inst.Forms[i]
+	}
+	if i := ff.first[fam]; i >= 0 {
+		first = &inst.Forms[i]
+	}
+	return best, first
+}
+
+// formIndex finds f's index in forms, which it points into.
+func formIndex(forms []isa.Form, f *isa.Form) int {
+	for i := range forms {
+		if &forms[i] == f {
+			return i
+		}
+	}
+	return -1
 }
 
 // levelCheck compares the cheapest form the operands allow with the target.
@@ -118,16 +173,10 @@ func (a *analyzer) levelCheck(stmt []lexer.Token, mi int, inst *isa.Instruction,
 		return
 	}
 	fam, phrase := operandFamily(stmt, mi)
-	forms := selectForms(inst.Forms, fam)
-	var best *isa.Form
-	for i := range forms {
-		if forms[i].Level > 0 && (best == nil || forms[i].Level < best.Level) {
-			best = &forms[i]
-		}
-	}
+	best, first := cachedForms(inst, fam)
 	m := stmt[mi]
 	if best == nil {
-		if set := forms[0].ISASet; set != "" {
+		if set := first.ISASet; set != "" {
 			a.report(m, protocol.SeverityInformation, CodeLevelOutside, fmt.Sprintf(
 				"%s%s is outside the x86-64 level scheme: requires %s", word, phrase, setName(set, 0)))
 		}
@@ -185,6 +234,11 @@ func levelOverride(toks []lexer.Token) (isa.Level, int, bool) {
 const overrideTag = "falcon-asm:"
 
 func parseOverride(comment string) (isa.Level, bool) {
+	// Every comment of a document comes through here; lowering each one to
+	// look for a tag almost none contain allocated per comment.
+	if !containsFold(comment, overrideTag) {
+		return 0, false
+	}
 	s := strings.ToLower(comment)
 	for {
 		i := strings.Index(s, overrideTag)
@@ -210,6 +264,17 @@ func parseOverride(comment string) (isa.Level, bool) {
 			return l, true
 		}
 	}
+}
+
+// containsFold reports whether s contains the lowercase ASCII tag, ignoring
+// ASCII case, without allocating.
+func containsFold(s, tag string) bool {
+	for i := 0; i+len(tag) <= len(s); i++ {
+		if s[i]|0x20 == tag[0] && strings.EqualFold(s[i:i+len(tag)], tag) {
+			return true
+		}
+	}
+	return false
 }
 
 func levelValue(v string) (isa.Level, bool) {

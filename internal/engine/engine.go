@@ -290,27 +290,38 @@ func languageOf(uri, languageID string) lang {
 
 // flagsFor resolves path's compile flags: the database from initialize,
 // else the nearest one above the file, cached per directory so a project's
-// files share one load. Called with mu held; FindDB only stats and reads
-// small files.
-func (e *Engine) flagsForLocked(path string) (toolchain.Flags, bool) {
+// files share one load. It takes the lock only to read and fill the cache:
+// FindDB walks the directory tree and parses whatever database it finds,
+// which for a large project is megabytes of JSON, and toolchain results and
+// debounced publishes wait on the same lock. A *DB is read-only once
+// loaded, so Flags needs no lock either.
+func (e *Engine) flagsFor(path string) (toolchain.Flags, bool) {
+	dir := filepath.Dir(path)
+	e.mu.Lock()
 	db := e.db
+	cached := true
 	if db == nil {
-		dir := filepath.Dir(path)
-		var ok bool
-		if db, ok = e.found[dir]; !ok {
-			found, err := e.cfg.FindDB(path)
-			if err != nil {
-				found = nil
-			}
-			e.found[dir] = found
-			db = found
+		db, cached = e.found[dir]
+	}
+	e.mu.Unlock()
+	if !cached {
+		found, err := e.cfg.FindDB(path)
+		if err != nil {
+			found = nil
 		}
+		e.mu.Lock()
+		// Two opens in one directory may both have searched; the first
+		// result stays, so every file there shares one database.
+		if prev, ok := e.found[dir]; ok {
+			found = prev
+		} else {
+			e.found[dir] = found
+		}
+		e.mu.Unlock()
+		db = found
 	}
 	if db == nil {
-		if !e.logged["nodb"] {
-			e.logged["nodb"] = true
-			e.log.Printf("no %s found for %s; toolchain features are off for files without one", toolchain.DBFile, path)
-		}
+		e.logOnce("nodb", "no %s found for %s; toolchain features are off for files without one", toolchain.DBFile, path)
 		return toolchain.Flags{}, false
 	}
 	return db.Flags(path)
@@ -321,13 +332,11 @@ func (e *Engine) Open(doc *docstore.Document, languageID string) {
 	st := &docState{uri: doc.URI, lang: languageOf(doc.URI, languageID), doc: doc, asmVersion: -1}
 	if p, ok := toolchain.URIToPath(doc.URI); ok {
 		st.path = p
+		st.flags, st.hasFlags = e.flagsFor(p)
 	}
 	e.mu.Lock()
 	if old := e.docs[doc.URI]; old != nil && old.timer != nil {
 		old.timer.Stop()
-	}
-	if st.path != "" {
-		st.flags, st.hasFlags = e.flagsForLocked(st.path)
 	}
 	e.docs[doc.URI] = st
 	snap := e.snapshotLocked(st)
@@ -411,11 +420,14 @@ func (e *Engine) Shutdown() {
 
 // updateIndex feeds the symbol index. C sources are not assembly and would
 // only add noise; their headers reach the index through assembly includes.
+// Nothing is computed here: the index asks the snapshot for its parse and
+// includes on the first query that needs them, so a keystroke costs no
+// tokenizing, scanning or include resolution.
 func (e *Engine) updateIndex(st *docState, snap *snapshot) {
 	if st.lang != langAsm {
 		return
 	}
-	e.index.Update(st.uri, snap.doc.Text, snap.includes())
+	e.index.UpdateLazy(st.uri, func() (*symbols.File, []string) { return snap.symbols(), snap.includes() })
 }
 
 // sortedKeys returns m's keys in order, for deterministic publishing.

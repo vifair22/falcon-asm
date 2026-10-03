@@ -113,18 +113,20 @@ func userFacing(err error) error {
 
 // DocumentSymbols implements server.Engine.
 func (e *Engine) DocumentSymbols(doc *docstore.Document) []protocol.DocumentSymbol {
-	if e.snapshotFor(doc).lang == langC {
+	s := e.snapshotFor(doc)
+	if s.lang == langC {
 		return nil
 	}
-	return symbols.DocumentSymbols(doc)
+	return s.symbols().DocumentSymbols()
 }
 
 // FoldingRanges implements server.Engine.
 func (e *Engine) FoldingRanges(doc *docstore.Document) []protocol.FoldingRange {
-	if e.snapshotFor(doc).lang == langC {
+	s := e.snapshotFor(doc)
+	if s.lang == langC {
 		return nil
 	}
-	return symbols.FoldingRanges(doc)
+	return symbols.FoldingRangesTokens(s.tokens())
 }
 
 // Completion implements server.Engine.
@@ -135,6 +137,7 @@ func (e *Engine) Completion(doc *docstore.Document, pos protocol.Position) *prot
 	}
 	return completion.Complete(doc, pos, completion.Context{
 		Mode:   s.modeAt(pos.Line),
+		Tokens: s.tokens(),
 		Labels: e.index.Labels,
 		Macros: func() []string { return mergeNames(e.index.Macros(), projectMacros(s.macros)) },
 	})

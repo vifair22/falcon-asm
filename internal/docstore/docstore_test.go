@@ -2,6 +2,7 @@ package docstore
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -385,5 +386,37 @@ func TestStoreConcurrent(t *testing.T) {
 	d, _ := s.Get(uri)
 	if got := strings.Count(d.Text, "\n"); got != 400 {
 		t.Fatalf("lost edits: %d lines, want 400", got)
+	}
+}
+
+// TestEditLineIndex checks the patched line index against a full rebuild
+// over many random edits, with every terminator kind and edits that split
+// and join "\r\n" pairs.
+func TestEditLineIndex(t *testing.T) {
+	alphabet := []string{"a", "b", "\n", "\r", "\r\n", "xy", "", "\n\n", "\r\r"}
+	seed := uint64(1)
+	rnd := func(n int) int {
+		seed = seed*6364136223846793005 + 1442695040888963407
+		return int((seed >> 33) % uint64(n))
+	}
+	for trial := range 300 {
+		var b strings.Builder
+		for range rnd(40) {
+			b.WriteString(alphabet[rnd(len(alphabet))])
+		}
+		d := newDocument("u", 1, b.String())
+		for step := range 30 {
+			start := rnd(len(d.Text) + 1)
+			end := start + rnd(len(d.Text)-start+1)
+			var ins strings.Builder
+			for range rnd(4) {
+				ins.WriteString(alphabet[rnd(len(alphabet))])
+			}
+			d = d.edit(step+2, start, end, ins.String())
+			want := lineStarts(d.Text)
+			if !slices.Equal(d.lineStarts, want) {
+				t.Fatalf("trial %d step %d: text %q\ngot  %v\nwant %v", trial, step, d.Text, d.lineStarts, want)
+			}
+		}
 	}
 }

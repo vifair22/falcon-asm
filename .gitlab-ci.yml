@@ -82,6 +82,22 @@ analyze:data:
   script:
     - go test -run 'TestEmbeddedData' ./internal/isa/...
 
+# Benchmarks are informational: shared runners are too noisy to gate on, but
+# the kept output is a series to compare across commits with benchstat (see
+# docs/BENCHMARKS.md). A short benchtime keeps the job to a few minutes.
+bench:go:
+  stage: analyze
+  image: $GO_IMAGE
+  needs: []
+  allow_failure: true
+  script:
+    - make bench BENCH_TIME=200ms
+  artifacts:
+    when: always
+    paths:
+      - build/bench/
+    expire_in: 4 weeks
+
 #-------------------------------------------------------------------------------
 # coverage
 

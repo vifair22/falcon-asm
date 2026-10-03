@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"git.airies.net/vifair22/falcon-asm/internal/benchdata"
 )
 
 // tk is the compact form tests compare against: kind plus text, ignoring
@@ -532,5 +534,16 @@ func BenchmarkTokenizeFixtures(b *testing.B) {
 		for _, src := range fx {
 			Tokenize(src)
 		}
+	}
+}
+
+// BenchmarkTokenizeLarge lexes a 20k-line document, the size where the
+// token slice is large enough for its allocation to matter.
+func BenchmarkTokenizeLarge(b *testing.B) {
+	src := benchdata.Large(b, 20000)
+	b.SetBytes(int64(len(src)))
+	b.ReportAllocs()
+	for b.Loop() {
+		Tokenize(src)
 	}
 }

@@ -4,9 +4,11 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
+	"git.airies.net/vifair22/falcon-asm/internal/benchdata"
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
@@ -626,5 +628,29 @@ func TestAnalyzeTokensMatchesAnalyze(t *testing.T) {
 	got := AnalyzeTokens(doc, lexer.Tokenize(doc.Text), Config{InitialMode: Mode32})
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("AnalyzeTokens = %+v\nAnalyze = %+v", got, want)
+	}
+}
+
+// TestModeAtLineMatchesAnalysis holds the modes-only walk to the full
+// analysis' table on every fixture and on inputs where macros, cpp lines and
+// statements share lines with mode switches.
+func TestModeAtLineMatchesAnalysis(t *testing.T) {
+	srcs := []string{
+		".code16\n\tmovw %ax, %bx\n.code32\n\tmovl %eax, %ebx\n.code64\n",
+		".macro M\n.code32\n.endm\n\tM\n.code16; nop\nlbl: .code32\n#define X .code64\nX\n",
+		".macro A\n.macro B\n.endm\n.code32\n.endm\n.code64\n#if 0\n.code16\n#endif\n",
+		"/* .code16 */\n.code32 # .code16\n\t.code16gcc\n",
+		"",
+	}
+	srcs = append(srcs, benchdata.Fixtures(t)...)
+	for i, src := range srcs {
+		doc := &docstore.Document{Text: src}
+		toks := lexer.Tokenize(src)
+		for _, cfg := range []Config{{}, {InitialMode: Mode16, Level: 3}, {InitialMode: Mode32, Macros: map[string]string{"M": ""}}} {
+			want := AnalyzeTokens(doc, toks, cfg).ModeAtLine
+			if got := ModeAtLine(doc, toks, cfg); !slices.Equal(got, want) {
+				t.Errorf("source %d, cfg %+v:\ngot  %v\nwant %v", i, cfg, got, want)
+			}
+		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"git.airies.net/vifair22/falcon-asm/internal/inlineasm"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
+	"git.airies.net/vifair22/falcon-asm/internal/symbols"
 	"git.airies.net/vifair22/falcon-asm/internal/toolchain"
 )
 
@@ -34,8 +35,14 @@ type snapshot struct {
 	anOnce sync.Once
 	an     analysis.Result
 
+	modesOnce sync.Once
+	modes     []analysis.Mode
+
 	stmtsOnce sync.Once
 	stmts     []inlineasm.Stmt
+
+	symOnce sync.Once
+	sym     *symbols.File
 
 	diagOnce sync.Once
 	diags    []protocol.Diagnostic
@@ -99,6 +106,13 @@ func (s *snapshot) tokens() []lexer.Token {
 	return s.toks
 }
 
+// symbols is the symbol parse of the version, shared by the index, the
+// outline and every query that needs one.
+func (s *snapshot) symbols() *symbols.File {
+	s.symOnce.Do(func() { s.sym = symbols.Parse(s.doc.URI, s.doc.Text, s.tokens()) })
+	return s.sym
+}
+
 func (s *snapshot) analysis() analysis.Result {
 	s.anOnce.Do(func() { s.an = analysis.AnalyzeTokens(s.doc, s.tokens(), s.cfg) })
 	return s.an
@@ -122,9 +136,12 @@ func (s *snapshot) diagnostics() []protocol.Diagnostic {
 	return s.diags
 }
 
-// modeAt is the code size in effect at the start of line.
+// modeAt is the code size in effect at the start of line. It uses the
+// modes-only walk rather than the full analysis: completion asks on every
+// keystroke, and the analysis is wanted only by the debounced publish.
 func (s *snapshot) modeAt(line int) int {
-	m := s.analysis().ModeAtLine
+	s.modesOnce.Do(func() { s.modes = analysis.ModeAtLine(s.doc, s.tokens(), s.cfg) })
+	m := s.modes
 	if line >= 0 && line < len(m) {
 		return int(m[line])
 	}

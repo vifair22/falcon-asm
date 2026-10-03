@@ -12,6 +12,12 @@
 # make vscode     build and package the VS Code client (.vsix)
 # make install    install the server into $(PREFIX)/bin
 # make xed-data   regenerate internal/isa/data/xed.json from pinned upstreams
+# make bench      Go microbenchmarks into build/bench/bench.txt
+# make lspbench   end-to-end LSP benchmark into build/bench/lspbench.{txt,json}
+
+# pipefail so a failing benchmark is not hidden behind tee's exit status.
+SHELL       := /bin/bash
+.SHELLFLAGS := -o pipefail -c
 
 VARIANT     ?= release
 PREFIX      ?= $(HOME)/.local
@@ -21,6 +27,18 @@ COVERAGE_MIN ?= 80
 BUILD_DIR   := build
 BIN_DIR     := $(BUILD_DIR)/bin
 COV_DIR     := $(BUILD_DIR)/coverage
+BENCH_DIR   := $(BUILD_DIR)/bench
+
+# Benchmark knobs: BENCH selects benchmarks (a go test -bench regexp),
+# BENCH_COUNT > 1 gives benchstat enough samples, LSPBENCH_ARGS passes
+# flags to tools/lspbench (e.g. -root=../airies-boot -scenarios=typing).
+BENCH         ?= .
+BENCH_COUNT   ?= 1
+BENCH_TIME    ?= 1s
+LSPBENCH_ARGS ?=
+# Only packages that define benchmarks, so a run does not build and start
+# a test binary per package for nothing.
+BENCH_PKGS := $(sort $(patsubst %/,./%,$(dir $(shell grep -rl --include='*_test.go' '^func Benchmark' internal cmd tools))))
 
 VERSION      := $(shell tr -d '\n' < release_version)
 BUILD_STAMP  := $(shell date -u +%Y%m%d.%H%M)
@@ -38,7 +56,7 @@ SERVER_BIN := $(BIN_DIR)/falcon-asm
 
 .DEFAULT_GOAL := all
 .PHONY: all server test test-junit coverage analyze check vscode install \
-        uninstall xed-data clean version
+        uninstall xed-data clean version bench lspbench
 
 all: server
 
@@ -48,7 +66,7 @@ version:
 server: | $(BIN_DIR)
 	$(GO) build $(GO_FLAGS) -ldflags '$(GO_LDFLAGS)' -o $(SERVER_BIN) ./cmd/falcon-asm
 
-$(BIN_DIR) $(COV_DIR):
+$(BIN_DIR) $(COV_DIR) $(BENCH_DIR):
 	mkdir -p $@
 
 test:
@@ -71,6 +89,16 @@ analyze:
 
 check:
 	ascii-check -r .
+
+# Output is kept whole (tee) so two runs can be compared with benchstat.
+bench: | $(BENCH_DIR)
+	$(GO) test -run='^$$' -bench='$(BENCH)' -benchmem -count=$(BENCH_COUNT) \
+	    -benchtime=$(BENCH_TIME) $(BENCH_PKGS) | tee $(BENCH_DIR)/bench.txt
+
+lspbench: server | $(BENCH_DIR)
+	$(GO) build -o $(BIN_DIR)/lspbench ./tools/lspbench
+	$(BIN_DIR)/lspbench -server $(SERVER_BIN) -json $(BENCH_DIR)/lspbench.json \
+	    $(LSPBENCH_ARGS) | tee $(BENCH_DIR)/lspbench.txt
 
 vscode:
 	cd editors/vscode && npm ci && npm test && npm run package

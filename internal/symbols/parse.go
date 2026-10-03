@@ -48,10 +48,15 @@ type def struct {
 // file is an immutable parse of one document. The index replaces a file
 // wholesale on change, so readers can hold one without locking.
 type file struct {
-	uri   string
-	key   string // filesystem path for file URIs, the URI otherwise
-	lines []string
-	toks  []lexer.Token
+	uri  string
+	key  string // filesystem path for file URIs, the URI otherwise
+	text string
+	// starts are the byte offsets of the lexer's lines ('\n' only). Kept
+	// instead of a []string of lines: a large document has a hundred
+	// thousand of them, and string headers are pointers the collector has
+	// to scan on every cycle while the file is live.
+	starts []int
+	toks   []lexer.Token
 
 	defs     []def
 	byName   map[string][]int // name -> indexes into defs
@@ -85,11 +90,18 @@ func isCHeader(key string) bool {
 
 // parse indexes text. uri is kept for locations; the key is derived from it.
 func parse(uri, text string, cHeader bool) *file {
+	return parseTokens(uri, text, lexer.Tokenize(text), cHeader)
+}
+
+// parseTokens is parse with the token stream supplied, so a document the
+// engine has already tokenized is not tokenized again.
+func parseTokens(uri, text string, toks []lexer.Token, cHeader bool) *file {
 	f := &file{
 		uri:     uri,
 		key:     uriKey(uri),
-		lines:   strings.Split(text, "\n"),
-		toks:    lexer.Tokenize(text),
+		text:    text,
+		starts:  lexLineStarts(text),
+		toks:    toks,
 		byName:  make(map[string][]int),
 		occs:    make(map[string][]span),
 		globals: make(map[string]bool),
@@ -97,6 +109,49 @@ func parse(uri, text string, cHeader bool) *file {
 	}
 	f.scan()
 	return f
+}
+
+// File is a parsed document, shared between the index and the outline so
+// one document version is scanned once.
+type File struct {
+	f *file
+}
+
+// Parse parses an open document whose tokens the caller already has
+// (lexer.Tokenize(text); nil means tokenize here). Whether it is a C header
+// follows from the URI, as for Update.
+func Parse(uri, text string, toks []lexer.Token) *File {
+	if toks == nil {
+		toks = lexer.Tokenize(text)
+	}
+	return &File{f: parseTokens(uri, text, toks, isCHeader(uriKey(uri)))}
+}
+
+// lexLineStarts records where each '\n'-terminated line begins.
+func lexLineStarts(text string) []int {
+	starts := make([]int, 1, strings.Count(text, "\n")+1)
+	for i := 0; ; {
+		j := strings.IndexByte(text[i:], '\n')
+		if j < 0 {
+			return starts
+		}
+		i += j + 1
+		starts = append(starts, i)
+	}
+}
+
+// lineCount is the number of lexer lines, as strings.Split would count them.
+func (f *file) lineCount() int { return len(f.starts) }
+
+// line returns lexer line n without its '\n'; "" when out of range.
+func (f *file) line(n int) string {
+	if n < 0 || n >= len(f.starts) {
+		return ""
+	}
+	if n+1 < len(f.starts) {
+		return f.text[f.starts[n] : f.starts[n+1]-1]
+	}
+	return f.text[f.starts[n]:]
 }
 
 func (f *file) addDef(d def) {
@@ -258,7 +313,7 @@ func (f *file) restOfStatement(i int) string {
 	if start < 0 {
 		return ""
 	}
-	s := strings.TrimSpace(f.lines[line][start:end])
+	s := strings.TrimSpace(f.line(line)[start:end])
 	s = strings.TrimSpace(strings.TrimPrefix(s, ","))
 	return strings.TrimSpace(strings.TrimPrefix(s, "="))
 }
@@ -402,10 +457,10 @@ func tokenAt(toks []lexer.Token, line, col int) int {
 // Lexer lines split at '\n' only; a lone '\r' line break (classic Mac) is
 // the documented lexer limit and shifts lines the same way everywhere.
 func (f *file) byteCol(pos protocol.Position) (line, col int, ok bool) {
-	if pos.Line < 0 || pos.Line >= len(f.lines) || pos.Character < 0 {
+	if pos.Line < 0 || pos.Line >= f.lineCount() || pos.Character < 0 {
 		return 0, 0, false
 	}
-	s := f.lines[pos.Line]
+	s := f.line(pos.Line)
 	units, i := 0, 0
 	for i < len(s) && units < pos.Character {
 		r, size := utf8.DecodeRuneInString(s[i:])
@@ -425,10 +480,7 @@ func (f *file) byteCol(pos protocol.Position) (line, col int, ok bool) {
 // rng converts a byte span to an LSP range, measuring the line prefix so
 // multi-byte text earlier on the line keeps columns right.
 func (f *file) rng(s span) protocol.Range {
-	text := ""
-	if s.line < len(f.lines) {
-		text = f.lines[s.line]
-	}
+	text := f.line(s.line)
 	end := min(s.col+s.n, len(text))
 	start := min(s.col, end)
 	sc := docstore.UTF16Len(text[:start])
@@ -444,10 +496,10 @@ func (f *file) loc(s span) protocol.Location {
 
 // lineEnd is the UTF-16 length of a line, for ranges that run to its end.
 func (f *file) lineEnd(line int) int {
-	if line < 0 || line >= len(f.lines) {
+	if line < 0 || line >= f.lineCount() {
 		return 0
 	}
-	return docstore.UTF16Len(strings.TrimRight(f.lines[line], "\r"))
+	return docstore.UTF16Len(strings.TrimRight(f.line(line), "\r"))
 }
 
 // uriKey maps a file URI to a clean filesystem path so an open document and

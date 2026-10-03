@@ -1,0 +1,398 @@
+{
+  "env": {
+    "go_version": "go1.26.7-X:nodwarf5",
+    "cpu": "AMD Ryzen 9 5900XT 16-Core Processor",
+    "kernel": "7.2.7-cachyos-gentoo-dist-mono",
+    "server": "falcon-asm 0.2.0_20261003.0704.release (built 20261003.0704)",
+    "date": "2026-10-03T07:04:35Z"
+  },
+  "latencies": [
+    {
+      "name": "cold/spawn-\u003einitialize",
+      "count": 10,
+      "p50_ms": 1.581,
+      "p95_ms": 2.211,
+      "p99_ms": 2.211,
+      "max_ms": 2.211,
+      "mean_ms": 1.677
+    },
+    {
+      "name": "cold/spawn-\u003esemanticTokens-20k",
+      "count": 10,
+      "p50_ms": 23.213,
+      "p95_ms": 23.519,
+      "p99_ms": 23.519,
+      "max_ms": 23.519,
+      "mean_ms": 22.813,
+      "mean_bytes": 470474
+    },
+    {
+      "name": "fixtures/semanticTokens/full",
+      "count": 42,
+      "p50_ms": 0.076,
+      "p95_ms": 0.217,
+      "p99_ms": 0.306,
+      "max_ms": 0.306,
+      "mean_ms": 0.1,
+      "mean_bytes": 4716
+    },
+    {
+      "name": "fixtures/definition",
+      "count": 66,
+      "p50_ms": 0.033,
+      "p95_ms": 0.103,
+      "p99_ms": 1.619,
+      "max_ms": 1.619,
+      "mean_ms": 0.067,
+      "mean_bytes": 185
+    },
+    {
+      "name": "fixtures/references",
+      "count": 43,
+      "p50_ms": 0.037,
+      "p95_ms": 0.059,
+      "p99_ms": 0.12,
+      "max_ms": 0.12,
+      "mean_ms": 0.042,
+      "mean_bytes": 463
+    },
+    {
+      "name": "fixtures/hover",
+      "count": 92,
+      "p50_ms": 0.029,
+      "p95_ms": 0.055,
+      "p99_ms": 0.129,
+      "max_ms": 0.129,
+      "mean_ms": 0.034,
+      "mean_bytes": 278
+    },
+    {
+      "name": "fixtures/completion",
+      "count": 371,
+      "p50_ms": 0.066,
+      "p95_ms": 0.195,
+      "p99_ms": 0.344,
+      "max_ms": 1.206,
+      "mean_ms": 0.084,
+      "mean_bytes": 10737
+    },
+    {
+      "name": "fixtures/documentSymbol",
+      "count": 42,
+      "p50_ms": 0.04,
+      "p95_ms": 0.069,
+      "p99_ms": 0.082,
+      "max_ms": 0.082,
+      "mean_ms": 0.044,
+      "mean_bytes": 3420
+    },
+    {
+      "name": "fixtures/foldingRange",
+      "count": 42,
+      "p50_ms": 0.027,
+      "p95_ms": 0.046,
+      "p99_ms": 0.112,
+      "max_ms": 0.112,
+      "mean_ms": 0.032,
+      "mean_bytes": 337
+    },
+    {
+      "name": "fixtures/inlayHint",
+      "count": 42,
+      "p50_ms": 0.025,
+      "p95_ms": 0.034,
+      "p99_ms": 0.043,
+      "max_ms": 0.043,
+      "mean_ms": 0.026,
+      "mean_bytes": 40
+    },
+    {
+      "name": "typing-20k/open+semanticTokens",
+      "count": 1,
+      "p50_ms": 20.803,
+      "p95_ms": 20.803,
+      "p99_ms": 20.803,
+      "max_ms": 20.803,
+      "mean_ms": 20.803,
+      "mean_bytes": 470474
+    },
+    {
+      "name": "typing-20k/completion",
+      "count": 360,
+      "p50_ms": 2.936,
+      "p95_ms": 5.435,
+      "p99_ms": 5.928,
+      "max_ms": 6.44,
+      "mean_ms": 3.339,
+      "mean_bytes": 6109
+    },
+    {
+      "name": "typing-20k/semanticTokens/full/delta",
+      "count": 50,
+      "p50_ms": 5.987,
+      "p95_ms": 7.987,
+      "p99_ms": 8.338,
+      "max_ms": 8.338,
+      "mean_ms": 6.362,
+      "mean_bytes": 129
+    },
+    {
+      "name": "typing-20k/semanticTokens/full",
+      "count": 50,
+      "p50_ms": 7.307,
+      "p95_ms": 8.96,
+      "p99_ms": 9.25,
+      "max_ms": 9.25,
+      "mean_ms": 7.414,
+      "mean_bytes": 471068
+    },
+    {
+      "name": "typing-20k/documentSymbol",
+      "count": 20,
+      "p50_ms": 3.747,
+      "p95_ms": 4.159,
+      "p99_ms": 4.341,
+      "max_ms": 4.341,
+      "mean_ms": 3.45,
+      "mean_bytes": 357245
+    },
+    {
+      "name": "typing-20k/foldingRange",
+      "count": 20,
+      "p50_ms": 0.479,
+      "p95_ms": 0.595,
+      "p99_ms": 0.596,
+      "max_ms": 0.596,
+      "mean_ms": 0.494,
+      "mean_bytes": 33007
+    },
+    {
+      "name": "typing-20k/burst-drain",
+      "count": 1,
+      "p50_ms": 53.792,
+      "p95_ms": 53.792,
+      "p99_ms": 53.792,
+      "max_ms": 53.792,
+      "mean_ms": 53.792
+    },
+    {
+      "name": "typing-20k/burst-last-semanticTokens",
+      "count": 1,
+      "p50_ms": 45.512,
+      "p95_ms": 45.512,
+      "p99_ms": 45.512,
+      "max_ms": 45.512,
+      "mean_ms": 45.512,
+      "mean_bytes": 472787
+    },
+    {
+      "name": "typing-100k/open+semanticTokens",
+      "count": 1,
+      "p50_ms": 92.337,
+      "p95_ms": 92.337,
+      "p99_ms": 92.337,
+      "max_ms": 92.337,
+      "mean_ms": 92.337,
+      "mean_bytes": 2348185
+    },
+    {
+      "name": "typing-100k/completion",
+      "count": 360,
+      "p50_ms": 12.975,
+      "p95_ms": 23.404,
+      "p99_ms": 27.406,
+      "max_ms": 28.14,
+      "mean_ms": 14.693,
+      "mean_bytes": 6553
+    },
+    {
+      "name": "typing-100k/semanticTokens/full/delta",
+      "count": 50,
+      "p50_ms": 28.265,
+      "p95_ms": 39.221,
+      "p99_ms": 40.585,
+      "max_ms": 40.585,
+      "mean_ms": 30.48,
+      "mean_bytes": 129
+    },
+    {
+      "name": "typing-100k/semanticTokens/full",
+      "count": 50,
+      "p50_ms": 34.517,
+      "p95_ms": 43.799,
+      "p99_ms": 45.061,
+      "max_ms": 45.061,
+      "mean_ms": 35.913,
+      "mean_bytes": 2348779
+    },
+    {
+      "name": "typing-100k/documentSymbol",
+      "count": 20,
+      "p50_ms": 21.025,
+      "p95_ms": 23.986,
+      "p99_ms": 24.715,
+      "max_ms": 24.715,
+      "mean_ms": 20.353,
+      "mean_bytes": 1805783
+    },
+    {
+      "name": "typing-100k/foldingRange",
+      "count": 20,
+      "p50_ms": 1.9,
+      "p95_ms": 2.209,
+      "p99_ms": 2.363,
+      "max_ms": 2.363,
+      "mean_ms": 1.918,
+      "mean_bytes": 166171
+    },
+    {
+      "name": "typing-100k/burst-drain",
+      "count": 1,
+      "p50_ms": 216.253,
+      "p95_ms": 216.253,
+      "p99_ms": 216.253,
+      "max_ms": 216.253,
+      "mean_ms": 216.253
+    },
+    {
+      "name": "typing-100k/burst-last-semanticTokens",
+      "count": 1,
+      "p50_ms": 210.66,
+      "p95_ms": 210.66,
+      "p99_ms": 210.66,
+      "max_ms": 210.66,
+      "mean_ms": 210.66,
+      "mean_bytes": 2350498
+    },
+    {
+      "name": "workspace/references-first",
+      "count": 1,
+      "p50_ms": 13.487,
+      "p95_ms": 13.487,
+      "p99_ms": 13.487,
+      "max_ms": 13.487,
+      "mean_ms": 13.487,
+      "mean_bytes": 64664
+    },
+    {
+      "name": "workspace/references",
+      "count": 60,
+      "p50_ms": 0.362,
+      "p95_ms": 0.496,
+      "p99_ms": 0.662,
+      "max_ms": 0.662,
+      "mean_ms": 0.378,
+      "mean_bytes": 64665
+    },
+    {
+      "name": "workspace/definition",
+      "count": 60,
+      "p50_ms": 0.129,
+      "p95_ms": 0.202,
+      "p99_ms": 0.238,
+      "max_ms": 0.238,
+      "mean_ms": 0.14,
+      "mean_bytes": 165
+    },
+    {
+      "name": "workspace/completion",
+      "count": 60,
+      "p50_ms": 0.785,
+      "p95_ms": 1.065,
+      "p99_ms": 1.952,
+      "max_ms": 1.952,
+      "mean_ms": 0.821,
+      "mean_bytes": 475
+    },
+    {
+      "name": "tree/open-all-\u003esettled",
+      "count": 1,
+      "p50_ms": 153.644,
+      "p95_ms": 153.644,
+      "p99_ms": 153.644,
+      "max_ms": 153.644,
+      "mean_ms": 153.644
+    },
+    {
+      "name": "tree/didSave-\u003ediagnostics",
+      "count": 54,
+      "p50_ms": 15.754,
+      "p95_ms": 19.4,
+      "p99_ms": 20.799,
+      "max_ms": 20.799,
+      "mean_ms": 15.965
+    },
+    {
+      "name": "tree/inlayHint",
+      "count": 54,
+      "p50_ms": 0.262,
+      "p95_ms": 1.014,
+      "p99_ms": 1.214,
+      "max_ms": 1.214,
+      "mean_ms": 0.339,
+      "mean_bytes": 17758
+    }
+  ],
+  "values": [
+    {
+      "name": "cold/peak-rss",
+      "unit": "kB",
+      "value": 19900
+    },
+    {
+      "name": "fixtures/peak-rss",
+      "unit": "kB",
+      "value": 21284
+    },
+    {
+      "name": "typing-20k/burst-answered",
+      "unit": "requests",
+      "value": 1
+    },
+    {
+      "name": "typing-20k/burst-cancelled",
+      "unit": "requests",
+      "value": 499
+    },
+    {
+      "name": "typing-20k/peak-rss",
+      "unit": "kB",
+      "value": 35772
+    },
+    {
+      "name": "typing-100k/burst-answered",
+      "unit": "requests",
+      "value": 1
+    },
+    {
+      "name": "typing-100k/burst-cancelled",
+      "unit": "requests",
+      "value": 499
+    },
+    {
+      "name": "typing-100k/peak-rss",
+      "unit": "kB",
+      "value": 108656
+    },
+    {
+      "name": "workspace/peak-rss",
+      "unit": "kB",
+      "value": 70352
+    },
+    {
+      "name": "tree/files",
+      "unit": "files",
+      "value": 18
+    },
+    {
+      "name": "tree/save-timeouts",
+      "unit": "saves",
+      "value": 0
+    },
+    {
+      "name": "tree/peak-rss",
+      "unit": "kB",
+      "value": 30364
+    }
+  ]
+}

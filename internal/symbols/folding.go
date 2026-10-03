@@ -47,7 +47,12 @@ var cppFamily = blockFamily{
 // new one, the way C editors fold conditionals, so either branch can be
 // hidden on its own. The closing line stays visible.
 func FoldingRanges(doc *docstore.Document) []protocol.FoldingRange {
-	toks := lexer.Tokenize(doc.Text)
+	return FoldingRangesTokens(lexer.Tokenize(doc.Text))
+}
+
+// FoldingRangesTokens is FoldingRanges over a token stream the caller
+// already has; only tokens decide the ranges.
+func FoldingRangesTokens(toks []lexer.Token) []protocol.FoldingRange {
 	var out []protocol.FoldingRange
 	add := func(start, end int, kind string) {
 		if end > start {

@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -48,7 +49,7 @@ type Index struct {
 	read func(path string) (string, error)
 
 	mu    sync.RWMutex
-	open  map[string]*file     // by key
+	open  map[string]*openDoc  // by key
 	disk  map[string]*diskFile // by path
 	roots map[string]time.Time // root -> last scan; zero means never
 
@@ -68,7 +69,7 @@ func NewIndex(read func(path string) (string, error)) *Index {
 	}
 	return &Index{
 		read:        read,
-		open:        make(map[string]*file),
+		open:        make(map[string]*openDoc),
 		disk:        make(map[string]*diskFile),
 		roots:       make(map[string]time.Time),
 		maxFiles:    defaultMaxFiles,
@@ -76,21 +77,63 @@ func NewIndex(read func(path string) (string, error)) *Index {
 	}
 }
 
+// openDoc is an open document whose parse waits for the first query that
+// needs it. An editor sends a didChange per keystroke while index queries
+// (definition, references, operand completion) are rare, so parsing on
+// change meant scanning the whole file per keystroke for nothing.
+type openDoc struct {
+	load func() (*File, []string)
+
+	once sync.Once
+	f    *file
+
+	incOnce sync.Once // the includes are read from disk once per version
+}
+
+// file runs the deferred parse once. The parse may be shared with the
+// outline, so the index keeps its own shallow copy carrying the include
+// list rather than writing into the shared one.
+func (d *openDoc) file() *file {
+	d.once.Do(func() {
+		pf, includes := d.load()
+		cp := *pf.f
+		cp.includes = make([]string, 0, len(includes))
+		for _, p := range includes {
+			cp.includes = append(cp.includes, filepath.Clean(p))
+		}
+		d.f = &cp
+		d.load = nil
+	})
+	return d.f
+}
+
 // Update replaces an open document's text and the absolute paths of the
 // headers it includes (resolved by the caller through the toolchain include
-// directories). Headers are read now, so queries never block on them.
+// directories). The text is parsed, and the headers read, on the first
+// query after the update.
 func (ix *Index) Update(uri, text string, includes []string) {
-	f := parse(uri, text, isCHeader(uriKey(uri)))
-	f.includes = make([]string, 0, len(includes))
-	for _, p := range includes {
-		f.includes = append(f.includes, filepath.Clean(p))
-	}
+	ix.UpdateLazy(uri, func() (*File, []string) { return Parse(uri, text, nil), includes })
+}
+
+// UpdateLazy is Update with the parse and the include list supplied on
+// demand by load, which is called at most once, from whichever query first
+// needs the document. The engine passes the parse of its own cached token
+// stream, so a document version is tokenized once for every feature.
+func (ix *Index) UpdateLazy(uri string, load func() (*File, []string)) {
 	ix.mu.Lock()
-	ix.open[f.key] = f
+	ix.open[uriKey(uri)] = &openDoc{load: load}
 	ix.mu.Unlock()
-	for _, p := range f.includes {
-		ix.loadDisk(p, "")
-	}
+}
+
+// resolveOpen forces an open document's parse and loads its includes.
+func (ix *Index) resolveOpen(d *openDoc) *file {
+	f := d.file()
+	d.incOnce.Do(func() {
+		for _, p := range f.includes {
+			ix.loadDisk(p, "")
+		}
+	})
+	return f
 }
 
 // Remove forgets an open document. A copy on disk under a root is still
@@ -189,8 +232,23 @@ func (ix *Index) scanRoot(root string) {
 	seen := make(map[string]bool, len(paths))
 	for _, p := range paths {
 		seen[p] = true
-		ix.loadDisk(p, root)
 	}
+	// Reading and parsing are independent per file, and the first query
+	// in a large workspace waits for all of them.
+	work := make(chan string)
+	var wg sync.WaitGroup
+	for range min(runtime.GOMAXPROCS(0), len(paths)) {
+		wg.Go(func() {
+			for p := range work {
+				ix.loadDisk(p, root)
+			}
+		})
+	}
+	for _, p := range paths {
+		work <- p
+	}
+	close(work)
+	wg.Wait()
 	ix.mu.Lock()
 	for p, d := range ix.disk {
 		if d.root == root && !seen[p] {
@@ -206,13 +264,30 @@ func (ix *Index) scanRoot(root string) {
 type view struct {
 	files []*file
 	byKey map[string]*file
+	open  map[*file]bool
 }
 
 func (ix *Index) snapshot() *view {
+	// Deferred parses run outside the lock: they can be slow, and loading
+	// an open document's includes takes the write lock.
+	ix.mu.RLock()
+	docs := make(map[string]*openDoc, len(ix.open))
+	for k, d := range ix.open {
+		docs[k] = d
+	}
+	ix.mu.RUnlock()
+	v := &view{open: make(map[*file]bool, len(docs))}
+	opened := make(map[string]*file, len(docs))
+	for k, d := range docs {
+		f := ix.resolveOpen(d)
+		opened[k] = f
+		v.open[f] = true
+	}
+
 	ix.mu.RLock()
 	defer ix.mu.RUnlock()
-	v := &view{byKey: make(map[string]*file, len(ix.open)+len(ix.disk))}
-	for k, f := range ix.open {
+	v.byKey = make(map[string]*file, len(opened)+len(ix.disk))
+	for k, f := range opened {
 		v.byKey[k] = f
 	}
 	for k, d := range ix.disk {
@@ -580,19 +655,13 @@ func validName(name string, kind symKind) error {
 func (ix *Index) Labels() []string {
 	ix.ensureScanned()
 	v := ix.snapshot()
-	ix.mu.RLock()
-	open := make(map[*file]bool, len(ix.open))
-	for _, f := range ix.open {
-		open[f] = true
-	}
-	ix.mu.RUnlock()
 	set := map[string]bool{}
 	for _, f := range v.files {
 		for _, d := range f.defs {
 			if d.kind != kindLabel && d.kind != kindEqu {
 				continue
 			}
-			if open[f] || (d.kind == kindLabel && f.globals[d.name]) {
+			if v.open[f] || (d.kind == kindLabel && f.globals[d.name]) {
 				set[d.name] = true
 			}
 		}
@@ -604,12 +673,6 @@ func (ix *Index) Labels() []string {
 // own and those of headers they include.
 func (ix *Index) Macros() []string {
 	v := ix.snapshot()
-	ix.mu.RLock()
-	var open []*file
-	for _, f := range ix.open {
-		open = append(open, f)
-	}
-	ix.mu.RUnlock()
 	set := map[string]bool{}
 	addFrom := func(f *file) {
 		for _, d := range f.defs {
@@ -618,7 +681,7 @@ func (ix *Index) Macros() []string {
 			}
 		}
 	}
-	for _, f := range open {
+	for f := range v.open {
 		addFrom(f)
 		for _, h := range v.files {
 			if h != f && f.includesFile(h) {

@@ -1,0 +1,311 @@
+goos: linux
+goarch: amd64
+pkg: git.airies.net/vifair22/falcon-asm/internal/analysis
+cpu: AMD Ryzen 9 5900XT 16-Core Processor           
+                 | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                 |            sec/op             |    sec/op     vs base               |
+AnalyzeTokens-32                   12.801m +/- inf (1)   3.316m +/- inf (1)  -74.10% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                 | docs/bench/baseline-bench.txt |       docs/bench/final-bench.txt       |
+                 |              B/s              |      B/s        vs base                |
+AnalyzeTokens-32                   42.81Mi +/- inf (1)   165.26Mi +/- inf (1)  +286.03% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                 | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                 |             B/op              |     B/op       vs base               |
+AnalyzeTokens-32                  16.207Mi +/- inf (1)   1.217Mi +/- inf (1)  -92.49% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                 | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+                 |           allocs/op           |  allocs/op   vs base               |
+AnalyzeTokens-32                   64403.0 +/- inf (1)   390.0 +/- inf (1)  -99.39% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/completion
+                                  | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                                  |            sec/op             |    sec/op     vs base               |
+Complete/register-32                                1127.7u +/- inf (1)   878.2u +/- inf (1)  -22.13% (p=0.008 n=5)
+Complete/mnemonic-32                                1149.9u +/- inf (1)   941.3u +/- inf (1)  -18.15% (p=0.008 n=5)
+Complete/mnemonic-empty-32                           1.532m +/- inf (1)   1.298m +/- inf (1)  -15.30% (p=0.008 n=5)
+Complete/symbol-32                                  1123.9u +/- inf (1)   927.4u +/- inf (1)  -17.48% (p=0.008 n=5)
+Complete/single-line-fast-path-32                    4.974u +/- inf (1)   4.917u +/- inf (1)        ~ (p=0.056 n=5)
+geomean                                              406.6u         345.1u        -15.13%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                                  | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                                  |             B/op              |     B/op       vs base               |
+Complete/register-32                                3.663Mi +/- inf (1)   1.835Mi +/- inf (1)  -49.91% (p=0.008 n=5)
+Complete/mnemonic-32                                3.670Mi +/- inf (1)   1.842Mi +/- inf (1)  -49.82% (p=0.008 n=5)
+Complete/mnemonic-empty-32                          3.956Mi +/- inf (1)   2.128Mi +/- inf (1)  -46.22% (p=0.008 n=5)
+Complete/symbol-32                                  3.660Mi +/- inf (1)   1.831Mi +/- inf (1)  -49.96% (p=0.008 n=5)
+Complete/single-line-fast-path-32                   4.337Ki +/- inf (1)   5.120Ki +/- inf (1)  +18.06% (p=0.008 n=5)
+geomean                                             985.1Ki         594.3Ki        -39.68%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                                  | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                                  |           allocs/op           |  allocs/op   vs base                |
+Complete/register-32                                  64.00 +/- inf (1)   64.00 +/- inf (1)       ~ (p=0.278 n=5)
+Complete/mnemonic-32                                  146.0 +/- inf (1)   146.0 +/- inf (1)       ~ (p=1.000 n=5) (2)
+Complete/mnemonic-empty-32                            790.0 +/- inf (1)   790.0 +/- inf (1)       ~ (p=1.000 n=5) (2)
+Complete/symbol-32                                    21.00 +/- inf (1)   21.00 +/- inf (1)       ~ (p=1.000 n=5) (2)
+Complete/single-line-fast-path-32                     62.00 +/- inf (1)   62.00 +/- inf (1)       ~ (p=1.000 n=5) (2)
+geomean                                               99.21         99.21        +0.00%
+(1) need >= 6 samples for confidence interval at level 0.95
+(2) all samples are equal
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/docstore
+               | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+               |            sec/op             |    sec/op     vs base               |
+Change/20k-32                    667.68u +/- inf (1)   90.24u +/- inf (1)  -86.48% (p=0.008 n=5)
+Change/100k-32                   3091.5u +/- inf (1)   337.6u +/- inf (1)  -89.08% (p=0.008 n=5)
+Position-32                       7.490u +/- inf (1)   7.115u +/- inf (1)        ~ (p=0.151 n=5)
+geomean                           249.1u         60.07u        -75.89%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+               | docs/bench/baseline-bench.txt |       docs/bench/final-bench.txt       |
+               |             B/op              |     B/op       vs base                 |
+Change/20k-32                   1213.3Ki +/- inf (1)   731.9Ki +/- inf (1)  -39.68% (p=0.008 n=5)
+Change/100k-32                   6.638Mi +/- inf (1)   3.499Mi +/- inf (1)  -47.29% (p=0.008 n=5)
+Position-32                        0.000 +/- inf (1)     0.000 +/- inf (1)        ~ (p=1.000 n=5) (2)
+geomean                                      (3)                  -31.75%               (3)
+(1) need >= 6 samples for confidence interval at level 0.95
+(2) all samples are equal
+(3) summaries must be >0 to compute geomean
+
+               | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+               |           allocs/op           |  allocs/op   vs base                 |
+Change/20k-32                     21.000 +/- inf (1)   3.000 +/- inf (1)  -85.71% (p=0.008 n=5)
+Change/100k-32                    28.000 +/- inf (1)   3.000 +/- inf (1)  -89.29% (p=0.008 n=5)
+Position-32                        0.000 +/- inf (1)   0.000 +/- inf (1)        ~ (p=1.000 n=5) (2)
+geomean                                      (3)                -75.17%               (3)
+(1) need >= 6 samples for confidence interval at level 0.95
+(2) all samples are equal
+(3) summaries must be >0 to compute geomean
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/engine
+                                     | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                                     |            sec/op             |    sec/op     vs base                |
+Change/20k-32                                       3327328.0n +/- inf (1)   401.5n +/- inf (1)   -99.99% (p=0.008 n=5)
+Change/100k-32                                     15817569.0n +/- inf (1)   360.1n +/- inf (1)  -100.00% (p=0.008 n=5)
+Snapshot/20k-32                                         5.614m +/- inf (1)   4.425m +/- inf (1)   -21.17% (p=0.008 n=5)
+Snapshot/100k-32                                        27.40m +/- inf (1)   21.29m +/- inf (1)   -22.31% (p=0.008 n=5)
+EditThenQuery/semanticTokens/20k-32                    12.189m +/- inf (1)   6.881m +/- inf (1)   -43.55% (p=0.008 n=5)
+EditThenQuery/semanticTokens/100k-32                    59.60m +/- inf (1)   33.03m +/- inf (1)   -44.58% (p=0.008 n=5)
+EditThenQuery/completion/20k-32                        11.157m +/- inf (1)   2.289m +/- inf (1)   -79.48% (p=0.008 n=5)
+EditThenQuery/completion/100k-32                        52.57m +/- inf (1)   10.38m +/- inf (1)   -80.26% (p=0.008 n=5)
+EditThenQuery/documentSymbol/20k-32                    10.121m +/- inf (1)   3.389m +/- inf (1)   -66.52% (p=0.008 n=5)
+EditThenQuery/documentSymbol/100k-32                    52.11m +/- inf (1)   19.41m +/- inf (1)   -62.75% (p=0.008 n=5)
+EditThenQuery/foldingRange/20k-32                       8.488m +/- inf (1)   1.778m +/- inf (1)   -79.06% (p=0.008 n=5)
+EditThenQuery/foldingRange/100k-32                     40.465m +/- inf (1)   7.823m +/- inf (1)   -80.67% (p=0.008 n=5)
+EditThenQuery/hover/20k-32                             10.490m +/- inf (1)   4.360m +/- inf (1)   -58.43% (p=0.008 n=5)
+EditThenQuery/hover/100k-32                             48.77m +/- inf (1)   21.09m +/- inf (1)   -56.76% (p=0.008 n=5)
+geomean                                                 17.80m         1.866m         -89.52%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                                     | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt       |
+                                     |             B/op              |     B/op       vs base                |
+Change/20k-32                                        8776550.0 +/- inf (1)     352.0 +/- inf (1)  -100.00% (p=0.008 n=5)
+Change/100k-32                                      45087756.0 +/- inf (1)     352.0 +/- inf (1)  -100.00% (p=0.008 n=5)
+Snapshot/20k-32                                        8.627Mi +/- inf (1)   4.506Mi +/- inf (1)   -47.77% (p=0.008 n=5)
+Snapshot/100k-32                                       44.94Mi +/- inf (1)   23.66Mi +/- inf (1)   -47.35% (p=0.008 n=5)
+EditThenQuery/semanticTokens/20k-32                   19.144Mi +/- inf (1)   6.203Mi +/- inf (1)   -67.60% (p=0.008 n=5)
+EditThenQuery/semanticTokens/100k-32                   99.01Mi +/- inf (1)   32.03Mi +/- inf (1)   -67.65% (p=0.008 n=5)
+EditThenQuery/completion/20k-32                       21.463Mi +/- inf (1)   4.346Mi +/- inf (1)   -79.75% (p=0.008 n=5)
+EditThenQuery/completion/100k-32                      110.52Mi +/- inf (1)   21.45Mi +/- inf (1)   -80.59% (p=0.008 n=5)
+EditThenQuery/documentSymbol/20k-32                   25.036Mi +/- inf (1)   6.194Mi +/- inf (1)   -75.26% (p=0.008 n=5)
+EditThenQuery/documentSymbol/100k-32                  127.29Mi +/- inf (1)   31.74Mi +/- inf (1)   -75.06% (p=0.008 n=5)
+EditThenQuery/foldingRange/20k-32                     22.760Mi +/- inf (1)   4.075Mi +/- inf (1)   -82.09% (p=0.008 n=5)
+EditThenQuery/foldingRange/100k-32                    115.04Mi +/- inf (1)   20.26Mi +/- inf (1)   -82.39% (p=0.008 n=5)
+EditThenQuery/hover/20k-32                            18.165Mi +/- inf (1)   5.224Mi +/- inf (1)   -71.24% (p=0.008 n=5)
+EditThenQuery/hover/100k-32                            94.14Mi +/- inf (1)   27.16Mi +/- inf (1)   -71.15% (p=0.008 n=5)
+geomean                                                36.98Mi         2.558Mi         -93.08%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                                     | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                                     |           allocs/op           |  allocs/op    vs base               |
+Change/20k-32                                         3282.000 +/- inf (1)    5.000 +/- inf (1)  -99.85% (p=0.008 n=5)
+Change/100k-32                                        6687.000 +/- inf (1)    5.000 +/- inf (1)  -99.93% (p=0.008 n=5)
+Snapshot/20k-32                                        12307.0 +/- inf (1)    392.0 +/- inf (1)  -96.81% (p=0.008 n=5)
+Snapshot/100k-32                                       61.062k +/- inf (1)   1.754k +/- inf (1)  -97.13% (p=0.008 n=5)
+EditThenQuery/semanticTokens/20k-32                    15622.0 +/- inf (1)    411.0 +/- inf (1)  -97.37% (p=0.008 n=5)
+EditThenQuery/semanticTokens/100k-32                   67.789k +/- inf (1)   1.773k +/- inf (1)  -97.38% (p=0.008 n=5)
+EditThenQuery/completion/20k-32                        15698.0 +/- inf (1)    119.0 +/- inf (1)  -99.24% (p=0.008 n=5)
+EditThenQuery/completion/100k-32                       67865.0 +/- inf (1)    122.0 +/- inf (1)  -99.82% (p=0.008 n=5)
+EditThenQuery/documentSymbol/20k-32                     6.877k +/- inf (1)   3.582k +/- inf (1)  -47.91% (p=0.008 n=5)
+EditThenQuery/documentSymbol/100k-32                   14.773k +/- inf (1)   8.066k +/- inf (1)  -45.40% (p=0.008 n=5)
+EditThenQuery/foldingRange/20k-32                      3322.00 +/- inf (1)    26.00 +/- inf (1)  -99.22% (p=0.008 n=5)
+EditThenQuery/foldingRange/100k-32                     6738.00 +/- inf (1)    30.00 +/- inf (1)  -99.55% (p=0.008 n=5)
+EditThenQuery/hover/20k-32                             15615.0 +/- inf (1)    403.0 +/- inf (1)  -97.42% (p=0.008 n=5)
+EditThenQuery/hover/100k-32                            67.781k +/- inf (1)   1.765k +/- inf (1)  -97.40% (p=0.008 n=5)
+geomean                                                 15.47k          245.7        -98.41%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/hover
+         | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+         |            sec/op             |    sec/op     vs base              |
+Hover-32                    433.7u +/- inf (1)   439.6u +/- inf (1)  +1.37% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+         | docs/bench/baseline-bench.txt |   docs/bench/final-bench.txt   |
+         |             B/op              |     B/op       vs base         |
+Hover-32                   310.3Ki +/- inf (1)   309.6Ki +/- inf (1)  ~ (p=0.071 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+         | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+         |           allocs/op           |  allocs/op    vs base              |
+Hover-32                    5.022k +/- inf (1)   4.976k +/- inf (1)  -0.92% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+         | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+         |           sec/hover           |  sec/hover    vs base              |
+Hover-32                    4.714u +/- inf (1)   4.778u +/- inf (1)  +1.36% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/isa
+          | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+          |            sec/op             |    sec/op     vs base              |
+Load-32                      8.162m +/- inf (1)   8.128m +/- inf (1)       ~ (p=0.095 n=5)
+Lookup-32                    191.2n +/- inf (1)   187.5n +/- inf (1)  -1.94% (p=0.008 n=5)
+geomean                      39.50u         39.04u        -1.18%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+          | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt       |
+          |             B/op              |     B/op       vs base                |
+Load-32                     4.291Mi +/- inf (1)   4.291Mi +/- inf (1)       ~ (p=0.571 n=5)
+Lookup-32                     0.000 +/- inf (1)     0.000 +/- inf (1)       ~ (p=1.000 n=5) (2)
+geomean                                 (3)                  +0.00%               (3)
+(1) need >= 6 samples for confidence interval at level 0.95
+(2) all samples are equal
+(3) summaries must be >0 to compute geomean
+
+          | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+          |           allocs/op           |  allocs/op    vs base                |
+Load-32                      26.36k +/- inf (1)   26.36k +/- inf (1)       ~ (p=1.000 n=5)
+Lookup-32                     0.000 +/- inf (1)    0.000 +/- inf (1)       ~ (p=1.000 n=5) (2)
+geomean                                 (3)                 +0.00%               (3)
+(1) need >= 6 samples for confidence interval at level 0.95
+(2) all samples are equal
+(3) summaries must be >0 to compute geomean
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/jsonrpc
+                       | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                       |            sec/op             |    sec/op     vs base               |
+ReplyLarge-32                             4.303m +/- inf (1)   1.230m +/- inf (1)  -71.42% (p=0.008 n=5)
+ReplySemanticTokens-32                                   428.7u +/- inf (1)
+geomean                                   4.303m         726.1u        -71.42%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                       | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                       |             B/op              |     B/op       vs base               |
+ReplyLarge-32                           1160.2Ki +/- inf (1)   693.3Ki +/- inf (1)  -40.25% (p=0.008 n=5)
+ReplySemanticTokens-32                                   281.0Ki +/- inf (1)
+geomean                                  1.133Mi         441.3Ki        -40.25%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                       | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+                       |           allocs/op           |  allocs/op   vs base               |
+ReplyLarge-32                              15.00 +/- inf (1)   11.00 +/- inf (1)  -26.67% (p=0.008 n=5)
+ReplySemanticTokens-32                                   5.000 +/- inf (1)
+geomean                                    15.00         7.416        -26.67%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/lexer
+                    | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                    |            sec/op             |    sec/op     vs base               |
+TokenizeFixtures-32                    292.1u +/- inf (1)   230.5u +/- inf (1)  -21.08% (p=0.008 n=5)
+TokenizeLarge-32                                      1.378m +/- inf (1)
+geomean                                292.1u         563.7u        -21.08%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                    | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                    |              B/s              |      B/s       vs base               |
+TokenizeFixtures-32                   260.2Mi +/- inf (1)   329.7Mi +/- inf (1)  +26.72% (p=0.008 n=5)
+TokenizeLarge-32                                      397.6Mi +/- inf (1)
+geomean                               260.2Mi         362.1Mi        +26.72%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                    | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                    |             B/op              |     B/op       vs base               |
+TokenizeFixtures-32                   989.3Ki +/- inf (1)   590.5Ki +/- inf (1)  -40.31% (p=0.008 n=5)
+TokenizeLarge-32                                      3.289Mi +/- inf (1)
+geomean                               989.3Ki         1.377Mi        -40.31%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                    | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt     |
+                    |           allocs/op           |  allocs/op   vs base               |
+TokenizeFixtures-32                     14.00 +/- inf (1)   16.00 +/- inf (1)  +14.29% (p=0.008 n=5)
+TokenizeLarge-32                                      1.000 +/- inf (1)
+geomean                                 14.00         4.000        +14.29%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/protocol
+                         | docs/bench/final-bench.txt |
+                         |           sec/op           |
+MarshalSemanticTokens-32                 2.057m +/- inf (1)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                         | docs/bench/final-bench.txt |
+                         |            B/op            |
+MarshalSemanticTokens-32                555.4Ki +/- inf (1)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                         | docs/bench/final-bench.txt |
+                         |         allocs/op          |
+MarshalSemanticTokens-32                  4.000 +/- inf (1)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/semtok
+                  | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                  |            sec/op             |    sec/op     vs base               |
+EncodeFixtures-32                    825.8u +/- inf (1)   723.2u +/- inf (1)  -12.41% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                  | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt       |
+                  |              B/s              |      B/s        vs base               |
+EncodeFixtures-32                   92.05Mi +/- inf (1)   105.09Mi +/- inf (1)  +14.17% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                  | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt      |
+                  |             B/op              |     B/op       vs base               |
+EncodeFixtures-32                  1137.2Ki +/- inf (1)   738.4Ki +/- inf (1)  -35.06% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                  | docs/bench/baseline-bench.txt |    docs/bench/final-bench.txt     |
+                  |           allocs/op           |  allocs/op   vs base              |
+EncodeFixtures-32                     49.00 +/- inf (1)   51.00 +/- inf (1)  +4.08% (p=0.048 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+pkg: git.airies.net/vifair22/falcon-asm/internal/symbols
+                   | docs/bench/baseline-bench.txt |     docs/bench/final-bench.txt      |
+                   |            sec/op             |    sec/op     vs base               |
+IndexUpdate-32                    3149829.0n +/- inf (1)   213.9n +/- inf (1)  -99.99% (p=0.008 n=5)
+References-32                         20.90u +/- inf (1)   21.53u +/- inf (1)   +3.03% (p=0.008 n=5)
+DocumentSymbols-32                    3.906m +/- inf (1)   3.402m +/- inf (1)  -12.90% (p=0.008 n=5)
+FoldingRanges-32                      2.097m +/- inf (1)   1.713m +/- inf (1)  -18.33% (p=0.008 n=5)
+geomean                               856.9u         71.97u        -91.60%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+               | docs/bench/baseline-bench.txt |          docs/bench/final-bench.txt           |
+               |              B/s              |        B/s         vs base                    |
+IndexUpdate-32                   174.0Mi +/- inf (1)   2562576.1Mi +/- inf (1)  +1472824.32% (p=0.008 n=5)
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                   | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt       |
+                   |             B/op              |     B/op       vs base                |
+IndexUpdate-32                     8739217.0 +/- inf (1)     256.0 +/- inf (1)  -100.00% (p=0.008 n=5)
+References-32                        47.20Ki +/- inf (1)   47.50Ki +/- inf (1)    +0.62% (p=0.008 n=5)
+DocumentSymbols-32                   8.921Mi +/- inf (1)   5.476Mi +/- inf (1)   -38.62% (p=0.008 n=5)
+FoldingRanges-32                     6.645Mi +/- inf (1)   3.356Mi +/- inf (1)   -49.50% (p=0.008 n=5)
+geomean                              2.185Mi         123.0Ki         -94.50%
+(1) need >= 6 samples for confidence interval at level 0.95
+
+                   | docs/bench/baseline-bench.txt |      docs/bench/final-bench.txt       |
+                   |           allocs/op           |  allocs/op    vs base                 |
+IndexUpdate-32                      3046.000 +/- inf (1)    3.000 +/- inf (1)  -99.90% (p=0.008 n=5)
+References-32                          25.00 +/- inf (1)    27.00 +/- inf (1)   +8.00% (p=0.008 n=5)
+DocumentSymbols-32                    3.569k +/- inf (1)   3.570k +/- inf (1)   +0.03% (p=0.008 n=5)
+FoldingRanges-32                       16.00 +/- inf (1)    16.00 +/- inf (1)        ~ (p=1.000 n=5) (2)
+geomean                                256.8          46.38        -81.94%
+(1) need >= 6 samples for confidence interval at level 0.95
+(2) all samples are equal

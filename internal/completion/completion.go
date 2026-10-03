@@ -42,6 +42,10 @@ type Context struct {
 	// toolchain's macro table). Either may be nil.
 	Labels func() []string
 	Macros func() []string
+	// Tokens is lexer.Tokenize(doc.Text) when the caller has it. It tells
+	// whether the cursor line starts inside a block comment, which is the
+	// one thing that otherwise forces lexing everything before the cursor.
+	Tokens []lexer.Token
 }
 
 // Complete returns the completion list at pos, or nil where completion makes
@@ -62,7 +66,7 @@ func Complete(doc *docstore.Document, pos protocol.Position, ctx Context) *proto
 
 	text := doc.Text
 	lineStart := strings.LastIndexByte(text[:off], '\n') + 1
-	toks, lineToks := tokensBefore(text, lineStart, off)
+	toks, lineToks := tokensBefore(text, lineStart, off, ctx.Tokens)
 	if insideCommentOrString(toks, lineToks) {
 		return nil
 	}
@@ -125,12 +129,16 @@ func Complete(doc *docstore.Document, pos protocol.Position, ctx Context) *proto
 
 // tokensBefore lexes the text up to the cursor and returns all tokens plus
 // the ones on the cursor's line. Only the cursor line is lexed when nothing
-// before it can change how that line lexes: no block comment opener at all
-// and no backslash continuation into the line. Otherwise the whole prefix is
-// lexed, which costs about a millisecond per 10k lines.
-func tokensBefore(text string, lineStart, off int) (all, line []lexer.Token) {
+// before it can change how that line lexes: no backslash continuation into
+// the line, and no block comment open at its start. Otherwise the whole
+// prefix is lexed, which costs about a millisecond per 10k lines.
+//
+// Without the document's tokens, an open block comment can only be ruled
+// out by there being no "/*" before the line at all, which in a real file
+// almost never holds; with them, the token ending the previous lines says.
+func tokensBefore(text string, lineStart, off int, doc []lexer.Token) (all, line []lexer.Token) {
 	before := text[:lineStart]
-	if !strings.Contains(before, "/*") && !continues(before) {
+	if !continues(before) && !openBlockBefore(before, doc) {
 		all = lexer.Tokenize(text[lineStart:off])
 		return all, all
 	}
@@ -141,6 +149,22 @@ func tokensBefore(text string, lineStart, off int) (all, line []lexer.Token) {
 		i--
 	}
 	return all, all[i:]
+}
+
+// openBlockBefore reports whether a block comment may be open where before
+// ends. doc, when given, is the whole document's token stream: the tokens
+// on lines before the cursor's are the same whether or not the lexer saw
+// the rest, so the last of them decides. Without it, any "/*" counts.
+func openBlockBefore(before string, doc []lexer.Token) bool {
+	if doc == nil {
+		return strings.Contains(before, "/*")
+	}
+	cursorLine := strings.Count(before, "\n")
+	i := sort.Search(len(doc), func(i int) bool { return doc[i].Line >= cursorLine }) - 1
+	if i < 0 || doc[i].Kind != lexer.Comment {
+		return false
+	}
+	return isBlockSegment(doc, i) && !closesBlock(doc[i].Text)
 }
 
 // continues reports whether the text, which ends just after a newline,

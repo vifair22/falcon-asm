@@ -280,7 +280,7 @@ func TestEndToEnd(t *testing.T) {
 	}
 	wantCaps := `{"textDocumentSync":{"openClose":true,"change":2,"save":{"includeText":false}},` +
 		`"hoverProvider":true,` +
-		`"semanticTokensProvider":{"documentSelector":[{"language":"falcon-asm"}],"legend":{"tokenTypes":["keyword","modifier","variable","number","label","macro","comment","string","operator","type","parameter"],"tokenModifiers":["declaration","defaultLibrary","deprecated"]},"full":true,"range":false},` +
+		`"semanticTokensProvider":{"documentSelector":[{"language":"falcon-asm"}],"legend":{"tokenTypes":["keyword","modifier","variable","number","label","macro","comment","string","operator","type","parameter"],"tokenModifiers":["declaration","defaultLibrary","deprecated"]},"full":{"delta":true},"range":false},` +
 		`"definitionProvider":true,"referencesProvider":true,"renameProvider":{"prepareProvider":true},` +
 		`"documentSymbolProvider":true,"foldingRangeProvider":true,"inlayHintProvider":true,` +
 		`"completionProvider":{"triggerCharacters":["%",".","$"]}}`
@@ -320,7 +320,7 @@ func TestEndToEnd(t *testing.T) {
 	for method, m := range everyQuery(c) {
 		want := "null"
 		if method == protocol.MethodSemanticTokensFull {
-			want = `{"data":[]}`
+			want = `{"resultId":"1","data":[]}`
 		}
 		if m.Error != nil || string(m.Result) != want {
 			t.Errorf("%s with nop engine = %s %+v", method, m.Result, m.Error)
@@ -489,7 +489,7 @@ func TestEngineWiring(t *testing.T) {
 	got := everyQuery(c)
 	want := map[string]string{
 		protocol.MethodHover:              `null`,
-		protocol.MethodSemanticTokensFull: `{"data":[0,1,17,0,0]}`,
+		protocol.MethodSemanticTokensFull: `{"resultId":"1","data":[0,1,17,0,0]}`,
 		protocol.MethodDefinition:         `[{"uri":"file:///work/pmode.S","range":{"start":{"line":0,"character":1},"end":{"line":0,"character":1}}}]`,
 		protocol.MethodReferences:         `[{"uri":"file:///work/pmode.S","range":{"start":{"line":0,"character":1},"end":{"line":0,"character":1}}}]`,
 		protocol.MethodPrepareRename:      `{"range":{"start":{"line":0,"character":1},"end":{"line":0,"character":1}},"placeholder":"   "}`,
@@ -783,4 +783,58 @@ func (failWriter) Write([]byte) (int, error) { return 0, errors.New("closed") }
 
 func frameOf(body string) string {
 	return "Content-Length: " + strconv.Itoa(len(body)) + "\r\n\r\n" + body
+}
+
+// TestSemanticTokensDelta covers the delta protocol: a delta against the
+// last result is the edit between them, an unknown or superseded base gets
+// the full stream, and closing a document forgets its base.
+func TestSemanticTokensDelta(t *testing.T) {
+	c := start(t, Options{Engine: &fakeEngine{}})
+	initialize(t, c)
+	delta := func(prev string) *jsonrpc.Message {
+		return c.call(protocol.MethodSemanticTokensDelta, protocol.SemanticTokensDeltaParams{
+			TextDocument: protocol.TextDocumentIdentifier{URI: testURI}, PreviousResultID: prev,
+		})
+	}
+	wantResult(t, delta("1"), `{"data":[]}`) // not open
+	openDoc(c, "\tnop\n")
+	wantResult(t, semtok(c), `{"resultId":"1","data":[0,1,5,0,0]}`)
+	wantResult(t, delta("1"), `{"resultId":"2","edits":[]}`)
+	c.notify(protocol.MethodDidChange, protocol.DidChangeTextDocumentParams{
+		TextDocument:   protocol.VersionedTextDocumentIdentifier{URI: testURI, Version: 2},
+		ContentChanges: []protocol.TextDocumentContentChangeEvent{{Text: "\tnop; nop\n"}},
+	})
+	wantResult(t, delta("2"), `{"resultId":"3","edits":[{"start":0,"deleteCount":5,"data":[0,1,10,0,0]}]}`)
+	wantResult(t, delta("2"), `{"resultId":"4","data":[0,1,10,0,0]}`) // superseded base
+	wantResult(t, delta("nope"), `{"resultId":"5","data":[0,1,10,0,0]}`)
+	c.notify(protocol.MethodDidClose, protocol.DidCloseTextDocumentParams{TextDocument: protocol.TextDocumentIdentifier{URI: testURI}})
+	openDoc(c, "\tnop; nop\n")
+	wantResult(t, delta("5"), `{"resultId":"6","data":[0,1,10,0,0]}`) // base forgotten at close
+	wantError(t, c.call(protocol.MethodSemanticTokensDelta, "bad"), jsonrpc.InvalidParams)
+}
+
+func TestTokenEdits(t *testing.T) {
+	tok := func(vals ...uint32) []uint32 { return vals }
+	cases := []struct {
+		name     string
+		old, cur []uint32
+		want     string
+	}{
+		{"same", tok(0, 1, 2, 3, 4), tok(0, 1, 2, 3, 4), `[]`},
+		{"both empty", nil, nil, `[]`},
+		{"from empty", nil, tok(0, 1, 2, 3, 4), `[{"start":0,"deleteCount":0,"data":[0,1,2,3,4]}]`},
+		{"to empty", tok(0, 1, 2, 3, 4), nil, `[{"start":0,"deleteCount":5}]`},
+		{"middle token", tok(0, 1, 2, 3, 4, 1, 1, 2, 3, 4, 1, 1, 2, 3, 4), tok(0, 1, 2, 3, 4, 1, 1, 9, 3, 4, 1, 1, 2, 3, 4),
+			`[{"start":5,"deleteCount":5,"data":[1,1,9,3,4]}]`},
+		{"insert", tok(0, 1, 2, 3, 4, 1, 1, 2, 3, 4), tok(0, 1, 2, 3, 4, 0, 5, 1, 0, 0, 1, 1, 2, 3, 4),
+			`[{"start":5,"deleteCount":0,"data":[0,5,1,0,0]}]`},
+		// A repeated token must not let the prefix and suffix overlap.
+		{"repeat", tok(0, 1, 2, 3, 4), tok(0, 1, 2, 3, 4, 0, 1, 2, 3, 4), `[{"start":5,"deleteCount":0,"data":[0,1,2,3,4]}]`},
+	}
+	for _, c := range cases {
+		got, err := json.Marshal(tokenEdits(c.old, c.cur))
+		if err != nil || string(got) != c.want {
+			t.Errorf("%s: got %s, want %s", c.name, got, c.want)
+		}
+	}
 }

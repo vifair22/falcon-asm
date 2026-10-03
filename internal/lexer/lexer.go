@@ -144,7 +144,11 @@ type lexer struct {
 // emitted as Punct (ASCII) or skipped (non-ASCII), so an editor always gets
 // a best-effort result for a half-typed line.
 func Tokenize(src string) []Token {
-	l := &lexer{src: src, toks: make([]Token, 0, len(src)/4)}
+	// The falcon-bios sources average 10 to 13 bytes per token (comments
+	// are most of the bytes). One token per 8 bytes covers them without a
+	// regrow; the old len/4 reserved, and zeroed, three times what was used,
+	// which on a large document was a measurable part of every re-lex.
+	l := &lexer{src: src, toks: make([]Token, 0, len(src)/8+16)}
 	l.run()
 	return l.toks
 }
@@ -195,10 +199,8 @@ func isSpace(c byte) bool { return c == ' ' || c == '\t' || c == '\r' || c == '\
 
 // lineEnd returns the offset of the next '\n' at or after from, or len(src).
 func (l *lexer) lineEnd(from int) int {
-	for j := from; j < len(l.src); j++ {
-		if l.src[j] == '\n' {
-			return j
-		}
+	if j := strings.IndexByte(l.src[from:], '\n'); j >= 0 {
+		return from + j
 	}
 	return len(l.src)
 }
@@ -312,9 +314,9 @@ func (l *lexer) atLineStart() bool {
 }
 
 func (l *lexer) lineComment() {
-	end := l.trimRight(l.i, l.lineEnd(l.i))
-	l.emit(Comment, l.i, end)
-	l.i = l.lineEnd(l.i)
+	eol := l.lineEnd(l.i)
+	l.emit(Comment, l.i, l.trimRight(l.i, eol))
+	l.i = eol
 }
 
 // blockComment emits one Comment per line the comment touches. Statement
@@ -323,25 +325,27 @@ func (l *lexer) lineComment() {
 func (l *lexer) blockComment() {
 	start := l.i
 	l.i += 2
-	for l.i < len(l.src) {
-		c := l.src[l.i]
-		if c == '*' && l.peek(1) == '/' {
-			l.i += 2
+	// Line at a time with IndexByte and Index, which the runtime
+	// vectorizes: comments are most of the bytes in real sources.
+	for {
+		eol := l.lineEnd(l.i)
+		if k := strings.Index(l.src[l.i:eol], "*/"); k >= 0 {
+			l.i += k + 2
 			l.emit(Comment, start, l.i)
 			return
 		}
-		if c == '\n' {
-			l.emit(Comment, start, l.trimRight(start, l.i))
-			l.newline()
-			// Leading indentation of a continuation line is not comment
-			// text worth painting.
-			for l.i < len(l.src) && (l.src[l.i] == ' ' || l.src[l.i] == '\t') {
-				l.i++
-			}
-			start = l.i
-			continue
+		l.i = eol
+		if eol == len(l.src) {
+			break
 		}
-		l.i++
+		l.emit(Comment, start, l.trimRight(start, l.i))
+		l.newline()
+		// Leading indentation of a continuation line is not comment
+		// text worth painting.
+		for l.i < len(l.src) && (l.src[l.i] == ' ' || l.src[l.i] == '\t') {
+			l.i++
+		}
+		start = l.i
 	}
 	l.emit(Comment, start, l.trimRight(start, l.i))
 }

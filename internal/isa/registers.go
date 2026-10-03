@@ -174,7 +174,12 @@ func upper(s string) string { return strings.ToUpper(s) }
 // ignoring case and whitespace so "%ST (1)" and "st(1)" both resolve.
 func LookupRegister(name string) (*Register, bool) {
 	n := strings.ToLower(strings.TrimPrefix(strings.TrimSpace(name), "%"))
-	n = strings.Join(strings.Fields(n), "")
+	// "%st (1)" is legal; squeezing the blanks out allocates, so it is done
+	// only when there are any. Every register operand of a document comes
+	// through here during analysis.
+	if strings.ContainsAny(n, " \t") {
+		n = strings.Join(strings.Fields(n), "")
+	}
 	r, ok := registers[n]
 	return r, ok
 }

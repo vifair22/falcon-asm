@@ -65,12 +65,25 @@ make test       # go test -race ./...
 make coverage   # coverage profile + 80% statement gate
 make analyze    # go vet, gofmt check, golangci-lint if installed
 make check      # ascii-check over the tree
+make bench      # Go microbenchmarks into build/bench/bench.txt
+make lspbench   # end-to-end LSP benchmark into build/bench/lspbench.{txt,json}
 make install    # installs falcon-asm into ~/.local/bin (PREFIX=... to change)
 ```
 
 `make VARIANT=debug` builds without stripping or `-trimpath`. The version
 string is `release_version` plus build stamp and variant, e.g.
 `0.1.0_20261003.0518.release`; `falcon-asm --version` prints it.
+
+## Benchmarking
+
+`make lspbench` starts the built server and drives it over stdio the way an
+editor does (`tools/lspbench`): the falcon-bios fixtures, typing into 20k-
+and 100k-line files, a 500-file workspace and process cold start, with
+per-request p50/p95/p99/max and peak memory. `-root` adds a real project
+with the toolchain on; `-json` and `-compare old.json new.json` track
+changes. `make bench` runs the Go microbenchmarks. The method, scenarios,
+the before and after numbers of the performance pass and the remaining hot
+spots are in [docs/BENCHMARKS.md](docs/BENCHMARKS.md).
 
 ## Editor setup
 
@@ -164,7 +177,9 @@ internal/hover/      hover content
 internal/semtok/     semantic tokens
 internal/engine/     per-document state, configuration, toolchain runs, feature wiring
 internal/server/     method dispatch and lifecycle
+internal/benchdata/  shared benchmark inputs built from the fixtures
 tools/xedgen/        generator for internal/isa/data/xed.json
+tools/lspbench/      end-to-end LSP benchmark driving the server binary
 editors/vscode/      VS Code client, base TextMate grammar, inline asm injection grammar
 testdata/falcon-bios real .S fixtures from airies-boot
 ```

@@ -1,0 +1,46 @@
+                                 metric  count     p50 ms     p95 ms     p99 ms     max ms   mean B
+                 cold/spawn->initialize     10     11.487     13.275     13.275     13.275        0
+         cold/spawn->semanticTokens-20k     10     48.936     51.593     51.593     51.593   470459
+           fixtures/semanticTokens/full     42      0.167      0.406      0.506      0.506     4700
+                    fixtures/definition     66      0.027      0.104      1.174      1.174      185
+                    fixtures/references     43      0.032      0.074      0.222      0.222      463
+                         fixtures/hover     92      0.029      0.043      0.066      0.066      278
+                    fixtures/completion    371      0.142      0.638      0.849      1.504    10737
+                fixtures/documentSymbol     42      0.098      0.249      0.523      0.523     3420
+                  fixtures/foldingRange     42      0.044      0.114      0.200      0.200      337
+                     fixtures/inlayHint     42      0.020      0.049      0.071      0.071       40
+         typing-20k/open+semanticTokens      1     35.341     35.341     35.341     35.341   470459
+                  typing-20k/completion    360     12.541     26.727     28.783     29.652     6109
+         typing-20k/semanticTokens/full     50     16.055     31.655     35.772     35.772   471052
+              typing-20k/documentSymbol     20      9.473     22.651     28.501     28.501   357245
+                typing-20k/foldingRange     20      3.160      4.572      4.593      4.593    33007
+                 typing-20k/burst-drain      1  12479.389  12479.389  12479.389  12479.389        0
+   typing-20k/burst-last-semanticTokens      1   3036.852   3036.852   3036.852   3036.852   472769
+        typing-100k/open+semanticTokens      1    174.863    174.863    174.863    174.863  2348170
+                 typing-100k/completion    360     56.996    120.065    125.167    128.137     6552
+        typing-100k/semanticTokens/full     50     74.625    153.408    155.343    155.343  2348763
+             typing-100k/documentSymbol     20     48.615    116.309    121.888    121.888  1805783
+               typing-100k/foldingRange     20     12.348     17.760     19.416     19.416   166171
+                typing-100k/burst-drain      1  59272.536  59272.536  59272.536  59272.536        0
+  typing-100k/burst-last-semanticTokens      1  13024.248  13024.248  13024.248  13024.248  2350480
+             workspace/references-first      1     34.043     34.043     34.043     34.043    64664
+                   workspace/references     60      0.927      1.272      1.471      1.471    64665
+                   workspace/definition     60      0.117      0.171      0.182      0.182      165
+                   workspace/completion     60      0.736      0.961      1.734      1.734      475
+                 tree/open-all->settled      1    156.502    156.502    156.502    156.502        0
+              tree/didSave->diagnostics     54     15.562     17.305     18.932     18.932        0
+                         tree/inlayHint     54      0.388      1.556      1.583      1.583    17758
+
+                        value      unit   value
+                cold/peak-rss        kB   25872
+            fixtures/peak-rss        kB   23400
+    typing-20k/burst-answered  requests     500
+   typing-20k/burst-cancelled  requests       0
+          typing-20k/peak-rss        kB   69596
+   typing-100k/burst-answered  requests     500
+  typing-100k/burst-cancelled  requests       0
+         typing-100k/peak-rss        kB  323468
+           workspace/peak-rss        kB   67144
+                   tree/files     files      18
+           tree/save-timeouts     saves       0
+                tree/peak-rss        kB   34900

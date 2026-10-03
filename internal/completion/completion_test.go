@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
+	"git.airies.net/vifair22/falcon-asm/internal/benchdata"
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
+	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 )
 
@@ -417,4 +420,35 @@ func BenchmarkComplete(b *testing.B) {
 			Complete(doc, pos, ctx)
 		}
 	})
+}
+
+// TestDocumentTokensAgree holds the token-assisted fast path to the
+// answer the prefix lexer gives, at every byte of the fixtures and of
+// sources built around block comments, strings and continuations.
+func TestDocumentTokensAgree(t *testing.T) {
+	srcs := append([]string{
+		"/* a\n b */\n\tmov %eax, %ebx\n/* open\n\n\tmo\n*/\n\tjmp fo\n",
+		"\tnop /* x\ny */ mo\n/*/ still\nopen */ %e\n# c\n// d\n\tcli\n",
+		"#define A \\\n\tmov\n\tmo\n\"str /* \" \n\tmo\n/**/\n\tmo\n",
+	}, benchdata.Fixtures(t)...)
+	for si, src := range srcs {
+		store := docstore.New()
+		store.Open("file:///t.S", 1, src)
+		doc, _ := store.Get("file:///t.S")
+		toks := lexer.Tokenize(src)
+		step := 1
+		if len(src) > 2000 {
+			step = 31 // every byte of the large fixtures is slow and adds nothing
+		}
+		for off := 0; off <= len(src); off += step {
+			pos := doc.Position(off)
+			plain := symbolCtx(16)
+			fast := symbolCtx(16)
+			fast.Tokens = toks
+			a, b := Complete(doc, pos, plain), Complete(doc, pos, fast)
+			if (a == nil) != (b == nil) || a != nil && (a.IsIncomplete != b.IsIncomplete || !slices.Equal(labels(a), labels(b))) {
+				t.Fatalf("source %d at %v: without tokens %v, with %v", si, pos, labels(a), labels(b))
+			}
+		}
+	}
 }

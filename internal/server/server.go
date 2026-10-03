@@ -3,14 +3,19 @@
 // one is internal/engine), so this package depends only on the transport,
 // the protocol types and the document store, and is tested with fakes.
 //
-// Requests are handled one at a time, in arrival order, on the read loop's
-// goroutine. Every handler is a cheap function of an in-memory document, so
-// concurrency would buy nothing measurable, while sequential handling makes
-// ordering trivially correct: a hover always sees every didChange sent before
-// it. It also means $/cancelRequest can safely be ignored, since by the time
-// it is read the request it names has already been answered. The slow work
-// (running the toolchain) happens in the engine's own goroutines, which
-// publish diagnostics through the connection's mutex-guarded writer.
+// Messages are handled one at a time, in arrival order, on Run's goroutine.
+// Sequential handling makes ordering trivially correct: a hover always sees
+// every didChange sent before it. A separate goroutine reads the stream into
+// a queue (see inbox.go), so the handler knows what is waiting behind the
+// message in hand: a request the client cancelled while it was queued is
+// answered RequestCancelled without being run, and a semantic tokens request
+// with a newer didChange for its document already queued is answered
+// ContentModified, since its result would describe text the editor no
+// longer shows. While a client types into a large file those are most of
+// the requests, and computing each in turn left highlighting seconds behind
+// the keyboard. The slow work (running the toolchain) happens in the
+// engine's own goroutines, which publish diagnostics through the
+// connection's mutex-guarded writer.
 package server
 
 import (
@@ -19,6 +24,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strconv"
 
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/jsonrpc"
@@ -59,14 +65,20 @@ const (
 
 // Server is a single LSP session. It is not reusable: call Run once.
 type Server struct {
-	opts    Options
-	eng     Engine
-	docs    *docstore.Store
-	log     *log.Logger
-	conn    *jsonrpc.Conn
-	state   state
-	exit    int
-	stopped bool
+	opts Options
+	eng  Engine
+	docs *docstore.Store
+	log  *log.Logger
+	conn *jsonrpc.Conn
+	in   *inbox
+
+	// tokens is the last semantic tokens result sent per document, the
+	// base a delta request names. Only the handler goroutine touches it.
+	tokens   map[string]tokenResult
+	resultID uint64
+	state    state
+	exit     int
+	stopped  bool
 }
 
 // New builds a server from opts.
@@ -86,10 +98,11 @@ func New(opts Options) *Server {
 		eng = NopEngine{}
 	}
 	return &Server{
-		opts: opts,
-		eng:  eng,
-		docs: docstore.New(),
-		log:  log.New(w, "falcon-asm: ", log.LstdFlags|log.Lmsgprefix),
+		opts:   opts,
+		eng:    eng,
+		docs:   docstore.New(),
+		log:    log.New(w, "falcon-asm: ", log.LstdFlags|log.Lmsgprefix),
+		tokens: map[string]tokenResult{},
 	}
 }
 
@@ -98,8 +111,10 @@ func New(opts Options) *Server {
 // preceded exit, 1 otherwise (including a client that vanished).
 func (s *Server) Run(r io.Reader, w io.Writer) int {
 	s.conn = jsonrpc.NewConn(r, w)
+	s.in = newInbox()
 	s.exit = 1
-	err := s.conn.Serve(s.handle)
+	go s.read()
+	err := s.loop()
 	// A client that vanished without shutdown still must not leave
 	// toolchain processes behind.
 	s.stopEngine()
@@ -111,6 +126,50 @@ func (s *Server) Run(r io.Reader, w io.Writer) int {
 		s.log.Printf("connection failed: %v", err)
 	}
 	return s.exit
+}
+
+// read moves messages from the stream into the inbox until the stream
+// ends. A body that is not valid JSON is answered with ParseError and
+// skipped, since the framing is still intact. After exit the server stops
+// taking from the inbox and this goroutine ends with the process (or, in
+// tests, when the stream is closed).
+func (s *Server) read() {
+	for {
+		m, err := s.conn.Read()
+		if err == nil {
+			s.in.put(m)
+			continue
+		}
+		if de, ok := errors.AsType[*jsonrpc.DecodeError](err); ok {
+			if err = s.conn.ReplyError(nil, jsonrpc.NewError(jsonrpc.ParseError, "%v", de.Err)); err == nil {
+				continue
+			}
+		}
+		s.in.close(err)
+		return
+	}
+}
+
+// loop handles queued messages until exit (nil) or the end of the stream
+// (the read error).
+func (s *Server) loop() error {
+	for {
+		m, cancelled, err := s.in.take()
+		if err != nil {
+			return err
+		}
+		// initialize and shutdown are answered regardless: the session's
+		// state depends on them having run.
+		if cancelled && m.Method != protocol.MethodInitialize && m.Method != protocol.MethodShutdown {
+			if err := s.conn.ReplyError(m.ID, jsonrpc.NewError(jsonrpc.RequestCancelled, "request cancelled")); err != nil {
+				s.log.Printf("reply to %s: %v", m.Method, err)
+			}
+			continue
+		}
+		if s.handle(m) {
+			return nil
+		}
+	}
 }
 
 // handle dispatches one message; it returns true once exit has been seen.
@@ -144,7 +203,7 @@ func (s *Server) handleNotification(m *jsonrpc.Message) bool {
 	}
 	var err error
 	switch m.Method {
-	case protocol.MethodInitialized, protocol.MethodCancelRequest:
+	case protocol.MethodInitialized:
 	case protocol.MethodDidOpen:
 		err = s.didOpen(m.Params)
 	case protocol.MethodDidChange:
@@ -196,6 +255,8 @@ func (s *Server) dispatch(m *jsonrpc.Message) (any, *jsonrpc.Error) {
 		return s.hover(m.Params)
 	case protocol.MethodSemanticTokensFull:
 		return s.semanticTokens(m.Params)
+	case protocol.MethodSemanticTokensDelta:
+		return s.semanticTokensDelta(m.Params)
 	case protocol.MethodDefinition:
 		return s.definition(m.Params)
 	case protocol.MethodReferences:
@@ -273,7 +334,7 @@ func (s *Server) initialize(params json.RawMessage) (any, *jsonrpc.Error) {
 					TokenTypes:     s.opts.TokenTypes,
 					TokenModifiers: s.opts.TokenModifiers,
 				},
-				Full: true,
+				Full: protocol.SemanticTokensFullOptions{Delta: true},
 			},
 			DefinitionProvider:     true,
 			ReferencesProvider:     true,
@@ -330,6 +391,7 @@ func (s *Server) didClose(params json.RawMessage) error {
 		return err
 	}
 	s.docs.Close(p.TextDocument.URI)
+	delete(s.tokens, p.TextDocument.URI)
 	s.eng.Close(p.TextDocument.URI)
 	return nil
 }
@@ -377,10 +439,84 @@ func (s *Server) semanticTokens(params json.RawMessage) (any, *jsonrpc.Error) {
 	if jerr != nil {
 		return nil, jerr
 	}
+	if s.in.changePending(p.TextDocument.URI) {
+		return nil, errStale
+	}
 	if !ok {
 		return protocol.SemanticTokens{}, nil
 	}
-	return protocol.SemanticTokens{Data: s.eng.SemanticTokens(doc)}, nil
+	return s.fullTokens(doc), nil
+}
+
+// errStale answers a semantic tokens request with a newer didChange for its
+// document already queued. The client asks again for the version it is
+// about to have; the LSP's ContentModified code exists for this case.
+var errStale = jsonrpc.NewError(jsonrpc.ContentModified, "document changed; the result would be stale")
+
+// tokenResult is a semantic tokens result kept as the base for deltas.
+type tokenResult struct {
+	id   string
+	data []uint32
+}
+
+// fullTokens computes the document's tokens and records them under a new
+// result id.
+func (s *Server) fullTokens(doc *docstore.Document) protocol.SemanticTokens {
+	data := s.eng.SemanticTokens(doc)
+	s.resultID++
+	id := strconv.FormatUint(s.resultID, 10)
+	s.tokens[doc.URI] = tokenResult{id: id, data: data}
+	return protocol.SemanticTokens{ResultID: id, Data: data}
+}
+
+// semanticTokensDelta answers with the edits from the client's previous
+// result to the current one. A one-character edit changes a handful of
+// integers in a stream of hundreds of thousands, so the reply shrinks from
+// megabytes to bytes, along with the client's work decoding it. An unknown
+// or outdated previous result gets the full stream, which the LSP allows.
+func (s *Server) semanticTokensDelta(params json.RawMessage) (any, *jsonrpc.Error) {
+	var p protocol.SemanticTokensDeltaParams
+	doc, ok, jerr := s.docAt(params, &p, func() string { return p.TextDocument.URI })
+	if jerr != nil {
+		return nil, jerr
+	}
+	if s.in.changePending(p.TextDocument.URI) {
+		return nil, errStale
+	}
+	if !ok {
+		return protocol.SemanticTokens{}, nil
+	}
+	prev, known := s.tokens[doc.URI]
+	full := s.fullTokens(doc)
+	if !known || prev.id != p.PreviousResultID {
+		return full, nil
+	}
+	return protocol.SemanticTokensDelta{ResultID: full.ResultID, Edits: tokenEdits(prev.data, full.Data)}, nil
+}
+
+// tokenEdits is the single edit turning old into cur: everything between
+// their common prefix and common suffix. Edits are aligned to whole tokens
+// (five integers), as the LSP recommends so clients can patch in place.
+func tokenEdits(old, cur []uint32) []protocol.SemanticTokensEdit {
+	n := min(len(old), len(cur))
+	pre := 0
+	for pre < n && old[pre] == cur[pre] {
+		pre++
+	}
+	pre -= pre % 5
+	suf := 0
+	for suf < n-pre && old[len(old)-1-suf] == cur[len(cur)-1-suf] {
+		suf++
+	}
+	suf -= suf % 5
+	if pre == len(old) && pre == len(cur) {
+		return []protocol.SemanticTokensEdit{}
+	}
+	return []protocol.SemanticTokensEdit{{
+		Start:       pre,
+		DeleteCount: len(old) - pre - suf,
+		Data:        cur[pre : len(cur)-suf],
+	}}
 }
 
 func (s *Server) definition(params json.RawMessage) (any, *jsonrpc.Error) {

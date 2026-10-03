@@ -37,6 +37,8 @@ internal/hover/        token at position -> short markdown
 internal/semtok/       lexer tokens + isa resolution -> LSP semantic tokens
 internal/server/       method dispatch, lifecycle, wires the above together
 tools/xedgen/          generator: XED datafiles + asm-lsp x86 data -> internal/isa/data/xed.json
+tools/lspbench/        end-to-end LSP benchmark (added in the performance pass)
+internal/benchdata/    benchmark inputs shared by the packages' benchmarks
 editors/vscode/        thin VS Code client + base TextMate grammar
 testdata/falcon-bios/  real .S files from airies-boot, used as fixtures
 ```
@@ -379,10 +381,76 @@ Recorded when the feature packages were wired into the server:
   leaves out the compiler's few hundred builtins.
 - **Open items for the perf pass:** `$/cancelRequest` is still ignored;
   `Index.Update` reparses on every didChange, synchronously; FindDB runs
-  under the engine lock on first open in a directory.
+  under the engine lock on first open in a directory. All three were
+  resolved in the performance pass, below.
 - Lint housekeeping done with the integration: the unused
   `symbols.equDirectives` was removed and three tests gained a `return`
   after `t.Fatal` to satisfy staticcheck's SA5011.
+
+### Performance pass
+
+Recorded with the performance pass; the measurements, and what was tried
+and dropped, are in `docs/BENCHMARKS.md`.
+
+- **Reading is decoupled from handling.** `Server.Run` starts a reader
+  goroutine that fills a queue (`internal/server/inbox.go`); the handler
+  still takes messages strictly in arrival order, so ordering is as
+  before. What the queue adds is knowledge of what waits behind the
+  message in hand. `$/cancelRequest` is honoured for a request still
+  queued: it is answered RequestCancelled (-32800) without running.
+  initialize and shutdown always run; a cancel for a request already
+  answered or in progress is dropped (the LSP allows finishing it). A
+  `semanticTokens/full` or `/full/delta` request with a newer didChange for
+  its document already queued is answered ContentModified (-32801): its
+  result would describe text the editor no longer shows, and the client
+  asks again. Other requests are never skipped. `jsonrpc.Conn.Serve` is
+  kept for other callers but the server no longer uses it.
+- **Semantic tokens deltas.** The capability is now
+  `"full":{"delta":true}`; every result carries a `resultId` (a counter);
+  `textDocument/semanticTokens/full/delta` answers with one edit covering
+  the tokens between the common prefix and suffix of the previous and
+  current streams (aligned to whole tokens), or with the full stream when
+  `previousResultId` is not the last result sent for that document. The
+  server keeps one previous result per open document and drops it on
+  didClose. `protocol.SemanticTokensOptions.Full` is `any` (true, or
+  `SemanticTokensFullOptions`).
+- **Replies are framed by hand.** `jsonrpc.Conn.Reply` appends
+  `{"jsonrpc":"2.0","id":...,"result":...}` into one buffer with the
+  header written into reserved space in front, instead of marshaling a
+  `Message` (which re-validated and copied the encoded result). A result
+  implementing `jsonrpc.JSONAppender` encodes itself into that buffer;
+  `protocol.SemanticTokens` does, with `strconv.AppendUint`.
+- **The symbol index is lazy.** `Index.UpdateLazy(uri, load)` stores a
+  loader that the first query needing the document calls once; `Update`
+  wraps it. The engine's loader returns its snapshot's parse
+  (`symbols.Parse(uri, text, tokens)`, a shared `*symbols.File`) and
+  include list, so a didChange computes nothing for the index, and the
+  index, `File.DocumentSymbols` and `FoldingRangesTokens` all reuse the
+  snapshot's one token stream. Included headers are read at that first
+  query instead of at the change. Parsed files keep line offsets instead
+  of a `[]string` of lines.
+- **Completion** gets the document's cached tokens
+  (`completion.Context.Tokens`) to decide whether the cursor line can be
+  lexed on its own (no block comment open at its start), and the mode from
+  `analysis.ModeAtLine`, a modes-only run of the analysis' own statement
+  walk, instead of the full analysis. The snapshot computes that table
+  once per version (`snapshot.modeAt`).
+- **docstore** patches the line index on a ranged edit (starts before the
+  edit kept, the edit rescanned, later starts shifted) instead of
+  rebuilding it from the whole text.
+- **Engine**: FindDB runs outside the engine lock; only the per-directory
+  cache is read and filled under it (a `*toolchain.DB` is read-only once
+  loaded). The analysis caches each instruction's form selection per
+  operand family (`sync.Map`, since publishes analyze concurrently).
+- **Startup**: the instruction tables load in a goroutine started by
+  `main`, beside the initialize handshake; `isa.DataError` is still logged
+  if they fail to parse.
+- **Workspace scan** reads and parses files on a GOMAXPROCS worker pool.
+- **Profiling and benchmarking**: the server accepts `--cpuprofile=path`
+  and `--memprofile=path`, kept out of `-help` (development only).
+  `tools/lspbench` drives the built binary end to end; `internal/benchdata`
+  supplies the inputs every package's benchmarks share; `make bench` and
+  `make lspbench` run them, and CI runs `make bench` as a non-blocking job.
 
 ## Phase 2 and 3
 

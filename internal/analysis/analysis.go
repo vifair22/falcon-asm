@@ -13,6 +13,7 @@ package analysis
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
@@ -131,12 +132,28 @@ func AnalyzeTokens(doc *docstore.Document, toks []lexer.Token, cfg Config) Resul
 		cfg.LevelSource = fmt.Sprintf("falcon-asm: level comment at line %d", line+1)
 	}
 	a := newAnalyzer(doc, toks, cfg, initialFromFlags)
+	a.collectMacroNames()
 	a.run()
 	return Result{
 		Diagnostics: a.diags,
 		ModeAtLine:  a.modeAtLine(),
 		Symbols:     a.finishSymbols(),
 	}
+}
+
+// ModeAtLine is AnalyzeTokens(doc, toks, cfg).ModeAtLine computed on its
+// own. It walks the statements exactly as the full analysis does, so the
+// tables cannot disagree, but skips every check and symbol: completion needs
+// the mode on every keystroke, long before the debounced diagnostics want
+// the rest, and on a large document the rest is most of the cost.
+func ModeAtLine(doc *docstore.Document, toks []lexer.Token, cfg Config) []Mode {
+	if !cfg.InitialMode.valid() {
+		cfg.InitialMode = Mode64
+	}
+	a := newAnalyzer(doc, toks, cfg, false)
+	a.modesOnly = true
+	a.run()
+	return a.modeAtLine()
 }
 
 // modeState remembers how the current mode was set, because "current mode:
@@ -173,6 +190,7 @@ type analyzer struct {
 	nlStarts []int // byte offset of each lexer line (lines split at '\n' only)
 
 	initialFromFlags bool
+	modesOnly        bool // track modes and .macro nesting only; see ModeAtLine
 	mode             modeState
 	switches         []modeSwitch
 	macroDepth       int
@@ -195,7 +213,7 @@ func newAnalyzer(doc *docstore.Document, toks []lexer.Token, cfg Config, fromFla
 		doc:              doc,
 		cfg:              cfg,
 		toks:             toks,
-		nlStarts:         []int{0},
+		nlStarts:         make([]int, 1, strings.Count(doc.Text, "\n")+1),
 		initialFromFlags: fromFlags,
 		mode:             modeState{mode: cfg.InitialMode},
 		cppNames:         map[string]bool{},
@@ -203,12 +221,20 @@ func newAnalyzer(doc *docstore.Document, toks []lexer.Token, cfg Config, fromFla
 		globals:          map[string]bool{},
 		openSec:          -1,
 	}
-	for i := 0; i < len(doc.Text); i++ {
-		if doc.Text[i] == '\n' {
-			a.nlStarts = append(a.nlStarts, i+1)
+	for i := 0; ; {
+		j := strings.IndexByte(doc.Text[i:], '\n')
+		if j < 0 {
+			break
 		}
+		i += j + 1
+		a.nlStarts = append(a.nlStarts, i)
 	}
-	for name := range cfg.Macros {
+	return a
+}
+
+// collectMacroNames fills the names that make a statement a macro call.
+func (a *analyzer) collectMacroNames() {
+	for name := range a.cfg.Macros {
 		a.cppNames[name] = true
 	}
 	// Collect in-file macro names up front: a .macro may be invoked above
@@ -228,7 +254,6 @@ func newAnalyzer(doc *docstore.Document, toks []lexer.Token, cfg Config, fromFla
 			}
 		}
 	}
-	return a
 }
 
 func (a *analyzer) off(t lexer.Token) int {
@@ -312,17 +337,21 @@ func (a *analyzer) run() {
 
 func (a *analyzer) statement(stmt []lexer.Token) {
 	if stmt[0].Kind == lexer.CppDirective {
-		a.cppStatement(stmt)
+		if !a.modesOnly {
+			a.cppStatement(stmt)
+		}
 		return
 	}
-	a.labels(stmt)
+	if !a.modesOnly {
+		a.labels(stmt)
+	}
 	for i, t := range stmt {
 		switch t.Kind {
 		case lexer.Directive:
 			a.directive(stmt, i)
 			return
 		case lexer.Mnemonic:
-			if a.macroDepth == 0 {
+			if a.macroDepth == 0 && !a.modesOnly {
 				a.instruction(stmt, i)
 			}
 			return
@@ -340,14 +369,14 @@ func (a *analyzer) directive(stmt []lexer.Token, i int) {
 	switch name {
 	case ".macro":
 		a.macroDepth++
-		if a.macroDepth == 1 {
+		if a.macroDepth == 1 && !a.modesOnly {
 			a.defineAsmMacro(stmt, i)
 		}
 		return
 	case ".endm", ".endmacro":
 		if a.macroDepth > 0 {
 			a.macroDepth--
-			if a.macroDepth == 0 {
+			if a.macroDepth == 0 && !a.modesOnly {
 				a.endAsmMacro(d)
 			}
 		}
@@ -359,10 +388,18 @@ func (a *analyzer) directive(stmt []lexer.Token, i int) {
 	switch name {
 	case ".code16", ".code16gcc":
 		a.setMode(Mode16, d)
+		return
 	case ".code32":
 		a.setMode(Mode32, d)
+		return
 	case ".code64":
 		a.setMode(Mode64, d)
+		return
+	}
+	if a.modesOnly {
+		return
+	}
+	switch name {
 	case ".globl", ".global":
 		for _, t := range stmt[i+1:] {
 			if t.Kind == lexer.LabelRef {
@@ -456,12 +493,15 @@ func (a *analyzer) instruction(stmt []lexer.Token, mi int) {
 
 // modeIn reports whether m is listed in an isa Modes string such as "64"
 // or "16,32".
+// It runs for every instruction and register operand, so it walks the
+// string in place rather than formatting and splitting.
 func modeIn(m Mode, modes string) bool {
-	want := fmt.Sprint(int(m))
-	for _, p := range strings.Split(modes, ",") {
-		if strings.TrimSpace(p) == want {
+	for modes != "" {
+		p, rest, _ := strings.Cut(modes, ",")
+		if n, err := strconv.Atoi(strings.TrimSpace(p)); err == nil && Mode(n) == m {
 			return true
 		}
+		modes = rest
 	}
 	return false
 }

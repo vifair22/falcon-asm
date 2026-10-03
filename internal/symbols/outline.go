@@ -24,7 +24,12 @@ type section struct {
 // left out; they are noise in an outline. A .set name repeated (the usual
 // counter inside .rept) is listed once.
 func DocumentSymbols(doc *docstore.Document) []protocol.DocumentSymbol {
-	f := parse(doc.URI, doc.Text, isCHeader(uriKey(doc.URI)))
+	return Parse(doc.URI, doc.Text, nil).DocumentSymbols()
+}
+
+// DocumentSymbols is the outline of an already parsed document.
+func (pf *File) DocumentSymbols() []protocol.DocumentSymbol {
+	f := pf.f
 	secs := f.sections()
 	macroEnd := f.macroEnds()
 
@@ -39,7 +44,7 @@ func DocumentSymbols(doc *docstore.Document) []protocol.DocumentSymbol {
 		}
 	}
 	sort.Ints(bounds)
-	last := len(f.lines) - 1
+	last := f.lineCount() - 1
 	nextBound := func(line int) int {
 		i := sort.SearchInts(bounds, line+1)
 		if i < len(bounds) {
@@ -162,7 +167,7 @@ func (f *file) macroEnds() map[int]int {
 		}
 	}
 	for _, l := range stack {
-		out[l] = len(f.lines) - 1
+		out[l] = f.lineCount() - 1
 	}
 	return out
 }

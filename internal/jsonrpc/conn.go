@@ -40,15 +40,53 @@ func (c *Conn) Send(m *Message) error {
 	return Write(c.w, m)
 }
 
+// JSONAppender is a result that encodes itself. Reply hands it the frame
+// buffer directly, so a large result (semantic tokens) is formatted once
+// instead of being encoded, then validated, then copied.
+type JSONAppender interface {
+	AppendJSON(dst []byte) []byte
+}
+
 // Reply sends a successful response. A nil result, including a typed nil
 // pointer, is sent as "result":null.
+//
+// The response is framed by hand rather than through Write: marshaling a
+// Message re-scans and compacts its already-encoded Result, which for the
+// largest replies cost as much as encoding them in the first place.
 func (c *Conn) Reply(id *json.RawMessage, result any) error {
-	raw, err := json.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("encode result: %w", err)
+	idText := []byte("null")
+	if id != nil {
+		idText = *id
 	}
-	return c.Send(&Message{JSONRPC: Version, ID: id, Result: raw})
+	// The header is written into reserved space in front of the body once
+	// its length is known, so the body is never copied into a frame.
+	buf := make([]byte, headerRoom, 256)
+	body := append(buf, `{"jsonrpc":"2.0","id":`...)
+	body = append(body, idText...)
+	body = append(body, `,"result":`...)
+	if a, ok := result.(JSONAppender); ok {
+		body = a.AppendJSON(body)
+	} else {
+		raw, err := json.Marshal(result)
+		if err != nil {
+			return fmt.Errorf("encode result: %w", err)
+		}
+		body = append(body, raw...)
+	}
+	body = append(body, '}')
+	hdr := fmt.Appendf(nil, "Content-Length: %d\r\n\r\n", len(body)-headerRoom)
+	start := headerRoom - len(hdr)
+	copy(body[start:], hdr)
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, err := c.w.Write(body[start:]); err != nil {
+		return fmt.Errorf("write message: %w", err)
+	}
+	return nil
 }
+
+// headerRoom fits "Content-Length: " plus a 20-digit length and CRLFCRLF.
+const headerRoom = 40
 
 // ReplyError sends an error response. A nil id is sent as "id":null, which
 // JSON-RPC requires when the request id could not be determined.

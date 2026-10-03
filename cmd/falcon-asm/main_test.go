@@ -345,3 +345,42 @@ func TestToolchainE2E(t *testing.T) {
 		t.Fatalf("exit code = %d", code)
 	}
 }
+
+func TestProfileArgs(t *testing.T) {
+	rest, p := profileArgs([]string{"--stdio", "--cpuprofile=/a", "-memprofile", "/b", "x", "--cpuprofile"})
+	// The last occurrence wins; a trailing flag with no value leaves its
+	// profile off.
+	if p.cpu != "" || p.mem != "/b" {
+		t.Errorf("profiles = %+v", p)
+	}
+	if strings.Join(rest, " ") != "--stdio x" {
+		t.Errorf("rest = %q", rest)
+	}
+	if _, p := profileArgs([]string{"-cpuprofile", "/c"}); p.cpu != "/c" {
+		t.Errorf("separate value: %+v", p)
+	}
+}
+
+// TestProfiles runs a session with both profiles and checks they are
+// written, and that an unwritable path is refused before serving.
+func TestProfiles(t *testing.T) {
+	dir := t.TempDir()
+	cpu, mem := filepath.Join(dir, "cpu.prof"), filepath.Join(dir, "mem.prof")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"--cpuprofile=" + cpu, "--memprofile=" + mem}, strings.NewReader(session), &stdout, &stderr); code != 0 {
+		t.Fatalf("exit %d: %s", code, stderr.String())
+	}
+	for _, p := range []string{cpu, mem} {
+		if st, err := os.Stat(p); err != nil || st.Size() == 0 {
+			t.Errorf("%s: %v", p, err)
+		}
+	}
+	bad := filepath.Join(dir, "missing", "x.prof")
+	if code := run([]string{"--cpuprofile=" + bad}, strings.NewReader(session), &stdout, &stderr); code != 2 {
+		t.Errorf("unwritable cpuprofile: exit %d", code)
+	}
+	stderr.Reset()
+	if code := run([]string{"--memprofile=" + bad}, strings.NewReader(session), &stdout, &stderr); code != 0 || !strings.Contains(stderr.String(), "memprofile") {
+		t.Errorf("unwritable memprofile: exit %d, stderr %q", code, stderr.String())
+	}
+}
