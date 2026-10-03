@@ -355,7 +355,7 @@ func TestLocalLabelResolution(t *testing.T) {
 		if idx < 0 {
 			t.Fatalf("no %q on line %d", tc.ref, tc.line)
 		}
-		got := localLabelHover(doc, toks, idx)
+		got := localLabelHover(doc, toks, idx, func(l int) int { return l })
 		if !strings.Contains(got, tc.want) {
 			t.Errorf("%s on line %d: %q lacks %q", tc.ref, tc.line, got, tc.want)
 		}

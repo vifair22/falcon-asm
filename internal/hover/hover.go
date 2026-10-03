@@ -50,6 +50,11 @@ type Options struct {
 	// document's own #defines. A word that names a macro is hovered as the
 	// macro, since cpp substitutes it before the assembler sees a label.
 	Macro func(name string) (Macro, bool)
+	// LineNumber maps a zero-based line of doc to the zero-based line shown
+	// to the user. Inline asm hovers over the template as a document of its
+	// own, whose line 3 is somewhere else entirely in the C file; nil means
+	// lines are shown as they are.
+	LineNumber func(line int) int
 }
 
 // HoverWith is Hover with outside knowledge applied; see Options.
@@ -73,7 +78,10 @@ func HoverWith(doc *docstore.Document, pos protocol.Position, opts Options) (*pr
 	if idx < 0 {
 		return nil, nil
 	}
-	r := renderer{doc: doc, toks: toks, macro: opts.Macro}
+	r := renderer{doc: doc, toks: toks, macro: opts.Macro, lineNo: opts.LineNumber}
+	if r.lineNo == nil {
+		r.lineNo = func(line int) int { return line }
+	}
 	body := r.render(idx)
 	if body == "" {
 		return nil, nil
@@ -127,9 +135,10 @@ func tokenRange(doc *docstore.Document, t lexer.Token) *protocol.Range {
 }
 
 type renderer struct {
-	doc   *docstore.Document
-	toks  []lexer.Token
-	macro func(string) (Macro, bool)
+	doc    *docstore.Document
+	toks   []lexer.Token
+	macro  func(string) (Macro, bool)
+	lineNo func(int) int
 }
 
 func (r *renderer) render(idx int) string {
@@ -146,7 +155,7 @@ func (r *renderer) render(idx int) string {
 		if s := r.cppMacroHover(t.Text); s != "" {
 			return s
 		}
-		return macroHover(doc, toks, t.Text)
+		return macroHover(doc, toks, t.Text, r.lineNo)
 	case lexer.Prefix:
 		return prefixHover(t.Text)
 	case lexer.Register:
@@ -162,21 +171,21 @@ func (r *renderer) render(idx int) string {
 			if s := r.cppMacroHover(atom); s != "" {
 				return s
 			}
-			return labelHover(doc, toks, atom)
+			return labelHover(doc, toks, atom, r.lineNo)
 		}
 	case lexer.Number:
 		if v, ok := parseNumber(t.Text); ok {
 			return numberHover(t.Text, v)
 		}
 	case lexer.LocalLabelRef:
-		return localLabelHover(doc, toks, idx)
+		return localLabelHover(doc, toks, idx, r.lineNo)
 	case lexer.LabelRef:
 		if s := r.cppMacroHover(t.Text); s != "" {
 			return s
 		}
-		return labelHover(doc, toks, t.Text)
+		return labelHover(doc, toks, t.Text, r.lineNo)
 	case lexer.LabelDef:
-		return labelHover(doc, toks, t.Text)
+		return labelHover(doc, toks, t.Text, r.lineNo)
 	case lexer.Identifier:
 		return r.cppMacroHover(t.Text)
 	}
@@ -555,7 +564,7 @@ func formatNumber(v uint64) string {
 
 // localLabelHover resolves 1f/1b with symbols.ResolveLocal, the same rule
 // go-to-definition uses, so hover and navigation never disagree.
-func localLabelHover(doc *docstore.Document, toks []lexer.Token, idx int) string {
+func localLabelHover(doc *docstore.Document, toks []lexer.Token, idx int, lineNo func(int) int) string {
 	ref := toks[idx].Text
 	name, dir := ref[:len(ref)-1], ref[len(ref)-1]
 	way := "forward"
@@ -569,7 +578,7 @@ func localLabelHover(doc *docstore.Document, toks []lexer.Token, idx int) string
 	line := toks[target].Line
 	lines := []string{
 		bold(ref),
-		fmt.Sprintf("Local label %s, %s -> line %d", name, way, line+1),
+		fmt.Sprintf("Local label %s, %s -> line %d", name, way, lineNo(line)+1),
 	}
 	if text, ok := doc.Line(line); ok && strings.TrimSpace(text) != "" {
 		lines = append(lines, code(strings.TrimSpace(text)))
@@ -580,7 +589,7 @@ func localLabelHover(doc *docstore.Document, toks []lexer.Token, idx int) string
 // labelHover reports where a symbol is defined in this document and whether
 // it is exported. Cross-file resolution is phase 2, so a symbol defined
 // elsewhere (an .extern, a cpp constant) has no hover rather than a guess.
-func labelHover(doc *docstore.Document, toks []lexer.Token, name string) string {
+func labelHover(doc *docstore.Document, toks []lexer.Token, name string, lineNo func(int) int) string {
 	def := -1
 	global := false
 	for i, t := range toks {
@@ -596,7 +605,7 @@ func labelHover(doc *docstore.Document, toks []lexer.Token, name string) string 
 		return ""
 	}
 	line := toks[def].Line
-	lines := []string{bold(name) + " - label", fmt.Sprintf("Label defined at line %d", line+1)}
+	lines := []string{bold(name) + " - label", fmt.Sprintf("Label defined at line %d", lineNo(line)+1)}
 	if text, ok := doc.Line(line); ok && strings.TrimSpace(text) != name+":" {
 		lines = append(lines, code(strings.TrimSpace(text)))
 	}
@@ -614,7 +623,7 @@ func isGlobalDirective(d string) bool {
 // macroHover covers a mnemonic-position word that is not an instruction:
 // usually a .macro defined in the same file, whose definition line is the
 // most useful thing to show.
-func macroHover(doc *docstore.Document, toks []lexer.Token, name string) string {
+func macroHover(doc *docstore.Document, toks []lexer.Token, name string, lineNo func(int) int) string {
 	for i, t := range toks {
 		if t.Kind != lexer.Directive || !strings.EqualFold(t.Text, ".macro") || i+1 >= len(toks) {
 			continue
@@ -623,7 +632,7 @@ func macroHover(doc *docstore.Document, toks []lexer.Token, name string) string 
 		if n.Line != t.Line || n.Text != name {
 			continue
 		}
-		lines := []string{bold(name) + " - macro", fmt.Sprintf("Macro defined at line %d", t.Line+1)}
+		lines := []string{bold(name) + " - macro", fmt.Sprintf("Macro defined at line %d", lineNo(t.Line)+1)}
 		if text, ok := doc.Line(t.Line); ok {
 			lines = append(lines, code(strings.TrimSpace(text)))
 		}

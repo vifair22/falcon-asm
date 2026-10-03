@@ -965,3 +965,40 @@ func TestListingHintsFormatting(t *testing.T) {
 		t.Fatalf("size to section end = %d", n)
 	}
 }
+
+// A label hover inside an asm template must name the C line, not the line
+// within the template: the template is hovered as a document of its own.
+func TestCInlineLabelLines(t *testing.T) {
+	h := newHarness(t, setup{})
+	src := "/* switch */\n" + // 0
+		"#include <x.h>\n" + // 1
+		"\n" + // 2
+		"__asm__(\n" + // 3
+		"\t\".globl task_switch\\n\"\n" + // 4
+		"\t\"task_switch:\\n\"\n" + // 5
+		"\t\"1:\\n\"\n" + // 6
+		"\t\"    jmp 1b\\n\"\n" + // 7
+		"\t\"    jmp task_switch\\n\"\n" + // 8
+		");\n"
+	path, uri := h.file("sw.c", src)
+	h.e.cfg.FindDB = func(string) (FlagDB, error) { return fakeDB{path: {Compiler: "gcc", Mode: 32}}, nil }
+	doc := h.open(uri, "c", 1, src)
+
+	lines := strings.Split(src, "\n")
+	cases := []struct {
+		line int
+		word string
+		want string
+	}{
+		{8, "task_switch", "Label defined at line 6"},
+		{7, "1b", "-> line 7"},
+	}
+	for _, c := range cases {
+		col := strings.Index(lines[c.line], c.word)
+		hv, err := h.e.Hover(doc, protocol.Position{Line: c.line, Character: col})
+		if err != nil || hv == nil || !strings.Contains(hv.Contents.Value, c.want) {
+			t.Errorf("hover on %s = %+v %v, want %q", c.word, hv, err, c.want)
+		}
+	}
+	h.e.wg.Wait()
+}
