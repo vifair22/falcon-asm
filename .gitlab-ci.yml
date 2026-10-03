@@ -1,0 +1,123 @@
+# falcon-asm CI pipeline.
+#
+# Stages follow the project standard (test -> analyze -> coverage -> build).
+# There is no deploy stage: the artifacts are a static server binary and a
+# .vsix, both installed by hand. Pre-1.0, so master is worked on directly and
+# branch protection is not wired yet.
+
+stages:
+  - test
+  - analyze
+  - coverage
+  - build
+
+variables:
+  GIT_DEPTH: "10"
+  GO_IMAGE: golang:1.26-trixie
+  NODE_IMAGE: node:24-trixie
+  # Pinned: a tool release must not be able to red an unrelated change.
+  GOLANGCI_VERSION: v2.12.2
+  GOTESTSUM_VERSION: v1.13.0
+  COVERAGE_MIN: "80"
+
+default:
+  tags: [docker]
+
+#-------------------------------------------------------------------------------
+# test
+
+test:go:
+  stage: test
+  image: $GO_IMAGE
+  # gotestsum is run, not added to go.mod: it only converts `go test -json`
+  # output into JUnit XML for the MR Tests tab, the module stays stdlib-only.
+  script:
+    - mkdir -p build/junit
+    - >
+      go run gotest.tools/gotestsum@${GOTESTSUM_VERSION}
+      --junitfile build/junit/go.junit.xml -- -race ./...
+  artifacts:
+    when: always
+    reports:
+      junit: build/junit/go.junit.xml
+    expire_in: 1 week
+
+test:vscode:
+  stage: test
+  image: $NODE_IMAGE
+  script:
+    - cd editors/vscode && npm ci && npx vitest run --reporter=default --reporter=junit --outputFile.junit=../../build/junit/vscode.junit.xml
+  artifacts:
+    when: always
+    reports:
+      junit: build/junit/vscode.junit.xml
+    expire_in: 1 week
+
+#-------------------------------------------------------------------------------
+# analyze
+
+analyze:go:
+  stage: analyze
+  image: $GO_IMAGE
+  needs: ["test:go"]
+  before_script:
+    # The prebuilt, checksum-verified binary rather than `go install`, so the
+    # bundled gofmt cannot drift with the image's Go version.
+    - >
+      curl -sSfL
+      "https://raw.githubusercontent.com/golangci/golangci-lint/${GOLANGCI_VERSION}/install.sh"
+      | sh -s -- -b "$(go env GOPATH)/bin" "${GOLANGCI_VERSION}"
+  script:
+    - go vet ./...
+    - golangci-lint run ./...
+
+# xed.json is generated; a hand edit that the generator would not reproduce
+# is caught here rather than discovered at the next regeneration. The check
+# is structural (valid JSON, sorted, ASCII) because the upstream checkouts
+# are not fetched in CI.
+analyze:data:
+  stage: analyze
+  image: $GO_IMAGE
+  needs: []
+  script:
+    - go test -run 'TestEmbeddedData' ./internal/isa/...
+
+#-------------------------------------------------------------------------------
+# coverage
+
+coverage:go:
+  stage: coverage
+  image: $GO_IMAGE
+  needs: ["test:go"]
+  script:
+    - make coverage COVERAGE_MIN=${COVERAGE_MIN}
+  coverage: '/^total:\s+\(statements\)\s+(\d+\.\d+)%/'
+  artifacts:
+    paths:
+      - build/coverage/
+    expire_in: 1 week
+
+#-------------------------------------------------------------------------------
+# build
+
+build:server:
+  stage: build
+  image: $GO_IMAGE
+  script:
+    - make server
+    - ./build/bin/falcon-asm --version
+  artifacts:
+    paths:
+      - build/bin/falcon-asm
+    expire_in: 4 weeks
+
+build:vscode:
+  stage: build
+  image: $NODE_IMAGE
+  needs: ["test:vscode"]
+  script:
+    - cd editors/vscode && npm ci && npm run package
+  artifacts:
+    paths:
+      - editors/vscode/*.vsix
+    expire_in: 4 weeks

@@ -1,0 +1,1744 @@
+[
+  {
+    "name": "cli",
+    "summary": "Clear Interrupt Flag",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsRead": "IOPL VM",
+    "flagsWritten": "IF VIF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "IOPL-sensitive: #GP if CPL > IOPL, unless VME/PVI applies, in which case VIF is cleared instead"
+  },
+  {
+    "name": "sti",
+    "summary": "Set Interrupt Flag",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsRead": "IOPL VM",
+    "flagsWritten": "IF VIF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "IOPL-sensitive like cli; interrupts stay inhibited until after the next instruction"
+  },
+  {
+    "name": "cld",
+    "summary": "Clear Direction Flag (string operations increment)",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsWritten": "DF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ]
+  },
+  {
+    "name": "std",
+    "summary": "Set Direction Flag (string operations decrement)",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsWritten": "DF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ]
+  },
+  {
+    "name": "clc",
+    "summary": "Clear Carry Flag",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsWritten": "CF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ]
+  },
+  {
+    "name": "stc",
+    "summary": "Set Carry Flag",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsWritten": "CF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ]
+  },
+  {
+    "name": "cmc",
+    "summary": "Complement Carry Flag",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsRead": "CF",
+    "flagsWritten": "CF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ]
+  },
+  {
+    "name": "lahf",
+    "summary": "Load Status Flags into AH",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsRead": "SF ZF AF PF CF",
+    "forms": [
+      {
+        "isaSet": "LAHF"
+      }
+    ],
+    "notes": "In 64-bit mode needs CPUID.80000001H:ECX.LAHF-SAHF[bit 0]; always valid in 16/32-bit modes"
+  },
+  {
+    "name": "sahf",
+    "summary": "Store AH into Flags",
+    "category": "FLAGOP",
+    "cpl": 3,
+    "flagsWritten": "SF ZF AF PF CF",
+    "forms": [
+      {
+        "isaSet": "LAHF"
+      }
+    ],
+    "notes": "In 64-bit mode needs CPUID.80000001H:ECX.LAHF-SAHF[bit 0]; always valid in 16/32-bit modes"
+  },
+  {
+    "name": "pushf",
+    "summary": "Push FLAGS Register onto the Stack",
+    "category": "PUSH",
+    "cpl": 3,
+    "flagsRead": "CF PF AF ZF SF TF IF DF OF IOPL NT AC VIF VIP ID",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "pushfd"
+    ],
+    "notes": "pushfw 16-bit, pushfl 32-bit (not in 64-bit mode), pushfq 64-bit; VM and RF are stored as 0"
+  },
+  {
+    "name": "popf",
+    "summary": "Pop Stack into FLAGS Register",
+    "category": "POP",
+    "cpl": 3,
+    "flagsRead": "IOPL VM",
+    "flagsWritten": "CF PF AF ZF SF TF IF DF OF IOPL NT RF AC ID",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "popfd"
+    ],
+    "notes": "IF changes only if CPL <= IOPL and IOPL only at CPL 0; VM, VIP and VIF are unchanged; RF is cleared. popfw 16-bit, popfl 32-bit (not in 64-bit mode), popfq 64-bit"
+  },
+  {
+    "name": "pusha",
+    "summary": "Push All 16/32-bit General-Purpose Registers",
+    "category": "PUSH",
+    "cpl": 3,
+    "modes": "16,32",
+    "forms": [
+      {
+        "isaSet": "I186"
+      }
+    ],
+    "aliases": [
+      "pushad"
+    ],
+    "notes": "pushaw pushes AX..DI, pushal EAX..EDI (the stored SP/ESP is its value before the first push)"
+  },
+  {
+    "name": "popa",
+    "summary": "Pop All 16/32-bit General-Purpose Registers",
+    "category": "POP",
+    "cpl": 3,
+    "modes": "16,32",
+    "forms": [
+      {
+        "isaSet": "I186"
+      }
+    ],
+    "aliases": [
+      "popad"
+    ],
+    "notes": "The saved SP/ESP slot is discarded, not loaded"
+  },
+  {
+    "name": "enter",
+    "summary": "Make Stack Frame for Procedure Parameters",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "imm16, imm8",
+        "isaSet": "I186"
+      }
+    ],
+    "notes": "GAS keeps Intel operand order: frame size first, then nesting level"
+  },
+  {
+    "name": "leave",
+    "summary": "High Level Procedure Exit (mov %ebp, %esp; pop %ebp)",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I186"
+      }
+    ]
+  },
+  {
+    "name": "hlt",
+    "summary": "Halt",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "Resumes on NMI, SMI, INIT, reset, machine check or, if IF=1, an external interrupt"
+  },
+  {
+    "name": "nop",
+    "summary": "No Operation",
+    "category": "NOP",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "r/m16",
+        "isaSet": "PPRO"
+      },
+      {
+        "operands": "r/m32",
+        "isaSet": "PPRO"
+      }
+    ],
+    "notes": "The operand forms are the multi-byte 0F 1F /0 encodings used for padding"
+  },
+  {
+    "name": "pause",
+    "summary": "Spin Loop Hint",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "PAUSE"
+      }
+    ],
+    "notes": "Encoded as rep nop, so it executes as nop on processors that predate it"
+  },
+  {
+    "name": "int",
+    "summary": "Call to Interrupt Procedure",
+    "category": "INTERRUPT",
+    "cpl": 3,
+    "flagsRead": "IOPL VM",
+    "flagsWritten": "TF IF NT RF AC VM VIF",
+    "forms": [
+      {
+        "operands": "imm8",
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "In protected mode the IDT gate DPL must be >= CPL; in virtual-8086 mode IOPL-sensitive"
+  },
+  {
+    "name": "int3",
+    "summary": "Breakpoint (#BP trap)",
+    "category": "INTERRUPT",
+    "cpl": 3,
+    "flagsRead": "IOPL VM",
+    "flagsWritten": "TF IF NT RF AC VM VIF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "One-byte CC encoding, unlike int $3"
+  },
+  {
+    "name": "int1",
+    "summary": "Debug Trap (ICEBP, #DB)",
+    "category": "INTERRUPT",
+    "cpl": 3,
+    "flagsWritten": "TF IF NT RF AC VM VIF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "icebp"
+    ]
+  },
+  {
+    "name": "into",
+    "summary": "Call Overflow Handler (#OF) if OF=1",
+    "category": "INTERRUPT",
+    "cpl": 3,
+    "modes": "16,32",
+    "flagsRead": "OF",
+    "flagsWritten": "TF IF NT RF AC VM",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "Invalid in 64-bit mode"
+  },
+  {
+    "name": "iret",
+    "summary": "Interrupt Return",
+    "category": "RET",
+    "cpl": 3,
+    "flagsRead": "NT VM IOPL",
+    "flagsWritten": "CF PF AF ZF SF TF IF DF OF IOPL NT RF AC VM VIF VIP ID",
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "iretw",
+      "iretl",
+      "iretd"
+    ],
+    "notes": "iretw pops 16-bit IP/CS/FLAGS, iretl/iretd 32-bit; in protected mode with NT=1 it returns from a nested task"
+  },
+  {
+    "name": "iretq",
+    "summary": "Interrupt Return (64-bit operand size)",
+    "category": "RET",
+    "cpl": 3,
+    "modes": "64",
+    "flagsRead": "NT IOPL",
+    "flagsWritten": "CF PF AF ZF SF TF IF DF OF IOPL NT RF AC VM VIF VIP ID",
+    "forms": [
+      {
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Always pops RIP, CS, RFLAGS, RSP and SS"
+  },
+  {
+    "name": "ud2",
+    "summary": "Undefined Instruction (always raises #UD)",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "PPRO"
+      }
+    ]
+  },
+  {
+    "name": "ud1",
+    "summary": "Undefined Instruction 1 (always raises #UD)",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m32, r32",
+        "isaSet": "PPRO"
+      }
+    ]
+  },
+  {
+    "name": "ud0",
+    "summary": "Undefined Instruction 0 (always raises #UD)",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m32, r32",
+        "isaSet": "PPRO_UD0_LONG"
+      }
+    ],
+    "notes": "Some older AMD processors decode it without a ModR/M byte"
+  },
+  {
+    "name": "bound",
+    "summary": "Check Array Index Against Bounds (#BR if out of range)",
+    "category": "INTERRUPT",
+    "cpl": 3,
+    "modes": "16,32",
+    "forms": [
+      {
+        "operands": "r16, m16&16",
+        "isaSet": "I186"
+      },
+      {
+        "operands": "r32, m32&32",
+        "isaSet": "I386"
+      }
+    ],
+    "notes": "GAS keeps Intel operand order for bound; opcode 62 is the EVEX prefix in 64-bit mode"
+  },
+  {
+    "name": "lgdt",
+    "summary": "Load Global Descriptor Table Register",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "m16&32",
+        "isaSet": "I286REAL"
+      },
+      {
+        "operands": "m16&64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Valid in real mode; with 16-bit operand size (lgdtw) only 24 bits of the base are used; 64-bit mode always loads a 64-bit base"
+  },
+  {
+    "name": "lidt",
+    "summary": "Load Interrupt Descriptor Table Register",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "m16&32",
+        "isaSet": "I286REAL"
+      },
+      {
+        "operands": "m16&64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Valid in real mode; with 16-bit operand size (lidtw) only 24 bits of the base are used; 64-bit mode always loads a 64-bit base"
+  },
+  {
+    "name": "sgdt",
+    "summary": "Store Global Descriptor Table Register",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "m16&32",
+        "isaSet": "I286REAL"
+      },
+      {
+        "operands": "m16&64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#GP if CPL > 0 and CR4.UMIP=1"
+  },
+  {
+    "name": "sidt",
+    "summary": "Store Interrupt Descriptor Table Register",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "m16&32",
+        "isaSet": "I286REAL"
+      },
+      {
+        "operands": "m16&64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#GP if CPL > 0 and CR4.UMIP=1"
+  },
+  {
+    "name": "lldt",
+    "summary": "Load Local Descriptor Table Register",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286PROTECTED"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode"
+  },
+  {
+    "name": "sldt",
+    "summary": "Store Local Descriptor Table Register",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286PROTECTED"
+      },
+      {
+        "operands": "r32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "r64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; #GP if CPL > 0 and CR4.UMIP=1"
+  },
+  {
+    "name": "ltr",
+    "summary": "Load Task Register",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286PROTECTED"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; marks the TSS descriptor busy"
+  },
+  {
+    "name": "str",
+    "summary": "Store Task Register",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286PROTECTED"
+      },
+      {
+        "operands": "r32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "r64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; #GP if CPL > 0 and CR4.UMIP=1"
+  },
+  {
+    "name": "lmsw",
+    "summary": "Load Machine Status Word (CR0 bits 0-3)",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286REAL"
+      }
+    ],
+    "notes": "Can set PE but never clear it; affects only PE, MP, EM and TS"
+  },
+  {
+    "name": "smsw",
+    "summary": "Store Machine Status Word (low bits of CR0)",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286REAL"
+      },
+      {
+        "operands": "r32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "r64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#GP if CPL > 0 and CR4.UMIP=1"
+  },
+  {
+    "name": "clts",
+    "summary": "Clear Task-Switched Flag in CR0",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "I286REAL"
+      }
+    ]
+  },
+  {
+    "name": "lar",
+    "summary": "Load Access Rights Byte",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "flagsWritten": "ZF",
+    "forms": [
+      {
+        "operands": "r/m16, r16",
+        "isaSet": "I286PROTECTED"
+      },
+      {
+        "operands": "r/m16, r32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "r/m16, r64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; ZF=1 if the selector is valid and visible at CPL/RPL"
+  },
+  {
+    "name": "lsl",
+    "summary": "Load Segment Limit",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "flagsWritten": "ZF",
+    "forms": [
+      {
+        "operands": "r/m16, r16",
+        "isaSet": "I286PROTECTED"
+      },
+      {
+        "operands": "r/m16, r32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "r/m16, r64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; ZF=1 if the limit was loaded"
+  },
+  {
+    "name": "verr",
+    "summary": "Verify a Segment for Reading",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "flagsWritten": "ZF",
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286PROTECTED"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode"
+  },
+  {
+    "name": "verw",
+    "summary": "Verify a Segment for Writing",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "flagsWritten": "ZF",
+    "forms": [
+      {
+        "operands": "r/m16",
+        "isaSet": "I286PROTECTED"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; the memory form also flushes CPU buffers on parts with MD_CLEAR (MDS mitigation)"
+  },
+  {
+    "name": "arpl",
+    "summary": "Adjust RPL Field of Segment Selector",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "modes": "16,32",
+    "flagsWritten": "ZF",
+    "forms": [
+      {
+        "operands": "r16, r/m16",
+        "isaSet": "I286PROTECTED"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; opcode 63 is movslq (MOVSXD) in 64-bit mode"
+  },
+  {
+    "name": "invd",
+    "summary": "Invalidate Internal Caches (without writeback)",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "I486REAL"
+      }
+    ],
+    "notes": "Modified lines are discarded, not written back; use wbinvd unless that is the intent"
+  },
+  {
+    "name": "wbinvd",
+    "summary": "Write Back and Invalidate Cache",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "I486REAL"
+      }
+    ]
+  },
+  {
+    "name": "invlpg",
+    "summary": "Invalidate TLB Entries for Page",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "I486REAL"
+      }
+    ]
+  },
+  {
+    "name": "invpcid",
+    "summary": "Invalidate Process-Context Identifier",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "m128, r32",
+        "isaSet": "INVPCID"
+      },
+      {
+        "operands": "m128, r64",
+        "isaSet": "INVPCID"
+      }
+    ],
+    "notes": "#UD in real and virtual-8086 mode; type in the register: 0 address, 1 single context, 2 all incl. globals, 3 all but globals"
+  },
+  {
+    "name": "rdmsr",
+    "summary": "Read from Model Specific Register",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "PENTIUMREAL"
+      }
+    ],
+    "notes": "Reads MSR[ECX] into EDX:EAX; #GP for an unimplemented MSR"
+  },
+  {
+    "name": "wrmsr",
+    "summary": "Write to Model Specific Register",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "PENTIUMREAL"
+      }
+    ],
+    "notes": "Writes EDX:EAX to MSR[ECX]; #GP for an unimplemented MSR or a reserved bit"
+  },
+  {
+    "name": "rdtsc",
+    "summary": "Read Time-Stamp Counter",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "PENTIUMREAL"
+      }
+    ],
+    "notes": "EDX:EAX = TSC; #GP if CPL > 0 and CR4.TSD=1; not serializing"
+  },
+  {
+    "name": "rdtscp",
+    "summary": "Read Time-Stamp Counter and Processor ID",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "RDTSCP"
+      }
+    ],
+    "notes": "EDX:EAX = TSC, ECX = IA32_TSC_AUX; #GP if CPL > 0 and CR4.TSD=1"
+  },
+  {
+    "name": "rdpmc",
+    "summary": "Read Performance-Monitoring Counter",
+    "category": "SYSTEM",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "RDPMC"
+      }
+    ],
+    "notes": "Reads counter ECX into EDX:EAX; #GP if CPL > 0 and CR4.PCE=0"
+  },
+  {
+    "name": "rdpid",
+    "summary": "Read Processor ID (IA32_TSC_AUX)",
+    "category": "RDPID",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r32",
+        "isaSet": "RDPID"
+      },
+      {
+        "operands": "r64",
+        "isaSet": "RDPID"
+      }
+    ],
+    "notes": "r32 outside 64-bit mode, r64 in 64-bit mode"
+  },
+  {
+    "name": "cpuid",
+    "summary": "CPU Identification",
+    "category": "MISC",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I486REAL"
+      }
+    ],
+    "notes": "Leaf in EAX, subleaf in ECX; results in EAX, EBX, ECX, EDX; serializing"
+  },
+  {
+    "name": "xgetbv",
+    "summary": "Get Value of Extended Control Register",
+    "category": "XSAVE",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "XSAVE"
+      }
+    ],
+    "notes": "Reads XCR[ECX] into EDX:EAX; #UD if CR4.OSXSAVE=0"
+  },
+  {
+    "name": "xsetbv",
+    "summary": "Set Extended Control Register",
+    "category": "XSAVE",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "XSAVE"
+      }
+    ],
+    "notes": "Writes EDX:EAX to XCR[ECX]; #UD if CR4.OSXSAVE=0"
+  },
+  {
+    "name": "xsave",
+    "summary": "Save Processor Extended States",
+    "category": "XSAVE",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "XSAVE"
+      }
+    ],
+    "aliases": [
+      "xsave64"
+    ],
+    "notes": "Saves the components in EDX:EAX AND XCR0 to a 64-byte aligned area; xsave64 uses the REX.W layout"
+  },
+  {
+    "name": "xrstor",
+    "summary": "Restore Processor Extended States",
+    "category": "XSAVE",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "XSAVE"
+      }
+    ],
+    "aliases": [
+      "xrstor64"
+    ],
+    "notes": "Restores the components in EDX:EAX AND XCR0 from a 64-byte aligned area"
+  },
+  {
+    "name": "xsaveopt",
+    "summary": "Save Processor Extended States Optimized",
+    "category": "XSAVEOPT",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "XSAVEOPT"
+      }
+    ],
+    "aliases": [
+      "xsaveopt64"
+    ],
+    "notes": "May skip components unmodified since the last xrstor"
+  },
+  {
+    "name": "xsavec",
+    "summary": "Save Processor Extended States with Compaction",
+    "category": "XSAVE",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "XSAVEC"
+      }
+    ],
+    "aliases": [
+      "xsavec64"
+    ]
+  },
+  {
+    "name": "xsaves",
+    "summary": "Save Processor Extended States Supervisor",
+    "category": "XSAVE",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "XSAVES"
+      }
+    ],
+    "aliases": [
+      "xsaves64"
+    ],
+    "notes": "Compacted format; includes supervisor components enabled in IA32_XSS"
+  },
+  {
+    "name": "xrstors",
+    "summary": "Restore Processor Extended States Supervisor",
+    "category": "XSAVE",
+    "cpl": 0,
+    "forms": [
+      {
+        "operands": "m",
+        "isaSet": "XSAVES"
+      }
+    ],
+    "aliases": [
+      "xrstors64"
+    ]
+  },
+  {
+    "name": "rsm",
+    "summary": "Resume from System Management Mode",
+    "category": "SYSRET",
+    "cpl": 0,
+    "flagsWritten": "CF PF AF ZF SF TF IF DF OF IOPL NT RF AC VM VIF VIP ID",
+    "forms": [
+      {
+        "isaSet": "I486"
+      }
+    ],
+    "notes": "Valid only in SMM (#UD elsewhere, at any CPL); restores state from SMRAM"
+  },
+  {
+    "name": "monitor",
+    "summary": "Set Up Monitor Address",
+    "category": "MISC",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "MONITOR"
+      }
+    ],
+    "notes": "Address in RAX/EAX/AX (DS-relative), extensions in ECX, hints in EDX; ring 3 use only where the platform enables it"
+  },
+  {
+    "name": "mwait",
+    "summary": "Monitor Wait",
+    "category": "MISC",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "MONITOR"
+      }
+    ],
+    "notes": "Hints in EAX (target C-state), extensions in ECX; ring 3 use only where the platform enables it"
+  },
+  {
+    "name": "swapgs",
+    "summary": "Swap GS Base Register with IA32_KERNEL_GS_BASE",
+    "category": "SYSTEM",
+    "cpl": 0,
+    "modes": "64",
+    "forms": [
+      {
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "syscall",
+    "summary": "Fast System Call",
+    "category": "SYSCALL",
+    "cpl": 3,
+    "flagsWritten": "RFLAGS masked by IA32_FMASK; RF cleared",
+    "forms": [
+      {
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "RCX = return RIP, R11 = RFLAGS; Intel: #UD outside 64-bit mode, AMD also allows legacy mode; needs EFER.SCE"
+  },
+  {
+    "name": "sysret",
+    "summary": "Return from Fast System Call",
+    "category": "SYSRET",
+    "cpl": 0,
+    "flagsWritten": "CF PF AF ZF SF TF IF DF OF IOPL NT RF AC VM VIF VIP ID (from R11)",
+    "forms": [
+      {
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "sysret returns to 32-bit compatibility mode, sysretq to 64-bit mode; RIP from RCX; Intel: #UD outside 64-bit mode"
+  },
+  {
+    "name": "sysenter",
+    "summary": "Fast System Call (SYSENTER)",
+    "category": "SYSCALL",
+    "cpl": 3,
+    "flagsWritten": "IF RF VM",
+    "forms": [
+      {
+        "isaSet": "SEP"
+      }
+    ],
+    "notes": "Target from IA32_SYSENTER_CS/ESP/EIP; #GP if IA32_SYSENTER_CS is 0; AMD: #UD in long mode"
+  },
+  {
+    "name": "sysexit",
+    "summary": "Fast Return from SYSENTER",
+    "category": "SYSRET",
+    "cpl": 0,
+    "forms": [
+      {
+        "isaSet": "SEP"
+      }
+    ],
+    "notes": "EIP from EDX, ESP from ECX; sysexitq returns to 64-bit mode; AMD: #UD in long mode"
+  },
+  {
+    "name": "in",
+    "summary": "Input from Port",
+    "category": "IO",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "imm8, %al",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "imm8, %ax",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "imm8, %eax",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "%dx, %al",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%dx, %ax",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%dx, %eax",
+        "isaSet": "I386"
+      }
+    ],
+    "aliases": [
+      "inb",
+      "inw",
+      "inl"
+    ],
+    "notes": "IOPL-sensitive: in protected mode with CPL > IOPL, or in virtual-8086 mode, allowed only for ports the TSS I/O permission bitmap permits, else #GP"
+  },
+  {
+    "name": "out",
+    "summary": "Output to Port",
+    "category": "IO",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "%al, imm8",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%ax, imm8",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%eax, imm8",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "%al, %dx",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%ax, %dx",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%eax, %dx",
+        "isaSet": "I386"
+      }
+    ],
+    "aliases": [
+      "outb",
+      "outw",
+      "outl"
+    ],
+    "notes": "IOPL-sensitive: in protected mode with CPL > IOPL, or in virtual-8086 mode, allowed only for ports the TSS I/O permission bitmap permits, else #GP"
+  },
+  {
+    "name": "ins",
+    "summary": "Input String from Port",
+    "category": "IOSTRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "forms": [
+      {
+        "isaSet": "I186"
+      },
+      {
+        "operands": "(%dx), %es:(%di)",
+        "isaSet": "I186"
+      }
+    ],
+    "aliases": [
+      "insb",
+      "insw",
+      "insl",
+      "insd"
+    ],
+    "notes": "Reads port DX into %es:(DI/EDI/RDI), then steps DI by DF; IOPL-sensitive: in protected mode with CPL > IOPL, or in virtual-8086 mode, allowed only for ports the TSS I/O permission bitmap permits, else #GP"
+  },
+  {
+    "name": "outs",
+    "summary": "Output String to Port",
+    "category": "IOSTRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "forms": [
+      {
+        "isaSet": "I186"
+      },
+      {
+        "operands": "(%si), (%dx)",
+        "isaSet": "I186"
+      }
+    ],
+    "aliases": [
+      "outsb",
+      "outsw",
+      "outsl",
+      "outsd"
+    ],
+    "notes": "Writes DS:(SI/ESI/RSI) to port DX, then steps SI by DF; IOPL-sensitive: in protected mode with CPL > IOPL, or in virtual-8086 mode, allowed only for ports the TSS I/O permission bitmap permits, else #GP"
+  },
+  {
+    "name": "movs",
+    "summary": "Move Data from String to String",
+    "category": "STRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "(%si), %es:(%di)",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "movsb",
+      "movsw",
+      "movsl",
+      "movsq"
+    ],
+    "notes": "Copies DS:(SI) to %es:(DI) and steps both by DF; movsd here is the SSE2 scalar move, write movsl for the 32-bit string form"
+  },
+  {
+    "name": "stos",
+    "summary": "Store String",
+    "category": "STRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%al, %es:(%di)",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "stosb",
+      "stosw",
+      "stosl",
+      "stosd",
+      "stosq"
+    ],
+    "notes": "Stores AL/AX/EAX/RAX to %es:(DI) and steps DI by DF"
+  },
+  {
+    "name": "lods",
+    "summary": "Load String",
+    "category": "STRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "(%si), %al",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "lodsb",
+      "lodsw",
+      "lodsl",
+      "lodsd",
+      "lodsq"
+    ],
+    "notes": "Loads DS:(SI) into AL/AX/EAX/RAX and steps SI by DF"
+  },
+  {
+    "name": "scas",
+    "summary": "Scan String",
+    "category": "STRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "flagsWritten": "CF PF AF ZF SF OF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%es:(%di), %al",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "scasb",
+      "scasw",
+      "scasl",
+      "scasd",
+      "scasq"
+    ],
+    "notes": "Compares AL/AX/EAX/RAX with %es:(DI) and steps DI by DF; usually with repe/repne"
+  },
+  {
+    "name": "cmps",
+    "summary": "Compare String Operands",
+    "category": "STRINGOP",
+    "cpl": 3,
+    "flagsRead": "DF",
+    "flagsWritten": "CF PF AF ZF SF OF",
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "%es:(%di), (%si)",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "cmpsb",
+      "cmpsw",
+      "cmpsl",
+      "cmpsq"
+    ],
+    "notes": "Compares DS:(SI) with %es:(DI) and steps both by DF; cmpsd here is the SSE2 compare, write cmpsl for the string form"
+  },
+  {
+    "name": "jmp",
+    "summary": "Jump",
+    "category": "UNCOND_BR",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "rel16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "rel32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*r/m16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "*r/m32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*r/m64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Indirect targets are written with '*'; *r/m64 replaces *r/m32 in 64-bit mode"
+  },
+  {
+    "name": "call",
+    "summary": "Call Procedure",
+    "category": "CALL",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "rel16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "rel32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*r/m16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "*r/m32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*r/m64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Indirect targets are written with '*'; *r/m64 replaces *r/m32 in 64-bit mode"
+  },
+  {
+    "name": "ret",
+    "summary": "Return from Procedure (near)",
+    "category": "RET",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "imm16",
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "The immediate form releases imm16 bytes of stack after popping the return address"
+  },
+  {
+    "name": "ljmp",
+    "summary": "Far Jump",
+    "category": "UNCOND_BR",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "$imm16, $imm16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "$imm16, $imm32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*m16:16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "*m16:32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*m16:64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Direct form is $selector, $offset and is invalid in 64-bit mode; in protected mode CS may name a call gate, TSS or task gate"
+  },
+  {
+    "name": "lcall",
+    "summary": "Far Call",
+    "category": "CALL",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "$imm16, $imm16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "$imm16, $imm32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*m16:16",
+        "isaSet": "I86"
+      },
+      {
+        "operands": "*m16:32",
+        "isaSet": "I386"
+      },
+      {
+        "operands": "*m16:64",
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "notes": "Direct form is $selector, $offset and is invalid in 64-bit mode; in protected mode CS may name a call gate, TSS or task gate"
+  },
+  {
+    "name": "lret",
+    "summary": "Return from Procedure (far)",
+    "category": "RET",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I86"
+      },
+      {
+        "operands": "imm16",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "retf"
+    ],
+    "notes": "Pops IP/EIP/RIP then CS; lretw, lretl, lretq select the operand size; imm16 releases that many bytes of stack"
+  },
+  {
+    "name": "loop",
+    "summary": "Decrement Count; Jump if Count != 0",
+    "category": "COND_BR",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "Count is CX, ECX or RCX by address size (addr32 loop uses ECX in 16-bit code); flags unchanged"
+  },
+  {
+    "name": "loope",
+    "summary": "Decrement Count; Jump if Count != 0 and ZF=1",
+    "category": "COND_BR",
+    "cpl": 3,
+    "flagsRead": "ZF",
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "loopz"
+    ],
+    "notes": "Count is CX, ECX or RCX by address size"
+  },
+  {
+    "name": "loopne",
+    "summary": "Decrement Count; Jump if Count != 0 and ZF=0",
+    "category": "COND_BR",
+    "cpl": 3,
+    "flagsRead": "ZF",
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "loopnz"
+    ],
+    "notes": "Count is CX, ECX or RCX by address size"
+  },
+  {
+    "name": "jcxz",
+    "summary": "Jump if CX is 0",
+    "category": "COND_BR",
+    "cpl": 3,
+    "modes": "16,32",
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "I86"
+      }
+    ],
+    "notes": "In 32-bit code it is encoded with an address-size prefix; not encodable in 64-bit mode"
+  },
+  {
+    "name": "jecxz",
+    "summary": "Jump if ECX is 0",
+    "category": "COND_BR",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "jrcxz",
+    "summary": "Jump if RCX is 0",
+    "category": "COND_BR",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "operands": "rel8",
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "cbtw",
+    "summary": "Convert Byte to Word (sign-extend AL into AX)",
+    "category": "CONVERT",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "cbw"
+    ]
+  },
+  {
+    "name": "cwtl",
+    "summary": "Convert Word to Doubleword (sign-extend AX into EAX)",
+    "category": "CONVERT",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I386"
+      }
+    ],
+    "aliases": [
+      "cwde"
+    ]
+  },
+  {
+    "name": "cltq",
+    "summary": "Convert Doubleword to Quadword (sign-extend EAX into RAX)",
+    "category": "CONVERT",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "aliases": [
+      "cdqe"
+    ]
+  },
+  {
+    "name": "cwtd",
+    "summary": "Convert Word to Doubleword (sign-extend AX into DX:AX)",
+    "category": "CONVERT",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I86"
+      }
+    ],
+    "aliases": [
+      "cwd"
+    ]
+  },
+  {
+    "name": "cltd",
+    "summary": "Convert Doubleword to Quadword (sign-extend EAX into EDX:EAX)",
+    "category": "CONVERT",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "I386"
+      }
+    ],
+    "aliases": [
+      "cdq"
+    ]
+  },
+  {
+    "name": "cqto",
+    "summary": "Convert Quadword to Octword (sign-extend RAX into RDX:RAX)",
+    "category": "CONVERT",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "isaSet": "LONGMODE"
+      }
+    ],
+    "aliases": [
+      "cqo"
+    ]
+  },
+  {
+    "name": "movzbw",
+    "summary": "Move with Zero-Extend, byte to word",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m8, r16",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "movzbl",
+    "summary": "Move with Zero-Extend, byte to long",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m8, r32",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "movzbq",
+    "summary": "Move with Zero-Extend, byte to quad",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "operands": "r/m8, r64",
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "movzwl",
+    "summary": "Move with Zero-Extend, word to long",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m16, r32",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "movzwq",
+    "summary": "Move with Zero-Extend, word to quad",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "operands": "r/m16, r64",
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "movsbw",
+    "summary": "Move with Sign-Extend, byte to word",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m8, r16",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "movsbl",
+    "summary": "Move with Sign-Extend, byte to long",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m8, r32",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "movsbq",
+    "summary": "Move with Sign-Extend, byte to quad",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "operands": "r/m8, r64",
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "movswl",
+    "summary": "Move with Sign-Extend, word to long",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "forms": [
+      {
+        "operands": "r/m16, r32",
+        "isaSet": "I386"
+      }
+    ]
+  },
+  {
+    "name": "movswq",
+    "summary": "Move with Sign-Extend, word to quad",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "operands": "r/m16, r64",
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "movslq",
+    "summary": "Move with Sign-Extend, long to quad (MOVSXD)",
+    "category": "DATAXFER",
+    "cpl": 3,
+    "modes": "64",
+    "forms": [
+      {
+        "operands": "r/m32, r64",
+        "isaSet": "LONGMODE"
+      }
+    ]
+  },
+  {
+    "name": "wait",
+    "summary": "Wait for pending unmasked x87 floating-point exceptions",
+    "category": "X87_ALU",
+    "cpl": 3,
+    "forms": [
+      {
+        "isaSet": "X87"
+      }
+    ],
+    "aliases": [
+      "fwait"
+    ]
+  }
+]

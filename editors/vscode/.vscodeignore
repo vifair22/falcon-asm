@@ -1,0 +1,10 @@
+# The .vsix ships only what the extension host loads: the esbuild bundle,
+# the grammar, the language configuration and the manifest docs. Sources,
+# tests, sourcemaps and node_modules (bundled already) stay out.
+**
+!out/extension.js
+!syntaxes/**
+!language-configuration.json
+!package.json
+!README.md
+!LICENSE
