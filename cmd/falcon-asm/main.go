@@ -9,9 +9,8 @@ import (
 	"io"
 	"os"
 
-	"git.airies.net/vifair22/falcon-asm/internal/hover"
+	"git.airies.net/vifair22/falcon-asm/internal/engine"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
-	"git.airies.net/vifair22/falcon-asm/internal/semtok"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
 )
 
@@ -52,8 +51,7 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "falcon-asm: instruction data: %v\n", err)
 	}
 	srv := server.New(server.Options{
-		Hover:          hover.Hover,
-		SemanticTokens: semtok.Encode,
+		Engine:         engine.New(engine.Config{Log: stderr}),
 		TokenTypes:     server.TokenTypes,
 		TokenModifiers: server.TokenModifiers,
 		Name:           "falcon-asm",

@@ -278,3 +278,270 @@ Recorded at MVP so the contracts stay honest:
 - **Known lexer limit**: a lone `\r` is not a line break to the lexer, so in
   classic-Mac line endings the second line reads as an operand. Positions are
   still correct. Not worth fixing for `.S` files.
+
+### Phase 2 and 3 integration
+
+Recorded when the feature packages were wired into the server:
+
+- **Server and engine.** `server.Options` takes an `Engine` interface
+  (`internal/server/engine.go`) instead of the MVP's `Hover` and
+  `SemanticTokens` functions; `NopEngine` is the default. The server owns
+  the protocol, lifecycle and document text and hands the engine immutable
+  snapshots; `internal/engine` owns everything else. `Session` carries the
+  root URI (rootUri, else `workspaceFolders[0]`), the raw
+  initializationOptions (the engine owns their schema) and a goroutine-safe
+  `Publish`. An engine error wrapping `*server.RequestFailedError` (a
+  refused rename) is answered with RequestFailed (-32803) and its message;
+  any other error is InternalError. Empty results of definition,
+  references, documentSymbol, foldingRange, inlayHint and completion are
+  answered `null`.
+- **Capabilities** as sent:
+  `{"textDocumentSync":{"openClose":true,"change":2,"save":{"includeText":false}},
+  "hoverProvider":true,"semanticTokensProvider":{"documentSelector":[{"language":"falcon-asm"}],
+  "legend":{...},"full":true,"range":false},"definitionProvider":true,
+  "referencesProvider":true,"renameProvider":{"prepareProvider":true},
+  "documentSymbolProvider":true,"foldingRangeProvider":true,
+  "inlayHintProvider":true,"completionProvider":{"triggerCharacters":["%",".","$"]}}`.
+  The semantic tokens selector is sent in the static capability (the
+  registration-options shape); the engine also answers an empty stream for
+  C documents, for clients that ignore the selector.
+- **Per-document state.** Language comes from the didOpen language id
+  (`falcon-asm` is assembly; `c`, `cpp` and the other C family ids are C);
+  any other id falls back to the extension (`.c`, `.h`, `.cc`, `.cpp` ...
+  are C, everything else, including `.S`, `.s`, `.asm`, is assembly).
+  Derived data lives in an immutable snapshot per (version, configuration
+  generation): tokens, analysis, inline asm statements and diagnostics are
+  each computed once, lazily, and shared by every request. The generation
+  bumps when a toolchain run brings a new macro table.
+- **Additive feature APIs** so one token stream serves a version:
+  `analysis.AnalyzeTokens`, `semtok.EncodeWith(doc, Options{Tokens,
+  IsMacro, Deprecated})` and `hover.HoverWith(doc, pos, Options{Tokens,
+  Macro})`. Deprecated painting is keyed on the start positions of the
+  `mode-instruction`/`mode-register` diagnostics, so the paint and the
+  warning cannot disagree. A cpp macro in mnemonic position (a
+  function-like macro used as a statement) now paints as `macro` rather
+  than `keyword`. `symbols.DocumentSymbols`, `FoldingRanges`, the index and
+  completion still tokenize on their own.
+- **Macro hover.** In-file `#define`s (analysis symbols) win over the
+  toolchain table, since they reflect the text being edited; the table
+  supplies headers, `-D` and builtins. The hover shows `#define NAME value`,
+  `Value: hex ... - dec ...` whenever the body evaluates (negative values
+  are shown signed in both), and `Defined in file line N` from `Macro.Def`.
+  The evaluator is `internal/constexpr`: C integer literals (with u/l
+  suffixes) and character constants, `+ - * / % << >> & | ^ ~ !`, unary
+  minus and plus, parentheses, 64-bit two's complement; comparisons, `?:`,
+  casts and function-like macros are rejected, expansion depth is capped at
+  32 and division by zero is an error. Local label hover now uses
+  `symbols.ResolveLocal`.
+- **Configuration.** Compile database: `initializationOptions.compileCommands`
+  (a file or a directory, relative to the root; loaded by the new
+  `toolchain.LoadDBFile`), else `LoadDB(root)`, else `FindDB(file)`, cached
+  per directory. A file has toolchain features when the database yields
+  flags for it, exact or borrowed. Mode: `Flags.Mode`, 64 without flags.
+  Level: the in-file comment (analysis), else `initializationOptions.level`,
+  else `Flags.Level`. A missing database and a missing compiler are each
+  logged once to stderr and never surfaced.
+- **Toolchain runs** start on didOpen and didSave of an assembly file with
+  flags (unless `toolchain` is false) on their own goroutine: `Macros`, then
+  `Assemble`. A per-document run sequence drops a result that finishes
+  after a newer run started (the Runner also cancels it). `ErrNotAssembly`
+  (headers and `.inc` files, which borrow flags) keeps the macro table and
+  is not logged. Shutdown cancels the runs and waits up to 2 s; the server
+  also shuts the engine down when the stream ends without shutdown.
+- **Diagnostics.** Published per URI: analysis (or, for C, every complete
+  inline asm statement analyzed with the C file's mode and level, ranges
+  mapped back through `Stmt.Map`), plus the last run's gas diagnostics for
+  the file, plus inactive regions (Hint, `Unnecessary`, source
+  `falcon-asm`, "inactive preprocessor region"), plus gas diagnostics other
+  files' runs attributed to it. Included files that are not open get
+  publishes without a version and are cleared when the owner's next run no
+  longer reports them or the owner closes. Analysis publishes are debounced
+  150 ms per URI; a publish re-checks under a send lock that its snapshot is
+  still current, so a stale version is never sent after a newer one. The
+  level comment of a C file applies to its inline asm; Partial statements
+  are skipped.
+- **Listing hints** are shown only when the listing describes the current
+  buffer: the run records the document version it was started for, and only
+  if the file on disk equalled that buffer (which also covers a client
+  restoring an unsaved buffer at open). Any change hides the hints until the
+  next save's run lands. This replaces the dirty flag of the plan with the
+  same effect. With assembler errors gas prints no addresses, so there are
+  no hints until the errors are fixed. A location move that pads nothing
+  shows `pads 0 bytes`. Tooltips give the section and the line's true size
+  (distance to the next offset, or the section end, not the possibly
+  truncated byte dump).
+- **Navigation and completion.** The index gets assembly documents only,
+  with includes resolved from `#include` and `.include` lines through
+  `Flags.ResolveInclude` (relative to the file without flags). Definition
+  falls back to the toolchain's `Macro.Def` for names the index does not
+  know (command-line or nested-header macros). Completion macros are the
+  index's plus toolchain macros that have a definition location, which
+  leaves out the compiler's few hundred builtins.
+- **Open items for the perf pass:** `$/cancelRequest` is still ignored;
+  `Index.Update` reparses on every didChange, synchronously; FindDB runs
+  under the engine lock on first open in a directory.
+- Lint housekeeping done with the integration: the unused
+  `symbols.equDirectives` was removed and three tests gained a `return`
+  after `t.Fatal` to satisfy staticcheck's SA5011.
+
+## Phase 2 and 3
+
+Phase 2: mode tracking, x86-64 level diagnostics, toolchain integration
+(compile database, macros, assembler errors, listing hints), macro value
+hover, outline, go-to-definition, extension PATH fallback. Phase 3: inline
+asm in C, completion, inactive `#if` regions, folding, references and rename.
+
+### Target mode and level
+
+Each assembly document has an initial mode and an optional target level:
+
+- Initial mode: from compile flags (`-m16` -> 16, `-m32` -> 32, `-m64` or
+  none -> 64; `-m16`/`.code16gcc` count as 16). `.code16`, `.code16gcc`,
+  `.code32`, `.code64` switch it for the following lines, in token order.
+  `#if` branches are not evaluated for mode (documented limit).
+- Target level, highest precedence first: a comment anywhere in the file
+  `falcon-asm: level=v1|v2|v3|v4` (inside `/* */`, `#` or `//`); else
+  `-march=x86-64-vN` (or `-march=x86-64` = v1, `-march=native` = none) from
+  the compile database; else none. With no level, no level diagnostics.
+
+### internal/analysis (pure, no exec)
+
+```go
+type Mode int // 16, 32, 64
+type Config struct {
+    InitialMode Mode
+    Level       isa.Level // 0 = no target
+    Macros      map[string]string // from toolchain; nil when unavailable
+}
+type Result struct {
+    Diagnostics []protocol.Diagnostic
+    ModeAtLine  []Mode            // per line, the mode in effect at its start
+    Symbols     []Symbol          // definitions in this document
+}
+type Symbol struct {
+    Name string; Kind SymbolKind // Label, LocalLabel, Macro (#define), AsmMacro (.macro), Equ (.set/.equ/=), Section
+    Range, SelectionRange protocol.Range; Global bool; Detail string
+}
+func Analyze(doc *docstore.Document, cfg Config) Result
+func LevelOverride(src string) (isa.Level, bool) // the in-file comment
+```
+
+Diagnostics (source `falcon-asm`):
+- Instruction invalid in the current mode (isa Modes), Warning. E.g.
+  `pusha` in 64-bit code, `iretq`/`swapgs` outside it.
+- Register invalid in the current mode (isa Register.Modes), Warning: `%rax`,
+  `%r8d`, `%sil`, `%xmm8+` outside 64-bit code. Also paints the token with
+  the `deprecated` modifier (semtok consults ModeAtLine).
+- Form above target level, Warning: the operand registers select the form
+  family (any `%zmm`, `%k`, `{k}`/`{z}` or `%xmm16+`/`%ymm16+` operand means
+  the AVX-512 forms; any `%ymm` means a VEX ymm form); the minimum level
+  among the matching forms is compared to the target. Level-0 ISA sets
+  (AES, VMX ...) are reported as Information only when a level target is set
+  ("outside the x86-64 level scheme: requires AES").
+- Unknown mnemonic is NOT a diagnostic (macros, cpp); the assembler reports
+  real errors.
+
+### internal/symbols (pure)
+
+Workspace symbol index over open documents plus files reachable through
+`#include` (resolved with the toolchain include paths; read from disk) and
+other `.S`/`.s` files under the workspace root (scanned lazily on first
+request, cached by mtime).
+
+```go
+type Index struct{ ... } // safe for concurrent use
+func NewIndex(read func(path string) (string, error)) *Index
+func (ix *Index) Update(uri string, text string, includes []string)
+func (ix *Index) Remove(uri string)
+func (ix *Index) Definition(uri string, pos protocol.Position) []protocol.Location
+func (ix *Index) References(uri string, pos protocol.Position, includeDecl bool) []protocol.Location
+func (ix *Index) Rename(uri string, pos protocol.Position, newName string) (*protocol.WorkspaceEdit, error)
+func DocumentSymbols(doc *docstore.Document) []protocol.DocumentSymbol // sections > labels, plus macros
+func FoldingRanges(doc *docstore.Document) []protocol.FoldingRange     // block comments, runs of line comments, .macro/.endm, .rept/.endr, #if/#endif, .if/.endif
+```
+
+Local labels (`1:`) resolve within the document by token order (existing
+hover logic, moved here and shared). Global labels resolve across the
+index; a `.globl` label defined in another file is found. Rename refuses
+local numeric labels and names that are mnemonics or registers.
+
+### internal/toolchain (exec)
+
+```go
+type DB struct{ ... }
+func LoadDB(root string) (*DB, error)          // compile_commands.json at root, root/build, or found walking up from a file
+func (db *DB) Flags(file string) (Flags, bool)  // exact entry, else nearest entry in the same directory, else none
+type Flags struct {
+    Compiler  string   // argv[0]
+    Args      []string // filtered: keeps -I -iquote -isystem -D -U -m* -march -std -include; drops -c -o -MMD -MF -MD -MT -W* except -Wa,
+    Dir       string
+    Mode      int      // 16/32/64 from -m flags
+    Level     isa.Level
+}
+type Runner struct{ Timeout time.Duration } // default 10s; one run at a time per file, newer cancels older
+func (r *Runner) Macros(ctx, file string, f Flags) (map[string]Macro, error) // gcc -E -dM, plus location by scanning includes
+func (r *Runner) Assemble(ctx, file string, f Flags) (*AsmResult, error)
+type AsmResult struct {
+    Diagnostics map[string][]protocol.Diagnostic // keyed by file path (errors can be in includes)
+    Listing     []ListingLine // per source line of the main file: offset, section, bytes
+    Inactive    []protocol.Range // main-file lines removed by the preprocessor (#if 0 bodies)
+}
+```
+
+`Assemble` preprocesses with the file's own flags (`-E` keeping line
+markers) into a temp dir, maps preprocessed lines back to (file, line) from
+the markers, assembles the result with `as --listing-lhs-width=... -al=...`
+(the 32/64 choice from Mode: `--32`/`--64`) or through the compiler driver
+with `-c -o tmp -Wa,-al=...`, and parses `file:line: Error|Warning: msg`.
+Runs only on didOpen and didSave (never on change), reads the file from
+disk, writes only into a private temp dir, and fails quietly (logs once)
+when there is no database or no compiler. Missing toolchain is never an
+error the user sees.
+
+### Server additions
+
+Capabilities: `definitionProvider`, `referencesProvider`, `renameProvider`
+(with prepare), `documentSymbolProvider`, `foldingRangeProvider`,
+`inlayHintProvider`, `completionProvider` (trigger chars `%`, `.`, `$`),
+`textDocumentSync.save`. Semantic tokens are registered with a document
+selector for the `falcon-asm` language only, so C files keep clangd's
+tokens. Diagnostics published per file are the union of analysis and
+toolchain results; toolchain results are kept until the next save.
+
+Inlay hints (from the listing, main file only): at the end of an
+instruction or data line, `+0x1a3  b8 01 24` (offset within section, up to
+8 bytes then `...`). On a `.org` or `. = expr` line, the number of padding
+bytes the location move inserts (`pads 37 bytes`), which is the boot-sector
+budget for `. = _start + 510`.
+
+Hover additions: an identifier or label reference that is a known macro
+shows `#define NAME value` and, when the value is a constant expression
+over numbers and other macros, its evaluated value in hex and decimal.
+
+### internal/inlineasm (phase 3)
+
+```go
+type Stmt struct {
+    Asm        string          // joined, unescaped template (%% -> %)
+    Map        func(asmOff int) (cOff int) // template byte offset -> C byte offset
+    Outputs, Inputs []Operand  // constraint, C expression, symbolic name
+    Clobbers   []string
+    Range      protocol.Range  // the whole asm statement in the C file
+}
+func Extract(csrc string) []Stmt
+func ConstraintHover(c string) string // "=a" -> "output, %eax/%ax/%al (a register)"
+```
+
+C documents (`c`, `cpp`) get hover inside asm templates (instruction,
+register, `%0`/`%[name]` -> operand and its constraint) and in the operand
+lists (constraint meaning), plus level diagnostics using the C file's
+`-march` and mode from the compile database. No semantic tokens for C; the
+VS Code client contributes an injection grammar into C/C++ asm strings.
+
+### internal/completion (phase 3)
+
+Context from the token before the cursor: after `%` registers valid in the
+current mode; after `.` at statement start directives; at mnemonic
+position mnemonics (with prefix list) ranked by exact prefix; in operand
+position labels and macros from the index. Items carry a one-line detail
+(the hover summary).

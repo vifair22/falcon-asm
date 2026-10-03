@@ -1,0 +1,24 @@
+GAS LISTING macros.s 			page 1
+
+
+   1              	.macro m
+   2              	nop
+   3              	.data
+   4              	.byte 5
+   5              	.text
+   6              	ret
+   7              	.endm
+   8              	.text
+   9              	m
+   9 0000 90       	> nop
+   9              	> .data
+   9 0000 05       	> .byte 5
+   9              	> .text
+   9 0001 C3       	> ret
+  10              	.rept 3
+  11              	nop
+  12              	.endr
+  12 0002 90       	> nop
+  12 0003 90       	> nop
+  12 0004 90       	> nop
+  13 0005 90       	nop

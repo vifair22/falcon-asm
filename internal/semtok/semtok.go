@@ -11,27 +11,54 @@ import (
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
+	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
 )
 
 // Compile-time check that Encode is what the server wires in.
 var _ server.SemanticTokensFunc = Encode
 
+// Options carries what the server knows about a document beyond its text.
+// The zero value gives exactly Encode's result.
+type Options struct {
+	// Tokens is lexer.Tokenize(doc.Text) when the caller already has it,
+	// so one document version is tokenized once; nil means tokenize here.
+	Tokens []lexer.Token
+	// IsMacro reports names the preprocessor defines outside the document
+	// (the toolchain's macro table: headers, -D, builtins). Without it only
+	// names #define'd earlier in the document paint as macros.
+	IsMacro func(name string) bool
+	// Deprecated holds the start positions (LSP line and UTF-16 column) of
+	// tokens to mark with the deprecated modifier: instructions and
+	// registers invalid in the mode in effect. Keying on the diagnostic
+	// positions keeps the paint and the warning from ever disagreeing.
+	Deprecated map[protocol.Position]bool
+}
+
 // Encode returns the relative-encoded semantic tokens for the whole
 // document: five integers per token (deltaLine, deltaStartChar, length,
 // tokenType, tokenModifiers), positions and lengths in UTF-16 code units.
-// It never fails today; the error is part of the server contract so a
-// future mode-aware pass can report one.
+// It never fails; the error is part of the server contract.
 func Encode(doc *docstore.Document) ([]uint32, error) {
-	toks := lexer.Tokenize(doc.Text)
+	return EncodeWith(doc, Options{}), nil
+}
+
+// EncodeWith is Encode with outside knowledge applied; see Options.
+func EncodeWith(doc *docstore.Document, opts Options) []uint32 {
+	toks := opts.Tokens
+	if toks == nil {
+		toks = lexer.Tokenize(doc.Text)
+	}
 	e := encoder{
-		w:   walker{text: doc.Text},
-		out: make([]uint32, 0, len(toks)*5),
+		w:          walker{text: doc.Text},
+		out:        make([]uint32, 0, len(toks)*5),
+		extMacro:   opts.IsMacro,
+		deprecated: opts.Deprecated,
 	}
 	for i := range toks {
 		e.token(&toks[i])
 	}
-	return e.out, nil
+	return e.out
 }
 
 type encoder struct {
@@ -56,6 +83,14 @@ type encoder struct {
 	// the document count, mirroring what cpp itself would expand; names from
 	// #included headers are invisible without a preprocessor and stay labels.
 	macros map[string]bool
+
+	extMacro   func(string) bool
+	deprecated map[protocol.Position]bool
+}
+
+// isMacro reports whether name expands as a cpp macro at this point.
+func (e *encoder) isMacro(name string) bool {
+	return e.macros[name] || e.extMacro != nil && e.extMacro(name)
 }
 
 // token maps one lexer token to zero, one or two semantic tokens.
@@ -75,7 +110,7 @@ func (e *encoder) token(t *lexer.Token) {
 	case lexer.Immediate:
 		// $NAME where NAME is a cpp constant reads better with the name in
 		// macro colour, matching the bare-operand case below.
-		if t.Len > 1 && e.macros[t.Text[1:]] {
+		if t.Len > 1 && e.isMacro(t.Text[1:]) {
 			e.emit(start, start+1, server.TokenParameter, 0)
 			e.emit(start+1, end, server.TokenMacro, 0)
 			return
@@ -89,7 +124,7 @@ func (e *encoder) token(t *lexer.Token) {
 		// The lexer cannot know an operand word is a #define'd constant;
 		// painting it as a label would promise a definition that is not
 		// one.
-		if e.macros[t.Text] {
+		if e.isMacro(t.Text) {
 			e.emit(start, end, server.TokenMacro, 0)
 			return
 		}
@@ -109,7 +144,7 @@ func (e *encoder) token(t *lexer.Token) {
 	case lexer.String:
 		e.emit(start, end, server.TokenString, 0)
 	case lexer.Identifier:
-		if e.macros[t.Text] {
+		if e.isMacro(t.Text) {
 			e.emit(start, end, server.TokenMacro, 0)
 		}
 	}
@@ -134,6 +169,12 @@ func (e *encoder) offset(t *lexer.Token) int {
 func (e *encoder) mnemonic(word string, start, end int) {
 	inst, suffix, ok := isa.Lookup(word)
 	if !ok {
+		// A statement that invokes a cpp macro (a function-like macro
+		// expanding to instructions) reads as one, not as a typo.
+		if e.isMacro(word) {
+			e.emit(start, end, server.TokenMacro, 0)
+			return
+		}
 		e.emit(start, end, server.TokenKeyword, 0)
 		return
 	}
@@ -210,6 +251,9 @@ func (e *encoder) emit(start, end int, typ, mods uint32) {
 }
 
 func (e *encoder) put(line, col, n int, typ, mods uint32) {
+	if e.deprecated[protocol.Position{Line: line, Character: col}] {
+		mods |= server.ModDeprecated
+	}
 	dl := line - e.prevLine
 	dc := col
 	if dl == 0 {

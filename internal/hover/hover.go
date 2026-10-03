@@ -11,20 +11,49 @@ package hover
 
 import (
 	"fmt"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
 
+	"git.airies.net/vifair22/falcon-asm/internal/constexpr"
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
 	"git.airies.net/vifair22/falcon-asm/internal/isa"
 	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
+	"git.airies.net/vifair22/falcon-asm/internal/symbols"
 )
 
 // Hover returns the hover for pos in doc, or nil when the cursor is not on a
 // token there is anything useful to say about. The signature matches
 // server.HoverFunc.
 func Hover(doc *docstore.Document, pos protocol.Position) (*protocol.Hover, error) {
+	return HoverWith(doc, pos, Options{})
+}
+
+// Macro is a cpp macro as hover shows it. It mirrors toolchain.Macro so this
+// package stays free of the exec side; the caller converts.
+type Macro struct {
+	Value    string
+	Function bool   // function-like: NAME(Params) Value
+	Params   string // parameter list without parentheses
+	Def      *protocol.Location
+}
+
+// Options carries what the caller knows beyond the document text. The zero
+// value gives exactly Hover's result.
+type Options struct {
+	// Tokens is lexer.Tokenize(doc.Text) when the caller already has it;
+	// nil means tokenize here.
+	Tokens []lexer.Token
+	// Macro resolves a cpp macro name: the toolchain's table and the
+	// document's own #defines. A word that names a macro is hovered as the
+	// macro, since cpp substitutes it before the assembler sees a label.
+	Macro func(name string) (Macro, bool)
+}
+
+// HoverWith is Hover with outside knowledge applied; see Options.
+func HoverWith(doc *docstore.Document, pos protocol.Position, opts Options) (*protocol.Hover, error) {
 	off, err := doc.Offset(pos)
 	if err != nil {
 		return nil, fmt.Errorf("hover: %w", err)
@@ -36,12 +65,16 @@ func Hover(doc *docstore.Document, pos protocol.Position) (*protocol.Hover, erro
 	if err != nil {
 		return nil, fmt.Errorf("hover: %w", err)
 	}
-	toks := lexer.Tokenize(doc.Text)
+	toks := opts.Tokens
+	if toks == nil {
+		toks = lexer.Tokenize(doc.Text)
+	}
 	idx := tokenAt(toks, pos.Line, off-lineStart)
 	if idx < 0 {
 		return nil, nil
 	}
-	body := render(doc, toks, idx)
+	r := renderer{doc: doc, toks: toks, macro: opts.Macro}
+	body := r.render(idx)
 	if body == "" {
 		return nil, nil
 	}
@@ -93,7 +126,14 @@ func tokenRange(doc *docstore.Document, t lexer.Token) *protocol.Range {
 	}
 }
 
-func render(doc *docstore.Document, toks []lexer.Token, idx int) string {
+type renderer struct {
+	doc   *docstore.Document
+	toks  []lexer.Token
+	macro func(string) (Macro, bool)
+}
+
+func (r *renderer) render(idx int) string {
+	doc, toks := r.doc, r.toks
 	t := toks[idx]
 	switch t.Kind {
 	case lexer.Mnemonic:
@@ -102,6 +142,9 @@ func render(doc *docstore.Document, toks []lexer.Token, idx int) string {
 		}
 		if isa.IsPrefix(t.Text) {
 			return prefixHover(t.Text)
+		}
+		if s := r.cppMacroHover(t.Text); s != "" {
+			return s
 		}
 		return macroHover(doc, toks, t.Text)
 	case lexer.Prefix:
@@ -116,6 +159,9 @@ func render(doc *docstore.Document, toks []lexer.Token, idx int) string {
 			return numberHover(t.Text, v)
 		}
 		if isSymbol(atom) {
+			if s := r.cppMacroHover(atom); s != "" {
+				return s
+			}
 			return labelHover(doc, toks, atom)
 		}
 	case lexer.Number:
@@ -124,10 +170,64 @@ func render(doc *docstore.Document, toks []lexer.Token, idx int) string {
 		}
 	case lexer.LocalLabelRef:
 		return localLabelHover(doc, toks, idx)
-	case lexer.LabelRef, lexer.LabelDef:
+	case lexer.LabelRef:
+		if s := r.cppMacroHover(t.Text); s != "" {
+			return s
+		}
 		return labelHover(doc, toks, t.Text)
+	case lexer.LabelDef:
+		return labelHover(doc, toks, t.Text)
+	case lexer.Identifier:
+		return r.cppMacroHover(t.Text)
 	}
 	return ""
+}
+
+// cppMacroHover shows a macro's definition and, for an object-like macro
+// whose body is a constant expression, its value: the number the assembler
+// will actually see, which is the point of hovering a selector or a port.
+func (r *renderer) cppMacroHover(name string) string {
+	if r.macro == nil {
+		return ""
+	}
+	m, ok := r.macro(name)
+	if !ok {
+		return ""
+	}
+	def := "#define " + name
+	if m.Function {
+		def += "(" + m.Params + ")"
+	}
+	if m.Value != "" {
+		def += " " + m.Value
+	}
+	lines := []string{bold(name) + " - macro", code(def)}
+	if !m.Function && m.Value != "" {
+		lookup := func(n string) (string, bool) {
+			mm, ok := r.macro(n)
+			if !ok || mm.Function {
+				return "", false
+			}
+			return mm.Value, true
+		}
+		if v, err := constexpr.Eval(m.Value, lookup); err == nil {
+			lines = append(lines, "Value: "+formatValue(v))
+		}
+	}
+	if m.Def != nil {
+		lines = append(lines, fmt.Sprintf("Defined in %s line %d", code(path.Base(m.Def.URI)), m.Def.Range.Start.Line+1))
+	}
+	return join(lines)
+}
+
+// formatValue shows an evaluated macro in hex and decimal. A negative value
+// is shown signed in both, since its 64-bit two's complement hex would say
+// less than "-0x1".
+func formatValue(v int64) string {
+	if v < 0 {
+		return fmt.Sprintf("hex `-0x%X` - dec `%d`", uint64(-v), v)
+	}
+	return fmt.Sprintf("hex `0x%X` - dec `%d`", v, v)
 }
 
 // suffixBits maps an AT&T operand-size suffix to its width.
@@ -453,34 +553,17 @@ func formatNumber(v uint64) string {
 	return s
 }
 
-// localLabelHover resolves 1f/1b the way GAS does: f is the nearest
-// definition of that number after the reference, b the nearest before it.
-// Token order rather than line order decides, which also gets "jmp 1f; 1:"
-// on one line right.
+// localLabelHover resolves 1f/1b with symbols.ResolveLocal, the same rule
+// go-to-definition uses, so hover and navigation never disagree.
 func localLabelHover(doc *docstore.Document, toks []lexer.Token, idx int) string {
 	ref := toks[idx].Text
 	name, dir := ref[:len(ref)-1], ref[len(ref)-1]
-	target := -1
-	if dir == 'f' {
-		for i := idx + 1; i < len(toks); i++ {
-			if toks[i].Kind == lexer.LocalLabelDef && toks[i].Text == name {
-				target = i
-				break
-			}
-		}
-	} else {
-		for i := idx - 1; i >= 0; i-- {
-			if toks[i].Kind == lexer.LocalLabelDef && toks[i].Text == name {
-				target = i
-				break
-			}
-		}
-	}
 	way := "forward"
-	if dir == 'b' {
+	if dir == 'b' || dir == 'B' {
 		way = "backward"
 	}
-	if target < 0 {
+	target, ok := symbols.ResolveLocal(toks, idx)
+	if !ok {
 		return join([]string{bold(ref), fmt.Sprintf("Local label %s, %s: no definition found", name, way)})
 	}
 	line := toks[target].Line

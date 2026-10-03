@@ -410,3 +410,61 @@ func TestPrefixHoverUnknown(t *testing.T) {
 		t.Errorf("non-prefix rendered %q", got)
 	}
 }
+
+func TestHoverMacros(t *testing.T) {
+	src := "#define LOCAL 5\n" + // 0
+		"\tljmp $SEL_CODE32, $go\n" + // 1
+		"\tmovw $NEG, %ax\n" + // 2
+		"\tmovl CR0_PE, %eax\n" + // 3
+		"\tSETUP 1, 2\n" + // 4
+		"\t.byte BODYLESS, WEIRD\n" + // 5
+		"go:\n" // 6
+	defLoc := &protocol.Location{URI: "file:///p/inc/biosdefs.h", Range: protocol.Range{Start: protocol.Position{Line: 11}}}
+	macros := map[string]Macro{
+		"SEL_CODE32": {Value: "(GDT_CODE32 * 8)", Def: defLoc},
+		"GDT_CODE32": {Value: "1"},
+		"NEG":        {Value: "-(1 + 1)"},
+		"CR0_PE":     {Value: "(1 << 0)"},
+		"SETUP":      {Value: "movw a, b", Function: true, Params: "a,b"},
+		"BODYLESS":   {},
+		"WEIRD":      {Value: "\"str\""},
+	}
+	opts := Options{Tokens: lexer.Tokenize(src), Macro: func(n string) (Macro, bool) {
+		m, ok := macros[n]
+		return m, ok
+	}}
+	doc := &docstore.Document{Text: src}
+	tests := []struct {
+		line, char int
+		want       []string
+		not        []string
+	}{
+		{1, 8, []string{"**SEL\\_CODE32** - macro", "`#define SEL_CODE32 (GDT_CODE32 * 8)`", "hex `0x8` - dec `8`", "Defined in `biosdefs.h` line 12"}, nil},
+		{2, 8, []string{"hex `-0x2` - dec `-2`"}, []string{"Defined in"}},
+		{3, 8, []string{"`#define CR0_PE (1 << 0)`", "dec `1`"}, nil},
+		{4, 2, []string{"`#define SETUP(a,b) movw a, b`"}, []string{"Value"}},
+		{5, 9, []string{"`#define BODYLESS`"}, []string{"Value"}},
+		{5, 19, []string{"#define WEIRD"}, []string{"Value"}},
+		{6, 1, []string{"go** - label"}, nil},
+	}
+	for _, tc := range tests {
+		h, err := HoverWith(doc, protocol.Position{Line: tc.line, Character: tc.char}, opts)
+		if err != nil || h == nil {
+			t.Fatalf("line %d: %v %v", tc.line, h, err)
+		}
+		for _, w := range tc.want {
+			if !strings.Contains(h.Contents.Value, w) {
+				t.Errorf("line %d: %q lacks %q", tc.line, h.Contents.Value, w)
+			}
+		}
+		for _, w := range tc.not {
+			if strings.Contains(h.Contents.Value, w) {
+				t.Errorf("line %d: %q has %q", tc.line, h.Contents.Value, w)
+			}
+		}
+	}
+	// Without a macro table the same words fall back to the MVP behaviour.
+	if h, _ := Hover(doc, protocol.Position{Line: 1, Character: 8}); h != nil {
+		t.Errorf("plain hover on unknown $SEL_CODE32 = %+v", h)
+	}
+}

@@ -53,12 +53,20 @@ type ClientInfo struct {
 // its behaviour by client capability yet, and decoding the full tree would
 // pull in dozens of types for nothing.
 type InitializeParams struct {
-	ProcessID             *int            `json:"processId"`
-	ClientInfo            *ClientInfo     `json:"clientInfo,omitempty"`
-	RootURI               *string         `json:"rootUri"`
-	Capabilities          json.RawMessage `json:"capabilities,omitempty"`
-	InitializationOptions json.RawMessage `json:"initializationOptions,omitempty"`
-	Trace                 string          `json:"trace,omitempty"`
+	ProcessID             *int              `json:"processId"`
+	ClientInfo            *ClientInfo       `json:"clientInfo,omitempty"`
+	RootURI               *string           `json:"rootUri"`
+	Capabilities          json.RawMessage   `json:"capabilities,omitempty"`
+	InitializationOptions json.RawMessage   `json:"initializationOptions,omitempty"`
+	Trace                 string            `json:"trace,omitempty"`
+	WorkspaceFolders      []WorkspaceFolder `json:"workspaceFolders,omitempty"`
+}
+
+// WorkspaceFolder is one root the client has open; the first one is the
+// workspace root when rootUri is absent.
+type WorkspaceFolder struct {
+	URI  string `json:"uri"`
+	Name string `json:"name"`
 }
 
 // ServerInfo is reported back in the initialize result.
@@ -89,6 +97,18 @@ const (
 type TextDocumentSyncOptions struct {
 	OpenClose bool                 `json:"openClose"`
 	Change    TextDocumentSyncKind `json:"change"`
+	Save      *SaveOptions         `json:"save,omitempty"`
+}
+
+// SaveOptions asks for didSave. The text is not wanted: the toolchain reads
+// the file from disk, which is what it would assemble anyway.
+type SaveOptions struct {
+	IncludeText bool `json:"includeText"`
+}
+
+// DocumentFilter selects documents by language id.
+type DocumentFilter struct {
+	Language string `json:"language,omitempty"`
 }
 
 // SemanticTokensLegend maps wire indices to token type and modifier names.
@@ -100,10 +120,15 @@ type SemanticTokensLegend struct {
 // SemanticTokensOptions advertises semantic token support. Only full-document
 // requests are offered; range and delta are not worth the complexity for
 // files of a few hundred lines.
+//
+// DocumentSelector makes this the registration-options shape, which clients
+// that honour it (VS Code) use to ask only for the listed languages, so C
+// files opened for inline asm keep their own language server's tokens.
 type SemanticTokensOptions struct {
-	Legend SemanticTokensLegend `json:"legend"`
-	Full   bool                 `json:"full"`
-	Range  bool                 `json:"range"`
+	DocumentSelector []DocumentFilter     `json:"documentSelector,omitempty"`
+	Legend           SemanticTokensLegend `json:"legend"`
+	Full             bool                 `json:"full"`
+	Range            bool                 `json:"range"`
 }
 
 // ServerCapabilities lists what the server implements.
@@ -111,6 +136,13 @@ type ServerCapabilities struct {
 	TextDocumentSync       *TextDocumentSyncOptions `json:"textDocumentSync,omitempty"`
 	HoverProvider          bool                     `json:"hoverProvider,omitempty"`
 	SemanticTokensProvider *SemanticTokensOptions   `json:"semanticTokensProvider,omitempty"`
+	DefinitionProvider     bool                     `json:"definitionProvider,omitempty"`
+	ReferencesProvider     bool                     `json:"referencesProvider,omitempty"`
+	RenameProvider         *RenameOptions           `json:"renameProvider,omitempty"`
+	DocumentSymbolProvider bool                     `json:"documentSymbolProvider,omitempty"`
+	FoldingRangeProvider   bool                     `json:"foldingRangeProvider,omitempty"`
+	InlayHintProvider      bool                     `json:"inlayHintProvider,omitempty"`
+	CompletionProvider     *CompletionOptions       `json:"completionProvider,omitempty"`
 }
 
 // TextDocumentItem is the full document sent on open.
@@ -250,7 +282,18 @@ type Diagnostic struct {
 	Code     string             `json:"code,omitempty"`
 	Source   string             `json:"source,omitempty"`
 	Message  string             `json:"message"`
+	Tags     []DiagnosticTag    `json:"tags,omitempty"`
 }
+
+// DiagnosticTag changes how a client renders a diagnostic. Unnecessary is
+// how inactive preprocessor regions are faded without a client extension.
+type DiagnosticTag int
+
+// Diagnostic tags defined by the LSP.
+const (
+	TagUnnecessary DiagnosticTag = 1
+	TagDeprecated  DiagnosticTag = 2
+)
 
 // PublishDiagnosticsParams replaces all diagnostics for one document.
 // Diagnostics must encode as [] (not null) to clear; callers pass a non-nil

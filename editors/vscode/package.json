@@ -1,8 +1,8 @@
 {
   "name": "falcon-asm",
   "displayName": "falcon-asm (GAS x86)",
-  "description": "GAS (AT&T) x86 assembly support backed by the falcon-asm language server: hover and semantic highlighting.",
-  "version": "0.1.0",
+  "description": "GAS (AT&T) x86 assembly support backed by the falcon-asm language server: hover, diagnostics and semantic highlighting, plus inline asm in C and C++.",
+  "version": "0.2.0",
   "publisher": "vifair22",
   "license": "GPL-3.0-or-later",
   "private": true,
@@ -25,7 +25,9 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onLanguage:falcon-asm"
+    "onLanguage:falcon-asm",
+    "onLanguage:c",
+    "onLanguage:cpp"
   ],
   "contributes": {
     "languages": [
@@ -47,6 +49,14 @@
         "language": "falcon-asm",
         "scopeName": "source.falcon-asm",
         "path": "./syntaxes/falcon-asm.tmLanguage.json"
+      },
+      {
+        "scopeName": "falcon-asm.inline.injection",
+        "path": "./syntaxes/falcon-asm-inline.tmLanguage.json",
+        "injectTo": [
+          "source.c",
+          "source.cpp"
+        ]
       }
     ],
     "semanticTokenScopes": [
@@ -126,7 +136,51 @@
           "type": "string",
           "default": "falcon-asm",
           "scope": "machine-overridable",
-          "markdownDescription": "Path to the `falcon-asm` language server binary. A bare name is looked up on `PATH`; `~/` is expanded to the home directory. Changing it restarts the server."
+          "markdownDescription": "Path to the `falcon-asm` language server binary. A bare name is looked up on `PATH`; `~/` is expanded to the home directory. Left at the default, `~/.local/bin`, `$GOBIN`, `$GOPATH/bin` and `~/go/bin` are also tried when `PATH` has no match. Changing it restarts the server."
+        },
+        "falcon-asm.inlineAsm.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Offer C and C++ files to the server for hover and diagnostics inside `asm` statements. Off, the server only sees `falcon-asm` files. The inline asm highlighting grammar is unaffected. Changing it restarts the server."
+        },
+        "falcon-asm.toolchain.enabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Run the compiler and assembler from `compile_commands.json` when a file is opened or saved, for assembler diagnostics, macro values and listing hints. Changing it restarts the server."
+        },
+        "falcon-asm.inlayHints.listing": {
+          "type": "boolean",
+          "default": true,
+          "scope": "window",
+          "markdownDescription": "Show the assembler listing as inlay hints: section offset and encoded bytes after each instruction line, padding size on `.org` lines. Needs `falcon-asm.toolchain.enabled`. Changing it restarts the server."
+        },
+        "falcon-asm.level": {
+          "type": "string",
+          "enum": [
+            "",
+            "v1",
+            "v2",
+            "v3",
+            "v4"
+          ],
+          "default": "",
+          "scope": "window",
+          "enumDescriptions": [
+            "Use the `falcon-asm: level=` comment in the file, else `-march` from the compile database",
+            "x86-64 baseline",
+            "x86-64-v2",
+            "x86-64-v3",
+            "x86-64-v4"
+          ],
+          "markdownDescription": "Target x86-64 microarchitecture level for level diagnostics. Empty defers to a `falcon-asm: level=vN` comment in the file, then to `-march` in the compile database. Changing it restarts the server."
+        },
+        "falcon-asm.compileCommands": {
+          "type": "string",
+          "default": "",
+          "scope": "machine-overridable",
+          "markdownDescription": "Path to `compile_commands.json`, overriding discovery (workspace root, `build/`, then walking up from the file). `~/` is expanded; a relative path is resolved against the first workspace folder. Changing it restarts the server."
         },
         "falcon-asm.trace.server": {
           "type": "string",

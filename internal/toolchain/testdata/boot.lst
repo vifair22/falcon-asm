@@ -1,0 +1,1508 @@
+GAS LISTING boot.pp.s 			page 1
+
+
+   1              	# 0 "falcon-bios/src/start/boot.S"
+   2              	# 0 "<built-in>"
+   3              	#define __STDC__ 1
+   4              	# 0 "<built-in>"
+   5              	#define __ASSEMBLER__ 1
+   6              	# 0 "<built-in>"
+   7              	#define __STDC_HOSTED__ 1
+   8              	# 0 "<built-in>"
+   9              	#define __STDC_EMBED_NOT_FOUND__ 0
+  10              	# 0 "<built-in>"
+  11              	#define __STDC_EMBED_FOUND__ 1
+  12              	# 0 "<built-in>"
+  13              	#define __STDC_EMBED_EMPTY__ 2
+  14              	# 0 "<built-in>"
+  15              	#define __GNUC__ 15
+  16              	# 0 "<built-in>"
+  17              	#define __GNUC_MINOR__ 3
+  18              	# 0 "<built-in>"
+  19              	#define __GNUC_PATCHLEVEL__ 0
+  20              	# 0 "<built-in>"
+  21              	#define __VERSION__ "15.3.0"
+  22              	# 0 "<built-in>"
+  23              	#define __ATOMIC_RELAXED 0
+  24              	# 0 "<built-in>"
+  25              	#define __ATOMIC_SEQ_CST 5
+  26              	# 0 "<built-in>"
+  27              	#define __ATOMIC_ACQUIRE 2
+  28              	# 0 "<built-in>"
+  29              	#define __ATOMIC_RELEASE 3
+  30              	# 0 "<built-in>"
+  31              	#define __ATOMIC_ACQ_REL 4
+  32              	# 0 "<built-in>"
+  33              	#define __ATOMIC_CONSUME 1
+  34              	# 0 "<built-in>"
+  35              	#define __pic__ 2
+  36              	# 0 "<built-in>"
+  37              	#define __PIC__ 2
+  38              	# 0 "<built-in>"
+  39              	#define __pie__ 2
+  40              	# 0 "<built-in>"
+  41              	#define __PIE__ 2
+  42              	# 0 "<built-in>"
+  43              	#define __FINITE_MATH_ONLY__ 0
+  44              	# 0 "<built-in>"
+  45              	#define __SIZEOF_INT__ 4
+  46              	# 0 "<built-in>"
+  47              	#define __SIZEOF_LONG__ 4
+  48              	# 0 "<built-in>"
+  49              	#define __SIZEOF_LONG_LONG__ 8
+  50              	# 0 "<built-in>"
+  51              	#define __SIZEOF_SHORT__ 2
+  52              	# 0 "<built-in>"
+  53              	#define __SIZEOF_FLOAT__ 4
+  54              	# 0 "<built-in>"
+  55              	#define __SIZEOF_DOUBLE__ 8
+  56              	# 0 "<built-in>"
+  57              	#define __SIZEOF_LONG_DOUBLE__ 12
+GAS LISTING boot.pp.s 			page 2
+
+
+  58              	# 0 "<built-in>"
+  59              	#define __SIZEOF_SIZE_T__ 4
+  60              	# 0 "<built-in>"
+  61              	#define __CHAR_BIT__ 8
+  62              	# 0 "<built-in>"
+  63              	#define __BIGGEST_ALIGNMENT__ 16
+  64              	# 0 "<built-in>"
+  65              	#define __ORDER_LITTLE_ENDIAN__ 1234
+  66              	# 0 "<built-in>"
+  67              	#define __ORDER_BIG_ENDIAN__ 4321
+  68              	# 0 "<built-in>"
+  69              	#define __ORDER_PDP_ENDIAN__ 3412
+  70              	# 0 "<built-in>"
+  71              	#define __BYTE_ORDER__ __ORDER_LITTLE_ENDIAN__
+  72              	# 0 "<built-in>"
+  73              	#define __FLOAT_WORD_ORDER__ __ORDER_LITTLE_ENDIAN__
+  74              	# 0 "<built-in>"
+  75              	#define __SIZEOF_POINTER__ 4
+  76              	# 0 "<built-in>"
+  77              	#define __GNUC_EXECUTION_CHARSET_NAME "UTF-8"
+  78              	# 0 "<built-in>"
+  79              	#define __GNUC_WIDE_EXECUTION_CHARSET_NAME "UTF-32LE"
+  80              	# 0 "<built-in>"
+  81              	#define __SIZE_TYPE__ unsigned int
+  82              	# 0 "<built-in>"
+  83              	#define __PTRDIFF_TYPE__ int
+  84              	# 0 "<built-in>"
+  85              	#define __WCHAR_TYPE__ long int
+  86              	# 0 "<built-in>"
+  87              	#define __WINT_TYPE__ unsigned int
+  88              	# 0 "<built-in>"
+  89              	#define __INTMAX_TYPE__ long long int
+  90              	# 0 "<built-in>"
+  91              	#define __UINTMAX_TYPE__ long long unsigned int
+  92              	# 0 "<built-in>"
+  93              	#define __CHAR8_TYPE__ unsigned char
+  94              	# 0 "<built-in>"
+  95              	#define __CHAR16_TYPE__ short unsigned int
+  96              	# 0 "<built-in>"
+  97              	#define __CHAR32_TYPE__ unsigned int
+  98              	# 0 "<built-in>"
+  99              	#define __SIG_ATOMIC_TYPE__ int
+ 100              	# 0 "<built-in>"
+ 101              	#define __INT8_TYPE__ signed char
+ 102              	# 0 "<built-in>"
+ 103              	#define __INT16_TYPE__ short int
+ 104              	# 0 "<built-in>"
+ 105              	#define __INT32_TYPE__ int
+ 106              	# 0 "<built-in>"
+ 107              	#define __INT64_TYPE__ long long int
+ 108              	# 0 "<built-in>"
+ 109              	#define __UINT8_TYPE__ unsigned char
+ 110              	# 0 "<built-in>"
+ 111              	#define __UINT16_TYPE__ short unsigned int
+ 112              	# 0 "<built-in>"
+ 113              	#define __UINT32_TYPE__ unsigned int
+ 114              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 3
+
+
+ 115              	#define __UINT64_TYPE__ long long unsigned int
+ 116              	# 0 "<built-in>"
+ 117              	#define __INT_LEAST8_TYPE__ signed char
+ 118              	# 0 "<built-in>"
+ 119              	#define __INT_LEAST16_TYPE__ short int
+ 120              	# 0 "<built-in>"
+ 121              	#define __INT_LEAST32_TYPE__ int
+ 122              	# 0 "<built-in>"
+ 123              	#define __INT_LEAST64_TYPE__ long long int
+ 124              	# 0 "<built-in>"
+ 125              	#define __UINT_LEAST8_TYPE__ unsigned char
+ 126              	# 0 "<built-in>"
+ 127              	#define __UINT_LEAST16_TYPE__ short unsigned int
+ 128              	# 0 "<built-in>"
+ 129              	#define __UINT_LEAST32_TYPE__ unsigned int
+ 130              	# 0 "<built-in>"
+ 131              	#define __UINT_LEAST64_TYPE__ long long unsigned int
+ 132              	# 0 "<built-in>"
+ 133              	#define __INT_FAST8_TYPE__ signed char
+ 134              	# 0 "<built-in>"
+ 135              	#define __INT_FAST16_TYPE__ int
+ 136              	# 0 "<built-in>"
+ 137              	#define __INT_FAST32_TYPE__ int
+ 138              	# 0 "<built-in>"
+ 139              	#define __INT_FAST64_TYPE__ long long int
+ 140              	# 0 "<built-in>"
+ 141              	#define __UINT_FAST8_TYPE__ unsigned char
+ 142              	# 0 "<built-in>"
+ 143              	#define __UINT_FAST16_TYPE__ unsigned int
+ 144              	# 0 "<built-in>"
+ 145              	#define __UINT_FAST32_TYPE__ unsigned int
+ 146              	# 0 "<built-in>"
+ 147              	#define __UINT_FAST64_TYPE__ long long unsigned int
+ 148              	# 0 "<built-in>"
+ 149              	#define __INTPTR_TYPE__ int
+ 150              	# 0 "<built-in>"
+ 151              	#define __UINTPTR_TYPE__ unsigned int
+ 152              	# 0 "<built-in>"
+ 153              	#define __GXX_ABI_VERSION 1020
+ 154              	# 0 "<built-in>"
+ 155              	#define __SCHAR_MAX__ 0x7f
+ 156              	# 0 "<built-in>"
+ 157              	#define __SHRT_MAX__ 0x7fff
+ 158              	# 0 "<built-in>"
+ 159              	#define __INT_MAX__ 0x7fffffff
+ 160              	# 0 "<built-in>"
+ 161              	#define __LONG_MAX__ 0x7fffffffL
+ 162              	# 0 "<built-in>"
+ 163              	#define __LONG_LONG_MAX__ 0x7fffffffffffffffLL
+ 164              	# 0 "<built-in>"
+ 165              	#define __WCHAR_MAX__ 0x7fffffffL
+ 166              	# 0 "<built-in>"
+ 167              	#define __WCHAR_MIN__ (-__WCHAR_MAX__ - 1)
+ 168              	# 0 "<built-in>"
+ 169              	#define __WINT_MAX__ 0xffffffffU
+ 170              	# 0 "<built-in>"
+ 171              	#define __WINT_MIN__ 0U
+GAS LISTING boot.pp.s 			page 4
+
+
+ 172              	# 0 "<built-in>"
+ 173              	#define __PTRDIFF_MAX__ 0x7fffffff
+ 174              	# 0 "<built-in>"
+ 175              	#define __SIZE_MAX__ 0xffffffffU
+ 176              	# 0 "<built-in>"
+ 177              	#define __SCHAR_WIDTH__ 8
+ 178              	# 0 "<built-in>"
+ 179              	#define __SHRT_WIDTH__ 16
+ 180              	# 0 "<built-in>"
+ 181              	#define __INT_WIDTH__ 32
+ 182              	# 0 "<built-in>"
+ 183              	#define __LONG_WIDTH__ 32
+ 184              	# 0 "<built-in>"
+ 185              	#define __LONG_LONG_WIDTH__ 64
+ 186              	# 0 "<built-in>"
+ 187              	#define __WCHAR_WIDTH__ 32
+ 188              	# 0 "<built-in>"
+ 189              	#define __WINT_WIDTH__ 32
+ 190              	# 0 "<built-in>"
+ 191              	#define __PTRDIFF_WIDTH__ 32
+ 192              	# 0 "<built-in>"
+ 193              	#define __SIZE_WIDTH__ 32
+ 194              	# 0 "<built-in>"
+ 195              	#define __BITINT_MAXWIDTH__ 65535
+ 196              	# 0 "<built-in>"
+ 197              	#define __INTMAX_MAX__ 0x7fffffffffffffffLL
+ 198              	# 0 "<built-in>"
+ 199              	#define __INTMAX_C(c) c ## LL
+ 200              	# 0 "<built-in>"
+ 201              	#define __UINTMAX_MAX__ 0xffffffffffffffffULL
+ 202              	# 0 "<built-in>"
+ 203              	#define __UINTMAX_C(c) c ## ULL
+ 204              	# 0 "<built-in>"
+ 205              	#define __INTMAX_WIDTH__ 64
+ 206              	# 0 "<built-in>"
+ 207              	#define __SIG_ATOMIC_MAX__ 0x7fffffff
+ 208              	# 0 "<built-in>"
+ 209              	#define __SIG_ATOMIC_MIN__ (-__SIG_ATOMIC_MAX__ - 1)
+ 210              	# 0 "<built-in>"
+ 211              	#define __SIG_ATOMIC_WIDTH__ 32
+ 212              	# 0 "<built-in>"
+ 213              	#define __INT8_MAX__ 0x7f
+ 214              	# 0 "<built-in>"
+ 215              	#define __INT16_MAX__ 0x7fff
+ 216              	# 0 "<built-in>"
+ 217              	#define __INT32_MAX__ 0x7fffffff
+ 218              	# 0 "<built-in>"
+ 219              	#define __INT64_MAX__ 0x7fffffffffffffffLL
+ 220              	# 0 "<built-in>"
+ 221              	#define __UINT8_MAX__ 0xff
+ 222              	# 0 "<built-in>"
+ 223              	#define __UINT16_MAX__ 0xffff
+ 224              	# 0 "<built-in>"
+ 225              	#define __UINT32_MAX__ 0xffffffffU
+ 226              	# 0 "<built-in>"
+ 227              	#define __UINT64_MAX__ 0xffffffffffffffffULL
+ 228              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 5
+
+
+ 229              	#define __INT_LEAST8_MAX__ 0x7f
+ 230              	# 0 "<built-in>"
+ 231              	#define __INT8_C(c) c
+ 232              	# 0 "<built-in>"
+ 233              	#define __INT_LEAST8_WIDTH__ 8
+ 234              	# 0 "<built-in>"
+ 235              	#define __INT_LEAST16_MAX__ 0x7fff
+ 236              	# 0 "<built-in>"
+ 237              	#define __INT16_C(c) c
+ 238              	# 0 "<built-in>"
+ 239              	#define __INT_LEAST16_WIDTH__ 16
+ 240              	# 0 "<built-in>"
+ 241              	#define __INT_LEAST32_MAX__ 0x7fffffff
+ 242              	# 0 "<built-in>"
+ 243              	#define __INT32_C(c) c
+ 244              	# 0 "<built-in>"
+ 245              	#define __INT_LEAST32_WIDTH__ 32
+ 246              	# 0 "<built-in>"
+ 247              	#define __INT_LEAST64_MAX__ 0x7fffffffffffffffLL
+ 248              	# 0 "<built-in>"
+ 249              	#define __INT64_C(c) c ## LL
+ 250              	# 0 "<built-in>"
+ 251              	#define __INT_LEAST64_WIDTH__ 64
+ 252              	# 0 "<built-in>"
+ 253              	#define __UINT_LEAST8_MAX__ 0xff
+ 254              	# 0 "<built-in>"
+ 255              	#define __UINT8_C(c) c
+ 256              	# 0 "<built-in>"
+ 257              	#define __UINT_LEAST16_MAX__ 0xffff
+ 258              	# 0 "<built-in>"
+ 259              	#define __UINT16_C(c) c
+ 260              	# 0 "<built-in>"
+ 261              	#define __UINT_LEAST32_MAX__ 0xffffffffU
+ 262              	# 0 "<built-in>"
+ 263              	#define __UINT32_C(c) c ## U
+ 264              	# 0 "<built-in>"
+ 265              	#define __UINT_LEAST64_MAX__ 0xffffffffffffffffULL
+ 266              	# 0 "<built-in>"
+ 267              	#define __UINT64_C(c) c ## ULL
+ 268              	# 0 "<built-in>"
+ 269              	#define __INT_FAST8_MAX__ 0x7f
+ 270              	# 0 "<built-in>"
+ 271              	#define __INT_FAST8_WIDTH__ 8
+ 272              	# 0 "<built-in>"
+ 273              	#define __INT_FAST16_MAX__ 0x7fffffff
+ 274              	# 0 "<built-in>"
+ 275              	#define __INT_FAST16_WIDTH__ 32
+ 276              	# 0 "<built-in>"
+ 277              	#define __INT_FAST32_MAX__ 0x7fffffff
+ 278              	# 0 "<built-in>"
+ 279              	#define __INT_FAST32_WIDTH__ 32
+ 280              	# 0 "<built-in>"
+ 281              	#define __INT_FAST64_MAX__ 0x7fffffffffffffffLL
+ 282              	# 0 "<built-in>"
+ 283              	#define __INT_FAST64_WIDTH__ 64
+ 284              	# 0 "<built-in>"
+ 285              	#define __UINT_FAST8_MAX__ 0xff
+GAS LISTING boot.pp.s 			page 6
+
+
+ 286              	# 0 "<built-in>"
+ 287              	#define __UINT_FAST16_MAX__ 0xffffffffU
+ 288              	# 0 "<built-in>"
+ 289              	#define __UINT_FAST32_MAX__ 0xffffffffU
+ 290              	# 0 "<built-in>"
+ 291              	#define __UINT_FAST64_MAX__ 0xffffffffffffffffULL
+ 292              	# 0 "<built-in>"
+ 293              	#define __INTPTR_MAX__ 0x7fffffff
+ 294              	# 0 "<built-in>"
+ 295              	#define __INTPTR_WIDTH__ 32
+ 296              	# 0 "<built-in>"
+ 297              	#define __UINTPTR_MAX__ 0xffffffffU
+ 298              	# 0 "<built-in>"
+ 299              	#define __GCC_IEC_559 2
+ 300              	# 0 "<built-in>"
+ 301              	#define __GCC_IEC_559_COMPLEX 2
+ 302              	# 0 "<built-in>"
+ 303              	#define __FLT_EVAL_METHOD__ 2
+ 304              	# 0 "<built-in>"
+ 305              	#define __FLT_EVAL_METHOD_TS_18661_3__ 2
+ 306              	# 0 "<built-in>"
+ 307              	#define __DEC_EVAL_METHOD__ 2
+ 308              	# 0 "<built-in>"
+ 309              	#define __FLT_RADIX__ 2
+ 310              	# 0 "<built-in>"
+ 311              	#define __FLT_MANT_DIG__ 24
+ 312              	# 0 "<built-in>"
+ 313              	#define __FLT_DIG__ 6
+ 314              	# 0 "<built-in>"
+ 315              	#define __FLT_MIN_EXP__ (-125)
+ 316              	# 0 "<built-in>"
+ 317              	#define __FLT_MIN_10_EXP__ (-37)
+ 318              	# 0 "<built-in>"
+ 319              	#define __FLT_MAX_EXP__ 128
+ 320              	# 0 "<built-in>"
+ 321              	#define __FLT_MAX_10_EXP__ 38
+ 322              	# 0 "<built-in>"
+ 323              	#define __FLT_DECIMAL_DIG__ 9
+ 324              	# 0 "<built-in>"
+ 325              	#define __FLT_MAX__ 3.40282346638528859811704183484516925e+38F
+ 326              	# 0 "<built-in>"
+ 327              	#define __FLT_NORM_MAX__ 3.40282346638528859811704183484516925e+38F
+ 328              	# 0 "<built-in>"
+ 329              	#define __FLT_MIN__ 1.17549435082228750796873653722224568e-38F
+ 330              	# 0 "<built-in>"
+ 331              	#define __FLT_EPSILON__ 1.19209289550781250000000000000000000e-7F
+ 332              	# 0 "<built-in>"
+ 333              	#define __FLT_DENORM_MIN__ 1.40129846432481707092372958328991613e-45F
+ 334              	# 0 "<built-in>"
+ 335              	#define __FLT_HAS_DENORM__ 1
+ 336              	# 0 "<built-in>"
+ 337              	#define __FLT_HAS_INFINITY__ 1
+ 338              	# 0 "<built-in>"
+ 339              	#define __FLT_HAS_QUIET_NAN__ 1
+ 340              	# 0 "<built-in>"
+ 341              	#define __FLT_IS_IEC_60559__ 1
+ 342              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 7
+
+
+ 343              	#define __DBL_MANT_DIG__ 53
+ 344              	# 0 "<built-in>"
+ 345              	#define __DBL_DIG__ 15
+ 346              	# 0 "<built-in>"
+ 347              	#define __DBL_MIN_EXP__ (-1021)
+ 348              	# 0 "<built-in>"
+ 349              	#define __DBL_MIN_10_EXP__ (-307)
+ 350              	# 0 "<built-in>"
+ 351              	#define __DBL_MAX_EXP__ 1024
+ 352              	# 0 "<built-in>"
+ 353              	#define __DBL_MAX_10_EXP__ 308
+ 354              	# 0 "<built-in>"
+ 355              	#define __DBL_DECIMAL_DIG__ 17
+ 356              	# 0 "<built-in>"
+ 357              	#define __DBL_MAX__ ((double)1.79769313486231570814527423731704357e+308L)
+ 358              	# 0 "<built-in>"
+ 359              	#define __DBL_NORM_MAX__ ((double)1.79769313486231570814527423731704357e+308L)
+ 360              	# 0 "<built-in>"
+ 361              	#define __DBL_MIN__ ((double)2.22507385850720138309023271733240406e-308L)
+ 362              	# 0 "<built-in>"
+ 363              	#define __DBL_EPSILON__ ((double)2.22044604925031308084726333618164062e-16L)
+ 364              	# 0 "<built-in>"
+ 365              	#define __DBL_DENORM_MIN__ ((double)4.94065645841246544176568792868221372e-324L)
+ 366              	# 0 "<built-in>"
+ 367              	#define __DBL_HAS_DENORM__ 1
+ 368              	# 0 "<built-in>"
+ 369              	#define __DBL_HAS_INFINITY__ 1
+ 370              	# 0 "<built-in>"
+ 371              	#define __DBL_HAS_QUIET_NAN__ 1
+ 372              	# 0 "<built-in>"
+ 373              	#define __DBL_IS_IEC_60559__ 1
+ 374              	# 0 "<built-in>"
+ 375              	#define __LDBL_MANT_DIG__ 64
+ 376              	# 0 "<built-in>"
+ 377              	#define __LDBL_DIG__ 18
+ 378              	# 0 "<built-in>"
+ 379              	#define __LDBL_MIN_EXP__ (-16381)
+ 380              	# 0 "<built-in>"
+ 381              	#define __LDBL_MIN_10_EXP__ (-4931)
+ 382              	# 0 "<built-in>"
+ 383              	#define __LDBL_MAX_EXP__ 16384
+ 384              	# 0 "<built-in>"
+ 385              	#define __LDBL_MAX_10_EXP__ 4932
+ 386              	# 0 "<built-in>"
+ 387              	#define __DECIMAL_DIG__ 21
+ 388              	# 0 "<built-in>"
+ 389              	#define __LDBL_DECIMAL_DIG__ 21
+ 390              	# 0 "<built-in>"
+ 391              	#define __LDBL_MAX__ 1.18973149535723176502126385303097021e+4932L
+ 392              	# 0 "<built-in>"
+ 393              	#define __LDBL_NORM_MAX__ 1.18973149535723176502126385303097021e+4932L
+ 394              	# 0 "<built-in>"
+ 395              	#define __LDBL_MIN__ 3.36210314311209350626267781732175260e-4932L
+ 396              	# 0 "<built-in>"
+ 397              	#define __LDBL_EPSILON__ 1.08420217248550443400745280086994171e-19L
+ 398              	# 0 "<built-in>"
+ 399              	#define __LDBL_DENORM_MIN__ 3.64519953188247460252840593361941982e-4951L
+GAS LISTING boot.pp.s 			page 8
+
+
+ 400              	# 0 "<built-in>"
+ 401              	#define __LDBL_HAS_DENORM__ 1
+ 402              	# 0 "<built-in>"
+ 403              	#define __LDBL_HAS_INFINITY__ 1
+ 404              	# 0 "<built-in>"
+ 405              	#define __LDBL_HAS_QUIET_NAN__ 1
+ 406              	# 0 "<built-in>"
+ 407              	#define __LDBL_IS_IEC_60559__ 1
+ 408              	# 0 "<built-in>"
+ 409              	#define __FLT16_MANT_DIG__ 11
+ 410              	# 0 "<built-in>"
+ 411              	#define __FLT16_DIG__ 3
+ 412              	# 0 "<built-in>"
+ 413              	#define __FLT16_MIN_EXP__ (-13)
+ 414              	# 0 "<built-in>"
+ 415              	#define __FLT16_MIN_10_EXP__ (-4)
+ 416              	# 0 "<built-in>"
+ 417              	#define __FLT16_MAX_EXP__ 16
+ 418              	# 0 "<built-in>"
+ 419              	#define __FLT16_MAX_10_EXP__ 4
+ 420              	# 0 "<built-in>"
+ 421              	#define __FLT16_DECIMAL_DIG__ 5
+ 422              	# 0 "<built-in>"
+ 423              	#define __FLT16_MAX__ 6.55040000000000000000000000000000000e+4F16
+ 424              	# 0 "<built-in>"
+ 425              	#define __FLT16_NORM_MAX__ 6.55040000000000000000000000000000000e+4F16
+ 426              	# 0 "<built-in>"
+ 427              	#define __FLT16_MIN__ 6.10351562500000000000000000000000000e-5F16
+ 428              	# 0 "<built-in>"
+ 429              	#define __FLT16_EPSILON__ 9.76562500000000000000000000000000000e-4F16
+ 430              	# 0 "<built-in>"
+ 431              	#define __FLT16_DENORM_MIN__ 5.96046447753906250000000000000000000e-8F16
+ 432              	# 0 "<built-in>"
+ 433              	#define __FLT16_HAS_DENORM__ 1
+ 434              	# 0 "<built-in>"
+ 435              	#define __FLT16_HAS_INFINITY__ 1
+ 436              	# 0 "<built-in>"
+ 437              	#define __FLT16_HAS_QUIET_NAN__ 1
+ 438              	# 0 "<built-in>"
+ 439              	#define __FLT16_IS_IEC_60559__ 1
+ 440              	# 0 "<built-in>"
+ 441              	#define __FLT32_MANT_DIG__ 24
+ 442              	# 0 "<built-in>"
+ 443              	#define __FLT32_DIG__ 6
+ 444              	# 0 "<built-in>"
+ 445              	#define __FLT32_MIN_EXP__ (-125)
+ 446              	# 0 "<built-in>"
+ 447              	#define __FLT32_MIN_10_EXP__ (-37)
+ 448              	# 0 "<built-in>"
+ 449              	#define __FLT32_MAX_EXP__ 128
+ 450              	# 0 "<built-in>"
+ 451              	#define __FLT32_MAX_10_EXP__ 38
+ 452              	# 0 "<built-in>"
+ 453              	#define __FLT32_DECIMAL_DIG__ 9
+ 454              	# 0 "<built-in>"
+ 455              	#define __FLT32_MAX__ 3.40282346638528859811704183484516925e+38F32
+ 456              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 9
+
+
+ 457              	#define __FLT32_NORM_MAX__ 3.40282346638528859811704183484516925e+38F32
+ 458              	# 0 "<built-in>"
+ 459              	#define __FLT32_MIN__ 1.17549435082228750796873653722224568e-38F32
+ 460              	# 0 "<built-in>"
+ 461              	#define __FLT32_EPSILON__ 1.19209289550781250000000000000000000e-7F32
+ 462              	# 0 "<built-in>"
+ 463              	#define __FLT32_DENORM_MIN__ 1.40129846432481707092372958328991613e-45F32
+ 464              	# 0 "<built-in>"
+ 465              	#define __FLT32_HAS_DENORM__ 1
+ 466              	# 0 "<built-in>"
+ 467              	#define __FLT32_HAS_INFINITY__ 1
+ 468              	# 0 "<built-in>"
+ 469              	#define __FLT32_HAS_QUIET_NAN__ 1
+ 470              	# 0 "<built-in>"
+ 471              	#define __FLT32_IS_IEC_60559__ 1
+ 472              	# 0 "<built-in>"
+ 473              	#define __FLT64_MANT_DIG__ 53
+ 474              	# 0 "<built-in>"
+ 475              	#define __FLT64_DIG__ 15
+ 476              	# 0 "<built-in>"
+ 477              	#define __FLT64_MIN_EXP__ (-1021)
+ 478              	# 0 "<built-in>"
+ 479              	#define __FLT64_MIN_10_EXP__ (-307)
+ 480              	# 0 "<built-in>"
+ 481              	#define __FLT64_MAX_EXP__ 1024
+ 482              	# 0 "<built-in>"
+ 483              	#define __FLT64_MAX_10_EXP__ 308
+ 484              	# 0 "<built-in>"
+ 485              	#define __FLT64_DECIMAL_DIG__ 17
+ 486              	# 0 "<built-in>"
+ 487              	#define __FLT64_MAX__ 1.79769313486231570814527423731704357e+308F64
+ 488              	# 0 "<built-in>"
+ 489              	#define __FLT64_NORM_MAX__ 1.79769313486231570814527423731704357e+308F64
+ 490              	# 0 "<built-in>"
+ 491              	#define __FLT64_MIN__ 2.22507385850720138309023271733240406e-308F64
+ 492              	# 0 "<built-in>"
+ 493              	#define __FLT64_EPSILON__ 2.22044604925031308084726333618164062e-16F64
+ 494              	# 0 "<built-in>"
+ 495              	#define __FLT64_DENORM_MIN__ 4.94065645841246544176568792868221372e-324F64
+ 496              	# 0 "<built-in>"
+ 497              	#define __FLT64_HAS_DENORM__ 1
+ 498              	# 0 "<built-in>"
+ 499              	#define __FLT64_HAS_INFINITY__ 1
+ 500              	# 0 "<built-in>"
+ 501              	#define __FLT64_HAS_QUIET_NAN__ 1
+ 502              	# 0 "<built-in>"
+ 503              	#define __FLT64_IS_IEC_60559__ 1
+ 504              	# 0 "<built-in>"
+ 505              	#define __FLT128_MANT_DIG__ 113
+ 506              	# 0 "<built-in>"
+ 507              	#define __FLT128_DIG__ 33
+ 508              	# 0 "<built-in>"
+ 509              	#define __FLT128_MIN_EXP__ (-16381)
+ 510              	# 0 "<built-in>"
+ 511              	#define __FLT128_MIN_10_EXP__ (-4931)
+ 512              	# 0 "<built-in>"
+ 513              	#define __FLT128_MAX_EXP__ 16384
+GAS LISTING boot.pp.s 			page 10
+
+
+ 514              	# 0 "<built-in>"
+ 515              	#define __FLT128_MAX_10_EXP__ 4932
+ 516              	# 0 "<built-in>"
+ 517              	#define __FLT128_DECIMAL_DIG__ 36
+ 518              	# 0 "<built-in>"
+ 519              	#define __FLT128_MAX__ 1.18973149535723176508575932662800702e+4932F128
+ 520              	# 0 "<built-in>"
+ 521              	#define __FLT128_NORM_MAX__ 1.18973149535723176508575932662800702e+4932F128
+ 522              	# 0 "<built-in>"
+ 523              	#define __FLT128_MIN__ 3.36210314311209350626267781732175260e-4932F128
+ 524              	# 0 "<built-in>"
+ 525              	#define __FLT128_EPSILON__ 1.92592994438723585305597794258492732e-34F128
+ 526              	# 0 "<built-in>"
+ 527              	#define __FLT128_DENORM_MIN__ 6.47517511943802511092443895822764655e-4966F128
+ 528              	# 0 "<built-in>"
+ 529              	#define __FLT128_HAS_DENORM__ 1
+ 530              	# 0 "<built-in>"
+ 531              	#define __FLT128_HAS_INFINITY__ 1
+ 532              	# 0 "<built-in>"
+ 533              	#define __FLT128_HAS_QUIET_NAN__ 1
+ 534              	# 0 "<built-in>"
+ 535              	#define __FLT128_IS_IEC_60559__ 1
+ 536              	# 0 "<built-in>"
+ 537              	#define __FLT32X_MANT_DIG__ 53
+ 538              	# 0 "<built-in>"
+ 539              	#define __FLT32X_DIG__ 15
+ 540              	# 0 "<built-in>"
+ 541              	#define __FLT32X_MIN_EXP__ (-1021)
+ 542              	# 0 "<built-in>"
+ 543              	#define __FLT32X_MIN_10_EXP__ (-307)
+ 544              	# 0 "<built-in>"
+ 545              	#define __FLT32X_MAX_EXP__ 1024
+ 546              	# 0 "<built-in>"
+ 547              	#define __FLT32X_MAX_10_EXP__ 308
+ 548              	# 0 "<built-in>"
+ 549              	#define __FLT32X_DECIMAL_DIG__ 17
+ 550              	# 0 "<built-in>"
+ 551              	#define __FLT32X_MAX__ 1.79769313486231570814527423731704357e+308F32x
+ 552              	# 0 "<built-in>"
+ 553              	#define __FLT32X_NORM_MAX__ 1.79769313486231570814527423731704357e+308F32x
+ 554              	# 0 "<built-in>"
+ 555              	#define __FLT32X_MIN__ 2.22507385850720138309023271733240406e-308F32x
+ 556              	# 0 "<built-in>"
+ 557              	#define __FLT32X_EPSILON__ 2.22044604925031308084726333618164062e-16F32x
+ 558              	# 0 "<built-in>"
+ 559              	#define __FLT32X_DENORM_MIN__ 4.94065645841246544176568792868221372e-324F32x
+ 560              	# 0 "<built-in>"
+ 561              	#define __FLT32X_HAS_DENORM__ 1
+ 562              	# 0 "<built-in>"
+ 563              	#define __FLT32X_HAS_INFINITY__ 1
+ 564              	# 0 "<built-in>"
+ 565              	#define __FLT32X_HAS_QUIET_NAN__ 1
+ 566              	# 0 "<built-in>"
+ 567              	#define __FLT32X_IS_IEC_60559__ 1
+ 568              	# 0 "<built-in>"
+ 569              	#define __FLT64X_MANT_DIG__ 64
+ 570              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 11
+
+
+ 571              	#define __FLT64X_DIG__ 18
+ 572              	# 0 "<built-in>"
+ 573              	#define __FLT64X_MIN_EXP__ (-16381)
+ 574              	# 0 "<built-in>"
+ 575              	#define __FLT64X_MIN_10_EXP__ (-4931)
+ 576              	# 0 "<built-in>"
+ 577              	#define __FLT64X_MAX_EXP__ 16384
+ 578              	# 0 "<built-in>"
+ 579              	#define __FLT64X_MAX_10_EXP__ 4932
+ 580              	# 0 "<built-in>"
+ 581              	#define __FLT64X_DECIMAL_DIG__ 21
+ 582              	# 0 "<built-in>"
+ 583              	#define __FLT64X_MAX__ 1.18973149535723176502126385303097021e+4932F64x
+ 584              	# 0 "<built-in>"
+ 585              	#define __FLT64X_NORM_MAX__ 1.18973149535723176502126385303097021e+4932F64x
+ 586              	# 0 "<built-in>"
+ 587              	#define __FLT64X_MIN__ 3.36210314311209350626267781732175260e-4932F64x
+ 588              	# 0 "<built-in>"
+ 589              	#define __FLT64X_EPSILON__ 1.08420217248550443400745280086994171e-19F64x
+ 590              	# 0 "<built-in>"
+ 591              	#define __FLT64X_DENORM_MIN__ 3.64519953188247460252840593361941982e-4951F64x
+ 592              	# 0 "<built-in>"
+ 593              	#define __FLT64X_HAS_DENORM__ 1
+ 594              	# 0 "<built-in>"
+ 595              	#define __FLT64X_HAS_INFINITY__ 1
+ 596              	# 0 "<built-in>"
+ 597              	#define __FLT64X_HAS_QUIET_NAN__ 1
+ 598              	# 0 "<built-in>"
+ 599              	#define __FLT64X_IS_IEC_60559__ 1
+ 600              	# 0 "<built-in>"
+ 601              	#define __BFLT16_MANT_DIG__ 8
+ 602              	# 0 "<built-in>"
+ 603              	#define __BFLT16_DIG__ 2
+ 604              	# 0 "<built-in>"
+ 605              	#define __BFLT16_MIN_EXP__ (-125)
+ 606              	# 0 "<built-in>"
+ 607              	#define __BFLT16_MIN_10_EXP__ (-37)
+ 608              	# 0 "<built-in>"
+ 609              	#define __BFLT16_MAX_EXP__ 128
+ 610              	# 0 "<built-in>"
+ 611              	#define __BFLT16_MAX_10_EXP__ 38
+ 612              	# 0 "<built-in>"
+ 613              	#define __BFLT16_DECIMAL_DIG__ 4
+ 614              	# 0 "<built-in>"
+ 615              	#define __BFLT16_MAX__ 3.38953138925153547590470800371487867e+38BF16
+ 616              	# 0 "<built-in>"
+ 617              	#define __BFLT16_NORM_MAX__ 3.38953138925153547590470800371487867e+38BF16
+ 618              	# 0 "<built-in>"
+ 619              	#define __BFLT16_MIN__ 1.17549435082228750796873653722224568e-38BF16
+ 620              	# 0 "<built-in>"
+ 621              	#define __BFLT16_EPSILON__ 7.81250000000000000000000000000000000e-3BF16
+ 622              	# 0 "<built-in>"
+ 623              	#define __BFLT16_DENORM_MIN__ 9.18354961579912115600575419704879436e-41BF16
+ 624              	# 0 "<built-in>"
+ 625              	#define __BFLT16_HAS_DENORM__ 1
+ 626              	# 0 "<built-in>"
+ 627              	#define __BFLT16_HAS_INFINITY__ 1
+GAS LISTING boot.pp.s 			page 12
+
+
+ 628              	# 0 "<built-in>"
+ 629              	#define __BFLT16_HAS_QUIET_NAN__ 1
+ 630              	# 0 "<built-in>"
+ 631              	#define __BFLT16_IS_IEC_60559__ 0
+ 632              	# 0 "<built-in>"
+ 633              	#define __DEC32_MANT_DIG__ 7
+ 634              	# 0 "<built-in>"
+ 635              	#define __DEC32_MIN_EXP__ (-94)
+ 636              	# 0 "<built-in>"
+ 637              	#define __DEC32_MAX_EXP__ 97
+ 638              	# 0 "<built-in>"
+ 639              	#define __DEC32_MIN__ 1E-95DF
+ 640              	# 0 "<built-in>"
+ 641              	#define __DEC32_MAX__ 9.999999E96DF
+ 642              	# 0 "<built-in>"
+ 643              	#define __DEC32_EPSILON__ 1E-6DF
+ 644              	# 0 "<built-in>"
+ 645              	#define __DEC32_SUBNORMAL_MIN__ 0.000001E-95DF
+ 646              	# 0 "<built-in>"
+ 647              	#define __DEC64_MANT_DIG__ 16
+ 648              	# 0 "<built-in>"
+ 649              	#define __DEC64_MIN_EXP__ (-382)
+ 650              	# 0 "<built-in>"
+ 651              	#define __DEC64_MAX_EXP__ 385
+ 652              	# 0 "<built-in>"
+ 653              	#define __DEC64_MIN__ 1E-383DD
+ 654              	# 0 "<built-in>"
+ 655              	#define __DEC64_MAX__ 9.999999999999999E384DD
+ 656              	# 0 "<built-in>"
+ 657              	#define __DEC64_EPSILON__ 1E-15DD
+ 658              	# 0 "<built-in>"
+ 659              	#define __DEC64_SUBNORMAL_MIN__ 0.000000000000001E-383DD
+ 660              	# 0 "<built-in>"
+ 661              	#define __DEC128_MANT_DIG__ 34
+ 662              	# 0 "<built-in>"
+ 663              	#define __DEC128_MIN_EXP__ (-6142)
+ 664              	# 0 "<built-in>"
+ 665              	#define __DEC128_MAX_EXP__ 6145
+ 666              	# 0 "<built-in>"
+ 667              	#define __DEC128_MIN__ 1E-6143DL
+ 668              	# 0 "<built-in>"
+ 669              	#define __DEC128_MAX__ 9.999999999999999999999999999999999E6144DL
+ 670              	# 0 "<built-in>"
+ 671              	#define __DEC128_EPSILON__ 1E-33DL
+ 672              	# 0 "<built-in>"
+ 673              	#define __DEC128_SUBNORMAL_MIN__ 0.000000000000000000000000000000001E-6143DL
+ 674              	# 0 "<built-in>"
+ 675              	#define __DEC64X_MANT_DIG__ 34
+ 676              	# 0 "<built-in>"
+ 677              	#define __DEC64X_MIN_EXP__ (-6142)
+ 678              	# 0 "<built-in>"
+ 679              	#define __DEC64X_MAX_EXP__ 6145
+ 680              	# 0 "<built-in>"
+ 681              	#define __DEC64X_MIN__ 1E-6143D64x
+ 682              	# 0 "<built-in>"
+ 683              	#define __DEC64X_MAX__ 9.999999999999999999999999999999999E6144D64x
+ 684              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 13
+
+
+ 685              	#define __DEC64X_EPSILON__ 1E-33D64x
+ 686              	# 0 "<built-in>"
+ 687              	#define __DEC64X_SUBNORMAL_MIN__ 0.000000000000000000000000000000001E-6143D64x
+ 688              	# 0 "<built-in>"
+ 689              	#define __REGISTER_PREFIX__ 
+ 690              	# 0 "<built-in>"
+ 691              	#define __USER_LABEL_PREFIX__ 
+ 692              	# 0 "<built-in>"
+ 693              	#define __GNUC_STDC_INLINE__ 1
+ 694              	# 0 "<built-in>"
+ 695              	#define __NO_INLINE__ 1
+ 696              	# 0 "<built-in>"
+ 697              	#define __GCC_HAVE_SYNC_COMPARE_AND_SWAP_1 1
+ 698              	# 0 "<built-in>"
+ 699              	#define __GCC_HAVE_SYNC_COMPARE_AND_SWAP_2 1
+ 700              	# 0 "<built-in>"
+ 701              	#define __GCC_HAVE_SYNC_COMPARE_AND_SWAP_4 1
+ 702              	# 0 "<built-in>"
+ 703              	#define __GCC_HAVE_SYNC_COMPARE_AND_SWAP_8 1
+ 704              	# 0 "<built-in>"
+ 705              	#define __GCC_ATOMIC_BOOL_LOCK_FREE 2
+ 706              	# 0 "<built-in>"
+ 707              	#define __GCC_ATOMIC_CHAR_LOCK_FREE 2
+ 708              	# 0 "<built-in>"
+ 709              	#define __GCC_ATOMIC_CHAR8_T_LOCK_FREE 2
+ 710              	# 0 "<built-in>"
+ 711              	#define __GCC_ATOMIC_CHAR16_T_LOCK_FREE 2
+ 712              	# 0 "<built-in>"
+ 713              	#define __GCC_ATOMIC_CHAR32_T_LOCK_FREE 2
+ 714              	# 0 "<built-in>"
+ 715              	#define __GCC_ATOMIC_WCHAR_T_LOCK_FREE 2
+ 716              	# 0 "<built-in>"
+ 717              	#define __GCC_ATOMIC_SHORT_LOCK_FREE 2
+ 718              	# 0 "<built-in>"
+ 719              	#define __GCC_ATOMIC_INT_LOCK_FREE 2
+ 720              	# 0 "<built-in>"
+ 721              	#define __GCC_ATOMIC_LONG_LOCK_FREE 2
+ 722              	# 0 "<built-in>"
+ 723              	#define __GCC_ATOMIC_LLONG_LOCK_FREE 2
+ 724              	# 0 "<built-in>"
+ 725              	#define __GCC_ATOMIC_TEST_AND_SET_TRUEVAL 1
+ 726              	# 0 "<built-in>"
+ 727              	#define __GCC_DESTRUCTIVE_SIZE 64
+ 728              	# 0 "<built-in>"
+ 729              	#define __GCC_CONSTRUCTIVE_SIZE 64
+ 730              	# 0 "<built-in>"
+ 731              	#define __GCC_ATOMIC_POINTER_LOCK_FREE 2
+ 732              	# 0 "<built-in>"
+ 733              	#define __HAVE_SPECULATION_SAFE_VALUE 1
+ 734              	# 0 "<built-in>"
+ 735              	#define __GCC_HAVE_DWARF2_CFI_ASM 1
+ 736              	# 0 "<built-in>"
+ 737              	#define __PRAGMA_REDEFINE_EXTNAME 1
+ 738              	# 0 "<built-in>"
+ 739              	#define __SSP_STRONG__ 3
+ 740              	# 0 "<built-in>"
+ 741              	#define __SIZEOF_WCHAR_T__ 4
+GAS LISTING boot.pp.s 			page 14
+
+
+ 742              	# 0 "<built-in>"
+ 743              	#define __SIZEOF_WINT_T__ 4
+ 744              	# 0 "<built-in>"
+ 745              	#define __SIZEOF_PTRDIFF_T__ 4
+ 746              	# 0 "<built-in>"
+ 747              	#define __i386 1
+ 748              	# 0 "<built-in>"
+ 749              	#define __i386__ 1
+ 750              	# 0 "<built-in>"
+ 751              	#define i386 1
+ 752              	# 0 "<built-in>"
+ 753              	#define _ILP32 1
+ 754              	# 0 "<built-in>"
+ 755              	#define __ILP32__ 1
+ 756              	# 0 "<built-in>"
+ 757              	#define __SIZEOF_FLOAT80__ 12
+ 758              	# 0 "<built-in>"
+ 759              	#define __SIZEOF_FLOAT128__ 16
+ 760              	# 0 "<built-in>"
+ 761              	#define __ATOMIC_HLE_ACQUIRE 65536
+ 762              	# 0 "<built-in>"
+ 763              	#define __ATOMIC_HLE_RELEASE 131072
+ 764              	# 0 "<built-in>"
+ 765              	#define __GCC_ASM_FLAG_OUTPUTS__ 1
+ 766              	# 0 "<built-in>"
+ 767              	#define __k8 1
+ 768              	# 0 "<built-in>"
+ 769              	#define __k8__ 1
+ 770              	# 0 "<built-in>"
+ 771              	#define __code_model_32__ 1
+ 772              	# 0 "<built-in>"
+ 773              	#define __MMX__ 1
+ 774              	# 0 "<built-in>"
+ 775              	#define __SSE__ 1
+ 776              	# 0 "<built-in>"
+ 777              	#define __SSE2__ 1
+ 778              	# 0 "<built-in>"
+ 779              	#define __FXSR__ 1
+ 780              	# 0 "<built-in>"
+ 781              	#define __LAHF_SAHF__ 1
+ 782              	# 0 "<built-in>"
+ 783              	#define __SEG_FS 1
+ 784              	# 0 "<built-in>"
+ 785              	#define __SEG_GS 1
+ 786              	# 0 "<built-in>"
+ 787              	#define __gnu_linux__ 1
+ 788              	# 0 "<built-in>"
+ 789              	#define __linux 1
+ 790              	# 0 "<built-in>"
+ 791              	#define __linux__ 1
+ 792              	# 0 "<built-in>"
+ 793              	#define linux 1
+ 794              	# 0 "<built-in>"
+ 795              	#define __unix 1
+ 796              	# 0 "<built-in>"
+ 797              	#define __unix__ 1
+ 798              	# 0 "<built-in>"
+GAS LISTING boot.pp.s 			page 15
+
+
+ 799              	#define unix 1
+ 800              	# 0 "<built-in>"
+ 801              	#define __ELF__ 1
+ 802              	# 0 "<built-in>"
+ 803              	#define __DECIMAL_BID_FORMAT__ 1
+ 804              	# 0 "<command-line>"
+ 805              	# 1 "/usr/include/stdc-predef.h" 1 3 4
+ 806              	# 19 "/usr/include/stdc-predef.h" 3 4
+ 807              	#define _STDC_PREDEF_H 1
+ 808              	# 38 "/usr/include/stdc-predef.h" 3 4
+ 809              	#define __STDC_IEC_559__ 1
+ 810              	#define __STDC_IEC_60559_BFP__ 201404L
+ 811              	# 48 "/usr/include/stdc-predef.h" 3 4
+ 812              	#define __STDC_IEC_559_COMPLEX__ 1
+ 813              	#define __STDC_IEC_60559_COMPLEX__ 201404L
+ 814              	# 62 "/usr/include/stdc-predef.h" 3 4
+ 815              	#define __STDC_ISO_10646__ 201706L
+ 816              	# 0 "<command-line>" 2
+ 817              	# 1 "falcon-bios/src/start/boot.S"
+ 818              	# 39 "falcon-bios/src/start/boot.S"
+ 819              	# 1 "falcon-bios/src/start/biosdefs.h" 1
+ 820              	# 15 "falcon-bios/src/start/biosdefs.h"
+ 821              	#define FALCON_BIOSDEFS_H 
+ 822              	
+ 823              	
+ 824              	
+ 825              	#define STAGE1_LOAD 0x7C00
+ 826              	# 34 "falcon-bios/src/start/biosdefs.h"
+ 827              	#define STAGE2_LOAD 0x7E00
+ 828              	# 51 "falcon-bios/src/start/biosdefs.h"
+ 829              	#define STAGE2_LBA 34
+ 830              	#define STAGE2_SECTORS 64
+ 831              	
+ 832              	
+ 833              	
+ 834              	#define STAGE2_MBR_MAX_SECTORS 62
+ 835              	
+ 836              	
+ 837              	
+ 838              	#define FD_S2_SECTORS_OFF 508
+ 839              	
+ 840              	
+ 841              	
+ 842              	
+ 843              	
+ 844              	#define FD_STAGE3_SECTOR 98
+ 845              	# 76 "falcon-bios/src/start/biosdefs.h"
+ 846              	#define STAGE1_S2_LBA_OFF 0x1B2
+ 847              	#define STAGE1_S2_SECTORS_OFF 0x1B6
+ 848              	#define STAGE2_LBA_MBR 1
+ 849              	
+ 850              	
+ 851              	
+ 852              	
+ 853              	
+ 854              	
+ 855              	#define BOOTPART_MARKER_SECTOR 8
+GAS LISTING boot.pp.s 			page 16
+
+
+ 856              	#define BOOTPART_STAGE3_SECTOR 32
+ 857              	
+ 858              	
+ 859              	
+ 860              	
+ 861              	
+ 862              	#define STAGE2_MAGIC 0x32534F42
+ 863              	# 106 "falcon-bios/src/start/biosdefs.h"
+ 864              	#define ADDR_END 0x100000000ull
+ 865              	
+ 866              	
+ 867              	
+ 868              	
+ 869              	
+ 870              	#define SEL_CODE32 0x08
+ 871              	#define SEL_DATA32 0x10
+ 872              	#define SEL_CODE16 0x18
+ 873              	#define SEL_DATA16 0x20
+ 874              	# 132 "falcon-bios/src/start/biosdefs.h"
+ 875              	#define GATE_ADDR STAGE2_LOAD
+ 876              	#define GATE_MAGIC (GATE_ADDR + 0x04)
+ 877              	#define GATE_THUNK (GATE_ADDR + 0x08)
+ 878              	#define GATE_BOOT16 (GATE_ADDR + 0x10)
+ 879              	#define GATE_BOOTPART (GATE_ADDR + 0x18)
+ 880              	
+ 881              	#define GATE_REGS (GATE_ADDR + 0x20)
+ 882              	#define GATE_VECTOR (GATE_ADDR + 0x40)
+ 883              	#define GATE_DRIVE (GATE_ADDR + 0x41)
+ 884              	#define GATE_MARKER (GATE_ADDR + 0x42)
+ 885              	
+ 886              	#define GATE_SI (GATE_ADDR + 0x44)
+ 887              	
+ 888              	
+ 889              	#define GATE_TARGET (GATE_ADDR + 0x48)
+ 890              	#define GATE_S2LEN (GATE_ADDR + 0x4C)
+ 891              	# 163 "falcon-bios/src/start/biosdefs.h"
+ 892              	#define BIOS_SCRATCH 0x00001000
+ 893              	#define DAP_ADDR (BIOS_SCRATCH + 0x00)
+ 894              	#define DRIVEPARM_ADDR (BIOS_SCRATCH + 0x40)
+ 895              	#define E820_ADDR (BIOS_SCRATCH + 0x80)
+ 896              	# 177 "falcon-bios/src/start/biosdefs.h"
+ 897              	#define ZEROPAGE_ADDR 0x00010000
+ 898              	#define CMDLINE_ADDR 0x00020000
+ 899              	#define KERNEL_ADDR 0x01000000
+ 900              	
+ 901              	
+ 902              	
+ 903              	
+ 904              	
+ 905              	
+ 906              	
+ 907              	#define LINUX_STUB_ADDR 0x00003000
+ 908              	#define LINUX_GDT_ADDR 0x00003100
+ 909              	
+ 910              	#define STAGE3_LOAD 0x100000
+ 911              	# 200 "falcon-bios/src/start/biosdefs.h"
+ 912              	#define APT_ADDR 0x00005000
+GAS LISTING boot.pp.s 			page 17
+
+
+ 913              	#define APT_VECTOR (APT_ADDR >> 12)
+ 914              	#define APT_OFF_GDTR 0x08
+ 915              	#define APT_OFF_IDTR 0x10
+ 916              	#define APT_OFF_ENTRY 0x18
+ 917              	#define APT_OFF_STACKS 0x1C
+ 918              	#define APT_OFF_STACKB 0x20
+ 919              	#define APT_OFF_NSTACK 0x24
+ 920              	#define APT_OFF_TICKET 0x28
+ 921              	#define APT_OFF_IDT 0x40
+ 922              	#define APT_IDT_GATES 32
+ 923              	#define APT_OFF_HALT 0x140
+ 924              	#define APT_OFF_CODE 0x150
+ 925              	#define APT_BYTES 0x400
+ 926              	# 227 "falcon-bios/src/start/biosdefs.h"
+ 927              	#define STAGE2_STACK STAGE3_STACK
+ 928              	#define STAGE2_SCRATCH GZ_STAGE_ADDR
+ 929              	# 237 "falcon-bios/src/start/biosdefs.h"
+ 930              	#define BOUNCE_ADDR 0x90000
+ 931              	#define BOUNCE_BYTES 0x8000
+ 932              	
+ 933              	
+ 934              	
+ 935              	
+ 936              	
+ 937              	
+ 938              	
+ 939              	#define TRACK_CACHE_ADDR 0x88000
+ 940              	#define TRACK_CACHE_BYTES 0x8000
+ 941              	
+ 942              	
+ 943              	
+ 944              	#define STAGE3_MAGIC 0x33534F42
+ 945              	#define STAGE3_HDR 16
+ 946              	# 262 "falcon-bios/src/start/biosdefs.h"
+ 947              	#define STAGE3_MAGIC_GZ 0x5A534F42
+ 948              	#define GZ_STAGE_ADDR 0x00600000
+ 949              	# 277 "falcon-bios/src/start/biosdefs.h"
+ 950              	#define SMH_OFF_NEXT 19
+ 951              	#define SMH_BYTES 27
+ 952              	
+ 953              	
+ 954              	
+ 955              	
+ 956              	
+ 957              	.macro safe_mbr_hook oldint13
+ 958              	 jmp 1f
+ 959              	 nop
+ 960              	 .ascii "$INT13SF"
+ 961              	 .ascii "FALCON  "
+ 962              	 .org \oldint13
+ 963              	 .long 0
+ 964              	 .long 0
+ 965              	1:
+ 966              	.endm
+ 967              	# 308 "falcon-bios/src/start/biosdefs.h"
+ 968              	#define VCD_OFF_DRIVE 0x0004
+ 969              	#define VCD_OFF_PHYS 0x0005
+GAS LISTING boot.pp.s 			page 18
+
+
+ 970              	#define VCD_OFF_NRUNS 0x0006
+ 971              	#define VCD_OFF_PERCD 0x0008
+ 972              	#define VCD_OFF_NCD 0x000A
+ 973              	#define VCD_OFF_NOVER 0x000E
+ 974              	#define VCD_OFF_NREAL 0x0028
+ 975              	#define VCD_OFF_NLIMIT 0x002C
+ 976              	#define VCD_OFF_DAP 0x0010
+ 977              	#define VCD_OFF_END 0x0020
+ 978              	#define VCD_OFF_GAP 0x0024
+ 979              	
+ 980              	#define VCD_OFF_OVER 0x0030
+ 981              	#define VCD_OV_LEN 16
+ 982              	#define VCD_OV_EXT 1
+ 983              	#define VCD_MAX_OVER_ASM 8
+ 984              	
+ 985              	
+ 986              	
+ 987              	#define VCD_OFF_MOVEGDT 0x00B0
+ 988              	
+ 989              	
+ 990              	
+ 991              	
+ 992              	
+ 993              	#define VCD_OFF_OLDINT15 0x00E0
+ 994              	#define VCD_OFF_NE820 0x00E4
+ 995              	#define VCD_OFF_E801CAP 0x00E6
+ 996              	#define VCD_OFF_E801LOW 0x00E8
+ 997              	#define VCD_OFF_RUNS 0x0100
+ 998              	#define VCD_RUN_LEN 16
+ 999              	#define VCD_MAX_RUNS_ASM 64
+ 1000              	#define VCD_OFF_SPEC 0x0500
+ 1001              	
+ 1002              	
+ 1003              	
+ 1004              	
+ 1005              	
+ 1006              	
+ 1007              	
+ 1008              	#define VCD_OFF_LSRC 0x0520
+ 1009              	#define VCD_OFF_LDST 0x0522
+ 1010              	#define VCD_OFF_LLEN 0x0524
+ 1011              	#define VCD_OFF_LDRIVE 0x0526
+ 1012              	#define VCD_OFF_LAUNCH 0x0530
+ 1013              	#define VCD_OFF_CODE 0x0570
+ 1014              	
+ 1015              	#define VCD_OFF_OLDINT13 (VCD_OFF_CODE + SMH_OFF_NEXT)
+ 1016              	
+ 1017              	
+ 1018              	
+ 1019              	
+ 1020              	
+ 1021              	
+ 1022              	
+ 1023              	#define VCD_OFF_CODE15 0x0A00
+ 1024              	#define VCD_OFF_E820 0x0B00
+ 1025              	#define VCD_E820_LEN 20
+ 1026              	#define VCD_E820_MAX 64
+GAS LISTING boot.pp.s 			page 19
+
+
+ 1027              	
+ 1028              	
+ 1029              	
+ 1030              	
+ 1031              	
+ 1032              	#define VCD_OVER_OFF 0x1000
+ 1033              	#define VCD_OVER_MAX_CD 6
+ 1034              	#define VCD_BYTES 0x4000
+ 1035              	#define VCD_CD_BYTES 2048
+ 1036              	
+ 1037              	#define VCD_STAGE_ADDR 0x00020000
+ 1038              	# 387 "falcon-bios/src/start/biosdefs.h"
+ 1039              	#define SWAP_OFF_DRIVE 0x0004
+ 1040              	#define SWAP_OFF_CODE 0x0010
+ 1041              	
+ 1042              	#define SWAP_OFF_OLDINT13 (SWAP_OFF_CODE + SMH_OFF_NEXT)
+ 1043              	
+ 1044              	#define SWAP_BYTES 0x0400
+ 1045              	# 408 "falcon-bios/src/start/biosdefs.h"
+ 1046              	#define VFD_OFF_DRIVE 0x0008
+ 1047              	#define VFD_OFF_HEADS 0x0009
+ 1048              	#define VFD_OFF_SECTORS 0x000A
+ 1049              	#define VFD_OFF_BTYPE 0x000B
+ 1050              	#define VFD_OFF_CYLS 0x000C
+ 1051              	#define VFD_OFF_TOTAL 0x0010
+ 1052              	#define VFD_OFF_PHYS 0x0014
+ 1053              	#define VFD_OFF_STATUS 0x001C
+ 1054              	#define VFD_OFF_SRC 0x0020
+ 1055              	#define VFD_OFF_DST 0x0024
+ 1056              	#define VFD_OFF_CNT 0x0028
+ 1057              	#define VFD_OFF_MOVEGDT 0x0040
+ 1058              	#define VFD_OFF_DBT 0x0070
+ 1059              	#define VFD_OFF_LDRIVE 0x007C
+ 1060              	#define VFD_OFF_LAUNCH 0x0080
+ 1061              	#define VFD_OFF_CODE 0x00C0
+ 1062              	
+ 1063              	#define VFD_OFF_OLDINT13 (VFD_OFF_CODE + SMH_OFF_NEXT)
+ 1064              	
+ 1065              	
+ 1066              	
+ 1067              	
+ 1068              	
+ 1069              	#define VFD_STAGE_ADDR VCD_STAGE_ADDR
+ 1070              	# 443 "falcon-bios/src/start/biosdefs.h"
+ 1071              	#define JMOD_REGION 0x00F00000
+ 1072              	#define JMOD_SLOT_BYTES 0x00020000
+ 1073              	#define JMOD_SLOTS 8
+ 1074              	#define JMOD_REGION_END (JMOD_REGION + JMOD_SLOTS * JMOD_SLOT_BYTES)
+ 1075              	#define JMOD_STACK_BYTES 0x2000
+ 1076              	#define JMOD_SLOT_ADDR(n) (JMOD_REGION + (n) * JMOD_SLOT_BYTES)
+ 1077              	#define JMOD_SLOT_ATA 0
+ 1078              	#define JMOD_SLOT_UHCI 1
+ 1079              	#define JMOD_SLOT_OHCI 2
+ 1080              	#define JMOD_SLOT_EHCI 3
+ 1081              	#define JMOD_SLOT_USB 4
+ 1082              	#define JMOD_SLOT_PCC 5
+ 1083              	
+GAS LISTING boot.pp.s 			page 20
+
+
+ 1084              	
+ 1085              	
+ 1086              	
+ 1087              	
+ 1088              	
+ 1089              	#define JMOD_GZ_STAGE GZ_STAGE_ADDR
+ 1090              	# 471 "falcon-bios/src/start/biosdefs.h"
+ 1091              	#define JRES_OFF_DRIVE 0x04
+ 1092              	#define JRES_OFF_A20 0x05
+ 1093              	#define JRES_OFF_GDTR 0x08
+ 1094              	#define JRES_OFF_SAVEGDT 0x10
+ 1095              	#define JRES_OFF_SAVESP 0x18
+ 1096              	#define JRES_OFF_SAVESS 0x1A
+ 1097              	#define JRES_OFF_ENTRY 0x1C
+ 1098              	#define JRES_OFF_STACK 0x20
+ 1099              	#define JRES_OFF_PM32PTR 0x28
+ 1100              	#define JRES_OFF_RMPTR 0x30
+ 1101              	#define JRES_OFF_PM16PTR 0x34
+ 1102              	#define JRES_OFF_NE820 0x3A
+ 1103              	#define JRES_OFF_E801LOW 0x3C
+ 1104              	#define JRES_OFF_E801CAP 0x3E
+ 1105              	#define JRES_OFF_GDT 0x40
+ 1106              	#define JRES_OFF_OLDINT15 0x68
+ 1107              	#define JRES_OFF_REGS 0x70
+ 1108              	#define JRES_OFF_CODE 0x90
+ 1109              	
+ 1110              	#define JRES_OFF_OLDINT13 (JRES_OFF_CODE + SMH_OFF_NEXT)
+ 1111              	
+ 1112              	
+ 1113              	
+ 1114              	#define JRES_OFF_CODE16 0x240
+ 1115              	
+ 1116              	
+ 1117              	
+ 1118              	#define JRES_OFF_CODE15 0x300
+ 1119              	#define JRES_OFF_E820 0x400
+ 1120              	#define JRES_E820_MAX 64
+ 1121              	
+ 1122              	
+ 1123              	
+ 1124              	
+ 1125              	#define JRES_OFF_RESET 0x900
+ 1126              	
+ 1127              	
+ 1128              	
+ 1129              	
+ 1130              	
+ 1131              	#define JRES_OFF_MAGIC 0xB00
+ 1132              	#define JRES_OFF_OLDINT18 0xB04
+ 1133              	#define JRES_OFF_OLDINT19 0xB08
+ 1134              	#define JRES_OFF_OLDKB 0xB0C
+ 1135              	#define JRES_OFF_OLDNDISK 0xB0E
+ 1136              	#define JRES_OFF_OLDINT16 0xB10
+ 1137              	#define JRES_OFF_NKBD 0xB14
+ 1138              	#define JRES_OFF_CALL 0xB15
+ 1139              	#define JRES_OFF_KBD 0xB18
+ 1140              	#define JRES_KBD_MAX 3
+GAS LISTING boot.pp.s 			page 21
+
+
+ 1141              	#define JRES_MAGIC 0x53524A46u
+ 1142              	#define JRES_BYTES 0xC00
+ 1143              	
+ 1144              	
+ 1145              	
+ 1146              	
+ 1147              	#define STAGE3_STACK 0x00800000
+ 1148              	# 539 "falcon-bios/src/start/biosdefs.h"
+ 1149              	#define JNL_REGION STAGE3_STACK
+ 1150              	#define JNL_REGION_END JMOD_REGION
+ 1151              	
+ 1152              	
+ 1153              	
+ 1154              	
+ 1155              	
+ 1156              	
+ 1157              	#define SERIAL_PORT 0x3F8
+ 1158              	#define SERIAL_DIVISOR 1
+ 1159              	
+ 1160              	
+ 1161              	
+ 1162              	
+ 1163              	
+ 1164              	#define SERIAL_SPINS 65536
+ 1165              	# 40 "falcon-bios/src/start/boot.S" 2
+ 1166              	
+ 1167              	
+ 1168              	#define DAP_CNT 2
+ 1169              	#define DAP_OFF 4
+ 1170              	#define DAP_LBA 8
+ 1171              	#define DAP_SPT 16
+ 1172              	#define DAP_HEADS 20
+ 1173              	
+ 1174              	 .code16
+ 1175              	 .section .text.stage1, "ax"
+ 1176              	 .globl _start
+ 1177              	 .globl s2_lba
+ 1178              	 .globl s2_sectors
+ 1179              	 .globl stage1_end
+ 1180              	
+ 1181              	_start:
+ 1182              	
+ 1183              	
+ 1184              	
+ 1185 0000 FA       	 cli
+ 1186 0001 31C0     	 xorw %ax, %ax
+ 1187 0003 8ED8     	 movw %ax, %ds
+ 1188 0005 8EC0     	 movw %ax, %es
+ 1189 0007 8ED0     	 movw %ax, %ss
+ 1190 0009 BC007C   	 movw $0x7C00, %sp
+ 1191 000c FC       	 cld
+ 1192 000d FB       	 sti
+ 1193              	
+ 1194 000e 88164201 	 movb %dl, boot_drive
+ 1195              	
+ 1196              	
+ 1197              	
+GAS LISTING boot.pp.s 			page 22
+
+
+ 1198              	
+ 1199              	
+ 1200              	
+ 1201 0012 E81101   	 call serial_init
+ 1202              	
+ 1203              	
+ 1204              	
+ 1205 0015 BE7501   	 movw $msg_notstage2, %si
+ 1206 0018 833E0000 	 cmpw $0, s2_sectors
+ 1206      00
+ 1207 001d 0F84CF00 	 je fail
+ 1208              	
+ 1209              	
+ 1210              	
+ 1211              	
+ 1212              	
+ 1213 0021 BE4301   	 movw $dap, %si
+ 1214 0024 66A10000 	 movl s2_lba, %eax
+ 1215 0028 66894408 	 movl %eax, 8(%si)
+ 1216 002c C7440400 	 movw $0x7E00, 4(%si)
+ 1216      7E
+ 1217              	
+ 1218              	
+ 1219 0031 B441     	 movb $0x41, %ah
+ 1220 0033 BBAA55   	 movw $0x55AA, %bx
+ 1221 0036 8A164201 	 movb boot_drive, %dl
+ 1222 003a CD13     	 int $0x13
+ 1223 003c 720B     	 jc 1f
+ 1224 003e 81FB55AA 	 cmpw $0xAA55, %bx
+ 1225 0042 7505     	 jne 1f
+ 1226 0044 F6C101   	 testb $1, %cl
+ 1227 0047 7524     	 jnz read
+ 1228 0049 B408     	1: movb $0x08, %ah
+ 1229 004b 8A164201 	 movb boot_drive, %dl
+ 1230 004f 31FF     	 xorw %di, %di
+ 1231 0051 CD13     	 int $0x13
+ 1232 0053 BE5B01   	 movw $msg_readfail, %si
+ 1233 0056 0F829600 	 jc fail
+ 1234 005a 31C0     	 xorw %ax, %ax
+ 1235 005c 8EC0     	 movw %ax, %es
+ 1236 005e BE4301   	 movw $dap, %si
+ 1237 0061 80E13F   	 andb $0x3F, %cl
+ 1238 0064 884C10   	 movb %cl, 16(%si)
+ 1239 0067 887414   	 movb %dh, 20(%si)
+ 1240 006a FF4414   	 incw 20(%si)
+ 1241              	# 126 "falcon-bios/src/start/boot.S"
+ 1242              	read:
+ 1243 006d BD0300   	 movw $3, %bp
+ 1244              	next:
+ 1245 0070 A10000   	 movw s2_sectors, %ax
+ 1246 0073 807C1000 	 cmpb $0, 16(%si)
+ 1247 0077 742B     	 je 2f
+ 1248 0079 B001     	 movb $1, %al
+ 1249 007b 894402   	 movw %ax, 2(%si)
+ 1250 007e 668B4408 	 movl 8(%si), %eax
+ 1251 0082 6631D2   	 xorl %edx, %edx
+ 1252 0085 66F77410 	 divl 16(%si)
+GAS LISTING boot.pp.s 			page 23
+
+
+ 1253 0089 42       	 incw %dx
+ 1254 008a 88D1     	 movb %dl, %cl
+ 1255 008c 6631D2   	 xorl %edx, %edx
+ 1256 008f 66F77414 	 divl 20(%si)
+ 1257 0093 88D6     	 movb %dl, %dh
+ 1258 0095 88C5     	 movb %al, %ch
+ 1259 0097 C0E406   	 shlb $6, %ah
+ 1260 009a 08E1     	 orb %ah, %cl
+ 1261 009c 8B5C04   	 movw 4(%si), %bx
+ 1262 009f B80102   	 movw $0x0201, %ax
+ 1263 00a2 EB05     	 jmp 4f
+ 1264 00a4 894402   	2: movw %ax, 2(%si)
+ 1265 00a7 B442     	 movb $0x42, %ah
+ 1266 00a9 8A164201 	4: movb boot_drive, %dl
+ 1267 00ad CD13     	 int $0x13
+ 1268 00af 7310     	 jnc 5f
+ 1269 00b1 30E4     	 xorb %ah, %ah
+ 1270 00b3 8A164201 	 movb boot_drive, %dl
+ 1271 00b7 CD13     	 int $0x13
+ 1272 00b9 4D       	 decw %bp
+ 1273 00ba 75B4     	 jnz next
+ 1274 00bc BE5B01   	 movw $msg_readfail, %si
+ 1275 00bf EB2F     	 jmp fail
+ 1276              	
+ 1277              	
+ 1278              	
+ 1279 00c1 660FB744 	5: movzwl 2(%si), %eax
+ 1279      02
+ 1280 00c6 66014408 	 addl %eax, 8(%si)
+ 1281 00ca C1E009   	 shlw $9, %ax
+ 1282 00cd 014404   	 addw %ax, 4(%si)
+ 1283 00d0 8B4402   	 movw 2(%si), %ax
+ 1284 00d3 29060000 	 subw %ax, s2_sectors
+ 1285 00d7 7594     	 jnz read
+ 1286              	
+ 1287              	
+ 1288 00d9 66813E04 	 cmpl $0x32534F42, ((0x7E00 + 0x04))
+ 1288      7E424F53 
+ 1288      32
+ 1289 00e2 BE7501   	 movw $msg_notstage2, %si
+ 1290 00e5 7509     	 jne fail
+ 1291              	
+ 1292              	
+ 1293 00e7 8A164201 	 movb boot_drive, %dl
+ 1294 00eb EA007E00 	 ljmp $0, $0x7E00
+ 1294      00
+ 1295              	
+ 1296              	
+ 1297              	
+ 1298              	fail:
+ 1299 00f0 E80F00   	 call puts
+ 1300 00f3 BE8F01   	 movw $msg_key, %si
+ 1301 00f6 E80900   	 call puts
+ 1302 00f9 30E4     	 xorb %ah, %ah
+ 1303 00fb CD16     	 int $0x16
+ 1304 00fd EA0000FF 	 ljmp $0xFFFF, $0x0000
+ 1304      FF
+GAS LISTING boot.pp.s 			page 24
+
+
+ 1305              	
+ 1306              	
+ 1307              	
+ 1308              	
+ 1309              	puts:
+ 1310 0102 AC       	 lodsb
+ 1311 0103 84C0     	 testb %al, %al
+ 1312 0105 741E     	 jz 2f
+ 1313 0107 50       	 pushw %ax
+ 1314 0108 B40E     	 movb $0x0E, %ah
+ 1315 010a BB0700   	 movw $0x0007, %bx
+ 1316 010d CD10     	 int $0x10
+ 1317 010f 5B       	 popw %bx
+ 1318 0110 B9FFFF   	 movw $0xFFFF, %cx
+ 1319 0113 BAFD03   	 movw $(0x3F8 + 5), %dx
+ 1320 0116 EC       	1: inb %dx, %al
+ 1321 0117 A820     	 testb $0x20, %al
+ 1322 0119 7502     	 jnz 3f
+ 1323 011b E2F9     	 loop 1b
+ 1324 011d BAF803   	3: movw $0x3F8, %dx
+ 1325 0120 88D8     	 movb %bl, %al
+ 1326 0122 EE       	 outb %al, %dx
+ 1327 0123 EBDD     	 jmp puts
+ 1328 0125 C3       	2: ret
+ 1329              	
+ 1330              	
+ 1331              	
+ 1332              	
+ 1333              	
+ 1334              	
+ 1335              	
+ 1336              	serial_init:
+ 1337 0126 BE3601   	 movw $serial_tab, %si
+ 1338 0129 B90600   	 movw $6, %cx
+ 1339 012c B603     	 movb $(0x3F8 >> 8), %dh
+ 1340 012e AC       	1: lodsb
+ 1341 012f 88C2     	 movb %al, %dl
+ 1342 0131 AC       	 lodsb
+ 1343 0132 EE       	 outb %al, %dx
+ 1344 0133 E2F9     	 loop 1b
+ 1345 0135 C3       	 ret
+ 1346              	
+ 1347              	serial_tab:
+ 1348 0136 F900     	 .byte (0x3F8 + 1) & 0xFF, 0x00
+ 1349 0138 FB80     	 .byte (0x3F8 + 3) & 0xFF, 0x80
+ 1350 013a F801     	 .byte 0x3F8 & 0xFF, 1
+ 1351 013c F900     	 .byte (0x3F8 + 1) & 0xFF, 0x00
+ 1352 013e FB03     	 .byte (0x3F8 + 3) & 0xFF, 0x03
+ 1353 0140 FAC7     	 .byte (0x3F8 + 2) & 0xFF, 0xC7
+ 1354              	
+ 1355              	boot_drive:
+ 1356 0142 00       	 .byte 0
+ 1357              	
+ 1358              	
+ 1359              	
+ 1360              	
+ 1361              	
+GAS LISTING boot.pp.s 			page 25
+
+
+ 1362              	dap:
+ 1363 0143 10       	 .byte 16
+ 1364 0144 00       	 .byte 0
+ 1365 0145 0000     	 .word 0
+ 1366 0147 0000     	 .word 0
+ 1367 0149 0000     	 .word 0
+ 1368 014b 00000000 	 .quad 0
+ 1368      00000000 
+ 1369 0153 00000000 	 .long 0
+ 1370 0157 00000000 	 .long 0
+ 1371              	
+ 1372              	msg_readfail:
+ 1373 015b 66616C63 	 .asciz "falcon-bios: read error\r\n"
+ 1373      6F6E2D62 
+ 1373      696F733A 
+ 1373      20726561 
+ 1373      64206572 
+ 1374              	msg_notstage2:
+ 1375 0175 66616C63 	 .asciz "falcon-bios: no stage 2\r\n"
+ 1375      6F6E2D62 
+ 1375      696F733A 
+ 1375      206E6F20 
+ 1375      73746167 
+ 1376              	msg_key:
+ 1377 018f 70726573 	 .asciz "press a key\r\n"
+ 1377      73206120 
+ 1377      6B65790D 
+ 1377      0A00
+ 1378              	
+ 1379              	stage1_end:
+ 1380              	
+ 1381              	
+ 1382              	
+ 1383              	
+ 1384              	
+ 1385              	
+ 1386 019d 00000000 	 .org _start + 0x1B2
+ 1386      00000000 
+ 1386      00000000 
+ 1386      00000000 
+ 1386      00000000 
+ 1387              	s2_lba:
+ 1388 01b2 00000000 	 .long 0
+ 1389              	 .org _start + 0x1B6
+ 1390              	s2_sectors:
+ 1391 01b6 0000     	 .word 0
+ 1392              	
+ 1393              	
+ 1394              	
+ 1395              	
+ 1396              	 .org _start + 440
+ 1397              	
+ 1398              	
+ 1399              	
+ 1400              	
+ 1401              	
+ 1402 01b8 00000000 	 . = _start + 510
+GAS LISTING boot.pp.s 			page 26
+
+
+ 1402      00000000 
+ 1402      00000000 
+ 1402      00000000 
+ 1402      00000000 
+ 1403 01fe 55AA     	 .byte 0x55, 0xAA

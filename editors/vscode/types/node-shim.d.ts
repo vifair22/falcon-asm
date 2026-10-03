@@ -10,6 +10,7 @@
 declare module "fs" {
   export const constants: { readonly X_OK: number };
   export function accessSync(path: string, mode?: number): void;
+  export function existsSync(path: string): boolean;
   export function statSync(path: string): { isFile(): boolean; size: number };
   export function readFileSync(path: string, encoding: "utf8"): string;
   export function readdirSync(path: string): string[];

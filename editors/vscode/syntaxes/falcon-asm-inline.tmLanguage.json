@@ -1,0 +1,234 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "falcon-asm inline asm (injection)",
+  "scopeName": "falcon-asm.inline.injection",
+  "comment": "Injected into C and C++. Takes over whole asm statements from the host grammar so the template strings (before the first ':') get GAS highlighting while constraint and clobber strings after it stay plain strings. The bundled C/C++ grammars scope every string in an asm statement the same way (meta.asm.c > string.quoted.double.c > meta.embedded.assembly.c), so injecting into that scope alone would paint \"memory\" or \"r\" as mnemonics.",
+  "injectionSelector": "L:source.c -string -comment -meta.asm.falcon-asm, L:source.cpp -string -comment -meta.asm.falcon-asm",
+  "patterns": [
+    {
+      "include": "#asm-statement"
+    }
+  ],
+  "repository": {
+    "asm-statement": {
+      "comment": "asm [volatile|inline|goto]... ( template : outputs : inputs : clobbers : labels )",
+      "name": "meta.asm.falcon-asm",
+      "begin": "\\b(__asm__|__asm|asm)\\b((?:\\s+(?:__volatile__|volatile|__inline__|inline|goto)\\b)*)\\s*(\\()",
+      "beginCaptures": {
+        "1": {
+          "name": "storage.type.asm.falcon-asm"
+        },
+        "2": {
+          "name": "storage.modifier.falcon-asm"
+        },
+        "3": {
+          "name": "punctuation.section.parens.begin.falcon-asm"
+        }
+      },
+      "end": "\\)",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.section.parens.end.falcon-asm"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#operands"
+        },
+        {
+          "include": "#template-string"
+        },
+        {
+          "include": "source.c#comments"
+        }
+      ]
+    },
+    "template-string": {
+      "name": "string.quoted.double.falcon-asm",
+      "contentName": "meta.embedded.assembly.falcon-asm",
+      "begin": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.falcon-asm"
+        }
+      },
+      "end": "\"|(?<!\\\\)$",
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.falcon-asm"
+        }
+      },
+      "patterns": [
+        {
+          "include": "#template"
+        }
+      ]
+    },
+    "template": {
+      "patterns": [
+        {
+          "include": "#escape"
+        },
+        {
+          "comment": "%%reg in extended asm",
+          "name": "variable.other.register.falcon-asm",
+          "match": "(%%)[A-Za-z][A-Za-z0-9]*(?:\\(\\d\\))?",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.variable.falcon-asm"
+            }
+          }
+        },
+        {
+          "comment": "%0, %[name], with an optional modifier letter: %k0, %w[v], %l[label]; and %=",
+          "name": "variable.parameter.operand.falcon-asm",
+          "match": "(?<!%)%(?:[A-Za-z]?(?:\\d+|\\[\\s*[A-Za-z_]\\w*\\s*\\])|=)"
+        },
+        {
+          "comment": "%reg in basic asm, where % is not doubled",
+          "name": "variable.other.register.falcon-asm",
+          "match": "(?<!%)(%)[A-Za-z][A-Za-z0-9]*(?:\\(\\d\\))?",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.variable.falcon-asm"
+            }
+          }
+        },
+        {
+          "name": "constant.other.immediate.falcon-asm",
+          "match": "\\$"
+        },
+        {
+          "comment": "label at statement start, optionally followed by the statement's instruction",
+          "match": "(?:(?<=\")|(?<=\"\\\\t)|(?<=\\\\n)|(?<=\\\\n\\\\t)|(?<=;))\\s*(?:([A-Za-z_.$][\\w.$]*)|(\\d+))(:)(?:\\s+(?:(lock|repne|repnz|repe|repz|rep|data16|data32|addr16|addr32|rex64|notrack|xacquire|xrelease)\\s+)?([A-Za-z][\\w.]*)(?![\\w.:]))?",
+          "captures": {
+            "1": {
+              "name": "entity.name.function.falcon-asm"
+            },
+            "2": {
+              "name": "entity.name.label.falcon-asm"
+            },
+            "3": {
+              "name": "punctuation.separator.label.falcon-asm"
+            },
+            "4": {
+              "name": "storage.modifier.prefix.falcon-asm"
+            },
+            "5": {
+              "name": "keyword.other.mnemonic.falcon-asm"
+            }
+          }
+        },
+        {
+          "comment": "directive at statement start",
+          "match": "(?:(?<=\")|(?<=\"\\\\t)|(?<=\\\\n)|(?<=\\\\n\\\\t)|(?<=;))\\s*(\\.[A-Za-z_][\\w.]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.other.directive.falcon-asm"
+            }
+          }
+        },
+        {
+          "comment": "instruction at statement start: after the opening quote, \\n, \\n\\t or ';'",
+          "match": "(?:(?<=\")|(?<=\"\\\\t)|(?<=\\\\n)|(?<=\\\\n\\\\t)|(?<=;))\\s*(?:(lock|repne|repnz|repe|repz|rep|data16|data32|addr16|addr32|rex64|notrack|xacquire|xrelease)\\s+)?([A-Za-z][\\w.]*)(?![\\w.:])",
+          "captures": {
+            "1": {
+              "name": "storage.modifier.prefix.falcon-asm"
+            },
+            "2": {
+              "name": "keyword.other.mnemonic.falcon-asm"
+            }
+          }
+        },
+        {
+          "name": "entity.name.label.reference.falcon-asm",
+          "match": "\\b\\d+[fb]\\b"
+        },
+        {
+          "name": "constant.numeric.hex.falcon-asm",
+          "match": "\\b0[xX][0-9A-Fa-f]+\\b"
+        },
+        {
+          "name": "constant.numeric.binary.falcon-asm",
+          "match": "\\b0[bB][01]+\\b"
+        },
+        {
+          "name": "constant.numeric.decimal.falcon-asm",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    },
+    "operands": {
+      "comment": "Everything from the first ':' to the closing paren: constraints, C operands, clobbers, goto labels.",
+      "name": "meta.asm.operands.falcon-asm",
+      "begin": ":",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.separator.colon.falcon-asm"
+        }
+      },
+      "end": "(?=\\))",
+      "patterns": [
+        {
+          "name": "string.quoted.double.constraint.falcon-asm",
+          "begin": "\"",
+          "end": "\"|(?<!\\\\)$",
+          "patterns": [
+            {
+              "include": "#escape"
+            }
+          ]
+        },
+        {
+          "match": "(\\[)\\s*([A-Za-z_]\\w*)\\s*(\\])",
+          "captures": {
+            "1": {
+              "name": "punctuation.definition.operand-name.begin.falcon-asm"
+            },
+            "2": {
+              "name": "variable.parameter.operand.falcon-asm"
+            },
+            "3": {
+              "name": "punctuation.definition.operand-name.end.falcon-asm"
+            }
+          }
+        },
+        {
+          "comment": "C expressions: nested parens keep the end lookahead from stopping at an inner ')'",
+          "begin": "\\(",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.parens.begin.falcon-asm"
+            }
+          },
+          "end": "\\)",
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.parens.end.falcon-asm"
+            }
+          },
+          "patterns": [
+            {
+              "include": "source.c#evaluation_context"
+            }
+          ]
+        },
+        {
+          "name": "punctuation.separator.colon.falcon-asm",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.separator.delimiter.falcon-asm",
+          "match": ","
+        },
+        {
+          "include": "source.c#comments"
+        }
+      ]
+    },
+    "escape": {
+      "name": "constant.character.escape.falcon-asm",
+      "match": "\\\\(?:[\\\\\"\\'?abfnrtv]|[0-7]{1,3}|x[0-9A-Fa-f]+|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|$)"
+    }
+  }
+}

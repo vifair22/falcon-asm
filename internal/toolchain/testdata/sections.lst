@@ -1,0 +1,32 @@
+GAS LISTING sections.s 			page 1
+
+
+   1              	.text
+   2 0000 90       	nop
+   3              	.data
+   4 0000 01000000 	.long 1
+   5              	.bss
+   6 0000 00000000 	buf: .space 16
+   6      00000000 
+   6      00000000 
+   6      00000000 
+   7              	.section .rodata
+   8 0000 01       	.byte 1
+   9              	.text
+  10 0001 00000000 	.org 0x10
+  10      00000000 
+  10      00000000 
+  10      000000
+  11 0010 C3       	ret
+  12              	.code64
+  13 0011 48B88877 	movabsq $0x1122334455667788, %rax
+  13      66554433 
+  13      2211
+  14              	.pushsection .foo,"a"
+  15 0000 09       	.byte 9
+  16              	.popsection
+  17 001b 90       	nop
+  18              	.previous
+  19 0001 07       	.byte 7
+  20              	.subsection 1
+  21 0002 08       	.byte 8

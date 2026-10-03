@@ -11,14 +11,45 @@ What it does:
   Short and to the point: summary, operand forms, ISA set and x86-64 level
   (`x86-64-v3 (BMI2)`), privilege (`CPL 0`), mode restrictions (`64-bit only`)
   and flags read/written. AT&T size suffixes resolve (`movw` = `mov` + `w`)
-  without mis-splitting real mnemonics (`setb`, `movsb`, `cwtl`).
+  without mis-splitting real mnemonics (`setb`, `movsb`, `cwtl`). A `#define`d
+  constant shows its definition and, when it is a constant expression over
+  numbers and other macros, its value in hex and decimal (`SEL_CODE32` ->
+  `0x8`), plus the header it comes from.
 - **Semantic highlighting**: mnemonic vs. size suffix, prefixes, registers,
   immediates, label definitions and references, directives, cpp directives
-  and `#define`d macros. Privileged (CPL 0) instructions carry the
-  `defaultLibrary` modifier so a theme can mark them.
+  and macros (including those from included headers, once the toolchain has
+  run). Privileged (CPL 0) instructions carry the `defaultLibrary` modifier;
+  instructions and registers invalid in the current `.code16/32/64` mode
+  carry `deprecated`.
+- **Diagnostics**: instructions and registers invalid in the current mode,
+  instruction forms above a target x86-64 level (`-march=x86-64-v3`, a
+  `falcon-asm: level=v3` comment, or the editor setting), and the real
+  assembler's errors and warnings from the project's own compiler, run on
+  open and save in the background. Errors inside included files are reported
+  on those files too. `#if 0` bodies are faded.
+- **Listing hints**: after each instruction or data line, its offset in the
+  section and its encoded bytes (`+0x1a3  b8 01 24`); on `.org` and `. = expr`
+  lines, how many bytes the move pads (`pads 70 bytes`), which is the space
+  left in a boot sector at `. = _start + 510`.
+- **Navigation**: go to definition, find references and rename for labels,
+  `.set`/`.equ` symbols, `.macro` and `#define` names, across open files,
+  their `#include`s and the `.S`/`.s` files of the workspace; local `1f`/`1b`
+  labels resolve the way gas does. Outline and folding ranges.
+- **Completion**: registers valid in the current mode after `%`, directives
+  after `.`, mnemonics and prefixes at statement start, labels and macros in
+  operands.
+- **Inline asm in C/C++**: hover inside `asm` statements (instructions and
+  registers in the template, `%0`/`%[name]` operands, constraints such as
+  `"=r"`, clobbers) and mode/level diagnostics using the C file's own
+  compile flags. Everything else in C files is left to clangd.
 - Full coverage of the system instructions a boot loader lives on (`lgdt`,
   `ljmp`, `iret`, `inb`/`outb`, `rdmsr`, `rep movsb`, ...), which general
   purpose x86 tooling tends to miss.
+
+The toolchain features read `compile_commands.json` (at the workspace root,
+in `build/`, or found walking up from the file) for each file's compiler and
+flags. Without a database, or without the compiler installed, they are
+silently off and everything else still works.
 
 It is a single static binary with no runtime dependencies and speaks LSP over
 stdio, so any LSP client can drive it. A thin VS Code client lives in
@@ -60,9 +91,34 @@ association in settings:
 "files.associations": { "*.S": "falcon-asm", "*.s": "falcon-asm" }
 ```
 
-Settings: `falcon-asm.serverPath` (default `falcon-asm`, resolved via PATH)
-and `falcon-asm.trace.server` (`off`, `messages`, `verbose`). Command:
-`falcon-asm: Restart Server`. See `editors/vscode/README.md`.
+Settings: `falcon-asm.serverPath` (default `falcon-asm`, resolved via PATH),
+`falcon-asm.toolchain.enabled` (run the compiler on open/save),
+`falcon-asm.inlayHints.listing` (offset/bytes hints), `falcon-asm.level`
+(target level override, `v1`..`v4`), `falcon-asm.compileCommands` (explicit
+database path), `falcon-asm.inlineAsm.enabled` (serve C/C++ files for inline
+asm) and `falcon-asm.trace.server` (`off`, `messages`, `verbose`). Changing
+any but the last restarts the server. Command: `falcon-asm: Restart Server`.
+See `editors/vscode/README.md`.
+
+### Other clients: initializationOptions
+
+The server reads its options once, from `initializationOptions`. Every key
+is optional:
+
+```json
+{ "toolchain": true, "listingHints": true, "level": "", "compileCommands": "" }
+```
+
+`level` is `""` (use the file comment or `-march`) or `v1`..`v4`;
+`compileCommands` is a path to a `compile_commands.json` (or a directory
+holding one), relative paths resolving against the workspace root.
+
+Semantic tokens are registered with a document selector for the
+`falcon-asm` language id only, so C files keep their own highlighting. A
+client that honours static registration selectors must therefore open
+assembly files with that language id (the CLion mapping below does); one
+that ignores them gets tokens for any assembly file, and an empty stream for
+C files.
 
 ### CLion / other JetBrains IDEs
 
@@ -73,7 +129,8 @@ Language Servers > +*:
 - Command: `falcon-asm` (or the absolute path)
 - Mappings > File name patterns: `*.S`, `*.s`, language id `falcon-asm`
 
-Semantic tokens and hover work through LSP4IJ out of the box.
+Every feature works through LSP4IJ; the options described above go in the
+server's initialization options as JSON.
 
 ### Neovim (0.11+)
 
@@ -97,11 +154,18 @@ internal/protocol/   the LSP types in use
 internal/docstore/   open documents, incremental sync, UTF-16 positions
 internal/lexer/      GAS + cpp tokenizer
 internal/isa/        instruction, register and directive tables, mnemonic resolution
+internal/analysis/   mode tracking, mode and level diagnostics, document symbols
+internal/symbols/    workspace symbol index: definition, references, rename, outline, folding
+internal/toolchain/  compile database, gcc -dM macros, assembling with a listing
+internal/inlineasm/  asm statements in C: template extraction and mapping, operand hover
+internal/completion/ completion items
+internal/constexpr/  integer constant expressions for macro values
 internal/hover/      hover content
 internal/semtok/     semantic tokens
+internal/engine/     per-document state, configuration, toolchain runs, feature wiring
 internal/server/     method dispatch and lifecycle
 tools/xedgen/        generator for internal/isa/data/xed.json
-editors/vscode/      VS Code client and base TextMate grammar
+editors/vscode/      VS Code client, base TextMate grammar, inline asm injection grammar
 testdata/falcon-bios real .S fixtures from airies-boot
 ```
 

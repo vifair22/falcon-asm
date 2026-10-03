@@ -3,6 +3,7 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CONFIG_SECTION, LANGUAGE_ID } from "../src/server-command";
+import { INLINE_ASM_LANGUAGES, LEVELS, RESTART_SETTINGS, initializationOptions } from "../src/settings";
 import { Tokenizer, type Grammar, type Rule } from "./tm";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -22,7 +23,7 @@ interface PackageJson {
     grammars: { language: string; scopeName: string; path: string }[];
     semanticTokenScopes: { language: string; scopes: Record<string, string[]> }[];
     configurationDefaults: Record<string, Record<string, unknown>>;
-    configuration: { properties: Record<string, { default?: unknown; enum?: string[] }> };
+    configuration: { properties: Record<string, { type?: string; default?: unknown; enum?: string[] }> };
     commands: { command: string }[];
   };
 }
@@ -176,6 +177,25 @@ describe("package.json contributions", () => {
     const props = pkg.contributes.configuration.properties;
     expect(props[`${CONFIG_SECTION}.serverPath`]?.default).toBe("falcon-asm");
     expect(props[`${CONFIG_SECTION}.trace.server`]?.enum).toEqual(["off", "messages", "verbose"]);
+  });
+
+  it("declares every restart setting, with defaults matching what the client sends when unset", () => {
+    const props = pkg.contributes.configuration.properties;
+    for (const key of RESTART_SETTINGS) {
+      expect(props[key], key).toBeDefined();
+    }
+    const defaults = initializationOptions({}, "/h");
+    expect(props[`${CONFIG_SECTION}.inlineAsm.enabled`]).toMatchObject({ type: "boolean", default: true });
+    expect(props[`${CONFIG_SECTION}.toolchain.enabled`]).toMatchObject({ type: "boolean", default: defaults.toolchain });
+    expect(props[`${CONFIG_SECTION}.inlayHints.listing`]).toMatchObject({ type: "boolean", default: defaults.listingHints });
+    expect(props[`${CONFIG_SECTION}.level`]).toMatchObject({ type: "string", default: defaults.level, enum: [...LEVELS] });
+    expect(props[`${CONFIG_SECTION}.compileCommands`]).toMatchObject({ type: "string", default: defaults.compileCommands });
+  });
+
+  it("activates for the inline asm languages too", () => {
+    for (const lang of INLINE_ASM_LANGUAGES) {
+      expect(pkg.activationEvents).toContain(`onLanguage:${lang}`);
+    }
   });
 
   it("contributes the language for .S and .s, the restart command, and an activation event", () => {

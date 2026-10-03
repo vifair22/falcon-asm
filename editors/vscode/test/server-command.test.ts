@@ -6,6 +6,7 @@ import {
   DEFAULT_SERVER_PATH,
   SERVER_ARGS,
   expandHome,
+  fallbackDirs,
   normalizeServerPath,
   notFoundMessage,
   resolveServerCommand,
@@ -142,6 +143,81 @@ describe("resolveServerCommand", () => {
   it("fails with a message naming the path for an explicit path", () => {
     const r = resolveServerCommand("~/nope/fa", fakeProbe([]));
     expect(!r.ok && r.message).toContain('(looked for "~/nope/fa")');
+  });
+});
+
+describe("fallback directories", () => {
+  it("lists ~/.local/bin, $GOBIN, each $GOPATH bin and ~/go/bin, in that order", () => {
+    const probe = fakeProbe([], { env: { GOBIN: "/opt/gobin", GOPATH: "/gp1::/gp2/" } });
+    expect(fallbackDirs(probe)).toEqual([
+      "/home/u/.local/bin",
+      "/opt/gobin",
+      "/gp1/bin",
+      "/gp2/bin",
+      "/home/u/go/bin",
+    ]);
+  });
+
+  it("drops the repeat when GOPATH is the default ~/go", () => {
+    const probe = fakeProbe([], { env: { GOPATH: "/home/u/go" }, homeDir: "/home/u/" });
+    expect(fallbackDirs(probe)).toEqual(["/home/u/.local/bin", "/home/u/go/bin"]);
+  });
+
+  it("uses ';' and backslashes on Windows", () => {
+    const probe = fakeProbe([], { platform: "win32", env: { GOPATH: "C:\\gp;D:\\gp" }, homeDir: "C:\\Users\\u" });
+    expect(fallbackDirs(probe)).toEqual([
+      "C:\\Users\\u\\.local\\bin",
+      "C:\\gp\\bin",
+      "D:\\gp\\bin",
+      "C:\\Users\\u\\go\\bin",
+    ]);
+  });
+
+  it("finds the default name in ~/.local/bin when PATH lacks it", () => {
+    // The KDE session case: PATH is the session's, without ~/.local/bin.
+    const r = resolveServerCommand(undefined, fakeProbe(["/home/u/.local/bin/falcon-asm"]));
+    expect(r).toEqual({ ok: true, command: "/home/u/.local/bin/falcon-asm", args: ["--stdio"] });
+  });
+
+  it("prefers PATH over the fallbacks", () => {
+    const r = resolveServerCommand("", fakeProbe(["/home/u/.local/bin/falcon-asm", "/usr/bin/falcon-asm"]));
+    expect(r.ok && r.command).toBe("/usr/bin/falcon-asm");
+  });
+
+  it.each([
+    [{ GOBIN: "/opt/gobin" }, "/opt/gobin/falcon-asm"],
+    [{ GOPATH: "/gp" }, "/gp/bin/falcon-asm"],
+    [{}, "/home/u/go/bin/falcon-asm"],
+  ])("finds a go install under %j", (env, where) => {
+    const r = resolveServerCommand("falcon-asm", fakeProbe([where], { env: { PATH: "/usr/bin", ...env } }));
+    expect(r.ok && r.command).toBe(where);
+  });
+
+  it("takes ~/.local/bin before a go install", () => {
+    const probe = fakeProbe(["/home/u/go/bin/falcon-asm", "/home/u/.local/bin/falcon-asm"]);
+    expect(resolveServerCommand(undefined, probe)).toMatchObject({ command: "/home/u/.local/bin/falcon-asm" });
+  });
+
+  it("applies PATHEXT in the fallback directories on Windows", () => {
+    const probe = fakeProbe(["C:\\Users\\u\\go\\bin\\falcon-asm.EXE"], {
+      platform: "win32",
+      env: { PATH: "C:\\nope" },
+      homeDir: "C:\\Users\\u",
+    });
+    expect(resolveServerCommand(undefined, probe)).toMatchObject({ command: "C:\\Users\\u\\go\\bin\\falcon-asm.EXE" });
+  });
+
+  it("never falls back for another bare name or an explicit path", () => {
+    expect(resolveServerCommand("fa", fakeProbe(["/home/u/.local/bin/fa"])).ok).toBe(false);
+    expect(resolveServerCommand("/opt/falcon-asm", fakeProbe(["/home/u/.local/bin/falcon-asm"])).ok).toBe(false);
+  });
+
+  it("names the fallback locations when the default is not found anywhere", () => {
+    const r = resolveServerCommand(undefined, fakeProbe([]));
+    expect(!r.ok && r.message).toContain("~/.local/bin");
+    expect(!r.ok && r.message).toContain("~/go/bin");
+    const other = resolveServerCommand("fa", fakeProbe([]));
+    expect(!other.ok && other.message).not.toContain("~/.local/bin");
   });
 });
 

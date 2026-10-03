@@ -7,6 +7,8 @@ import (
 	"testing"
 
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
+	"git.airies.net/vifair22/falcon-asm/internal/lexer"
+	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
 )
 
@@ -148,7 +150,7 @@ func TestEncode(t *testing.T) {
 			{2, 0, 8, typ, 0},
 		}},
 		{"define continuation", "#define M(x) \\\n\tmovl x, %eax\n\tM(1)\n", []tok{
-			{0, 0, 7, mac, 0}, {2, 1, 1, kw, 0}, {2, 3, 1, num, 0},
+			{0, 0, 7, mac, 0}, {2, 1, 1, mac, 0}, {2, 3, 1, num, 0},
 		}},
 		{"multi-line block comment", "/* one\n   two\n */ cli\n", []tok{
 			{0, 0, 6, cmt, 0}, {1, 3, 3, cmt, 0}, {2, 1, 2, cmt, 0}, {2, 4, 3, kw, 0},
@@ -309,5 +311,41 @@ func BenchmarkEncodeFixtures(b *testing.B) {
 				b.Fatal(err)
 			}
 		}
+	}
+}
+
+// EncodeWith applies the toolchain's macro table and the mode diagnostics'
+// positions on top of what the text alone gives.
+func TestEncodeWith(t *testing.T) {
+	src := "\tmovw $SEL, %ax\n\tljmp $SEL, $go\n\tSETUP 3\n\tpushq %rax\n"
+	doc := &docstore.Document{Text: src}
+	data := EncodeWith(doc, Options{
+		Tokens:  lexer.Tokenize(src),
+		IsMacro: func(n string) bool { return n == "SEL" || n == "SETUP" },
+		Deprecated: map[protocol.Position]bool{
+			{Line: 3, Character: 1}: true, // pushq: only the base piece is marked
+			{Line: 3, Character: 7}: true, // %rax
+		},
+	})
+	checkWellFormed(t, "with", src, data)
+	got := decode(t, data)
+	dep := server.ModDeprecated
+	want := []tok{
+		{0, 1, 3, kw, 0}, {0, 4, 1, op, 0}, {0, 6, 1, prm, 0}, {0, 7, 3, mac, 0}, {0, 12, 3, vr, 0},
+		{1, 1, 4, kw, 0}, {1, 6, 1, prm, 0}, {1, 7, 3, mac, 0}, {1, 12, 3, prm, 0},
+		{2, 1, 5, mac, 0}, {2, 7, 1, num, 0},
+		{3, 1, 4, kw, dep}, {3, 5, 1, op, 0}, {3, 7, 4, vr, dep},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("got %+v\nwant %+v", got, want)
+	}
+	for i := range got {
+		if got[i] != want[i] {
+			t.Errorf("token %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+	plain, _ := Encode(doc)
+	if same := EncodeWith(doc, Options{}); len(same) != len(plain) {
+		t.Fatalf("zero Options differs from Encode")
 	}
 }

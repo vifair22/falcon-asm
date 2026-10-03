@@ -131,6 +131,35 @@ export function searchPath(name: string, probe: HostProbe): string | undefined {
 }
 
 /**
+ * Directories searched after PATH when the setting is left at the default
+ * name, in order: where `make install` puts the binary, then where
+ * `go install` does ($GOBIN, each $GOPATH entry's bin, ~/go/bin).
+ *
+ * The reason this exists: an editor started from a desktop launcher gets the
+ * session's PATH, not the login shell's, and on KDE that PATH commonly lacks
+ * ~/.local/bin. Users should not have to discover that to get a working
+ * extension. An explicit serverPath never falls back, since then the user
+ * has said exactly which binary to run.
+ */
+export function fallbackDirs(probe: HostProbe): string[] {
+  const home = probe.homeDir.replace(/[\\/]+$/, "");
+  const dirs: string[] = [joinPath(probe, joinPath(probe, home, ".local"), "bin")];
+  const gobin = probe.env.GOBIN?.trim();
+  if (gobin) {
+    dirs.push(gobin);
+  }
+  const delim = isWindows(probe) ? ";" : ":";
+  for (const entry of (probe.env.GOPATH ?? "").split(delim)) {
+    if (entry.trim() !== "") {
+      dirs.push(joinPath(probe, entry.trim(), "bin"));
+    }
+  }
+  dirs.push(joinPath(probe, joinPath(probe, home, "go"), "bin"));
+  // GOPATH defaults to ~/go, so the last entry is often a repeat.
+  return [...new Set(dirs)];
+}
+
+/**
  * Resolves the configured server path to an absolute executable.
  *
  * Resolving up front, instead of letting child_process report ENOENT, is
@@ -151,6 +180,14 @@ export function resolveServerCommand(raw: unknown, probe: HostProbe): ResolveRes
     found = firstExecutable(probe, full);
   } else {
     found = searchPath(expanded, probe);
+    if (found === undefined && expanded === DEFAULT_SERVER_PATH) {
+      for (const dir of fallbackDirs(probe)) {
+        found = firstExecutable(probe, joinPath(probe, dir, expanded));
+        if (found !== undefined) {
+          break;
+        }
+      }
+    }
   }
 
   if (found === undefined) {
@@ -161,9 +198,14 @@ export function resolveServerCommand(raw: unknown, probe: HostProbe): ResolveRes
 
 /** User-facing text when the binary cannot be found; names the setting so the fix is obvious. */
 export function notFoundMessage(requested: string): string {
-  const where = hasDirComponent(requested) || requested.startsWith("~")
-    ? `"${requested}"`
-    : `"${requested}" on PATH`;
+  let where: string;
+  if (hasDirComponent(requested) || requested.startsWith("~")) {
+    where = `"${requested}"`;
+  } else if (requested === DEFAULT_SERVER_PATH) {
+    where = `"${requested}" on PATH, in ~/.local/bin, $GOBIN, $GOPATH/bin and ~/go/bin`;
+  } else {
+    where = `"${requested}" on PATH`;
+  }
   return (
     `falcon-asm: language server not found (looked for ${where}). ` +
     `Install it with \`make install\` in the falcon-asm repo, or set ` +
