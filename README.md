@@ -99,8 +99,29 @@ falcon-asm lint                      # everything under ., gcc-style output
 falcon-asm lint --format sarif src   # SARIF 2.1.0 for code scanning
 falcon-asm lint --fix                # apply quick fixes in place
 falcon-asm lint --changed            # only files changed against git HEAD
+falcon-asm lint --no-toolchain       # rules only, no assembler runs
 falcon-asm rules [code]              # the rule list, or one rule's documentation
+falcon-asm help [lint|rules]         # every mode and flag, with examples
 ```
+
+The assembler runs by default. Some rules (alignment, size budgets, boot
+layout, branch encoding) need gas's listing, so each assembly file with a
+`compile_commands.json` entry (its own, else the nearest one, as in the
+editor) is assembled with that entry's compiler, which also reports gas's
+own diagnostics. A file with no entry, a compiler that is not installed, a
+file that fails to assemble, or `--no-toolchain` leaves those rules
+unable to run. The run then says so instead of reading clean:
+
+```text
+note: 12 listing rules skipped on 1 file (no assembler listing: 1 without a compile command): boot/mbr.S; give them a compile_commands.json entry (--compile-commands); see falcon-asm lint --help
+40 files linted, no problems (12 listing rules skipped on 1 file)
+```
+
+`--format json` stays a plain array of findings; `--format json-full`
+wraps it as `{"findings", "skipped", "files"}`, and SARIF output reports
+each skipped file as a tool execution notification
+(`listing-rules-skipped`). Skipped rules never change the exit status.
+`--toolchain` is still accepted and is the default.
 
 Exit status is 0 when nothing at or above `--severity` (default `warning`)
 was found, 1 when something was, 2 on a usage or configuration error. Rules
@@ -108,6 +129,36 @@ are configured per project and per path in `.falcon-asm.json` and silenced
 in the source with `falcon-asm: ignore=<code>` comments; the editor and the
 CLI read the same file and report the same findings. Every rule is
 documented, with examples, in [docs/RULES.md](docs/RULES.md).
+
+Suppression comments work in any comment (`/* */`, `#`, `//`; in C,
+`//` and `/* */` silence inline asm findings). Each takes one code or a
+comma-separated list, `all` for every rule, and an optional reason after
+a colon:
+
+```asm
+	loop 1b              /* falcon-asm: ignore=slow-loop: 32 passes, once, at boot */
+/* falcon-asm: ignore-next=self-modifying-code: patched before paging is on */
+/* falcon-asm: ignore-file=unused-define: shared header, users are elsewhere */
+/* falcon-asm: ignore-begin=unused-label: a table walked by offset */
+...
+/* falcon-asm: ignore-end=unused-label */
+```
+
+`ignore=` covers findings starting on its own line, `ignore-next=` the
+next line holding code, `ignore-file=` the whole file, and
+`ignore-begin=`/`ignore-end=` the lines between them, inclusive. The
+marker and the item must be on one line. `unused-suppression` reports a
+suppression that no longer matches anything; `ignore-without-reason`,
+off by default, reports one without a reason once a project enables it
+(`"rules": {"ignore-without-reason": "info"}`).
+
+Some findings are better answered with an annotation than an ignore:
+`falcon-asm: reached=offset|sequence|external` on (or directly above) a
+label tells `unused-label` it is entered by offset, walked in sequence
+from an earlier label, or entered from outside the sources, and a label
+directly after `.org <constant>` is presumed reachable on its own.
+Calling-convention annotations (`falcon-asm: args=si clobbers=ax,cx
+preserves=all`) imply `cc=custom` when the lists are given.
 
 ```json
 {

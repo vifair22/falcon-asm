@@ -27,9 +27,76 @@ func byteColumn(doc *docstore.Document, p protocol.Position) int {
 	return off - start + 1
 }
 
-// writeText prints gcc-style lines on stdout and a one-line summary on
-// stderr, so stdout stays exactly one problem per line for tools.
-func writeText(stdout, stderr io.Writer, items []item, files int) error {
+// skipSummary totals the files whose listing rules did not run.
+type skipSummary struct {
+	files    int
+	rules    int // distinct rule codes skipped somewhere
+	byReason [numSkipReasons]int
+	names    []string // the files, as displayed, in output order
+}
+
+func summarizeSkips(skipped []skippedFile) skipSummary {
+	var s skipSummary
+	codes := map[string]bool{}
+	for _, sk := range skipped {
+		s.files++
+		s.byReason[sk.reason]++
+		s.names = append(s.names, sk.file.display)
+		for _, c := range sk.rules {
+			codes[c] = true
+		}
+	}
+	s.rules = len(codes)
+	return s
+}
+
+// short is the qualifier the summary line carries: "7 listing rules
+// skipped on 3 files".
+func (s skipSummary) short() string {
+	return fmt.Sprintf("%d listing rule%s skipped on %d file%s", s.rules, plural(s.rules, "", "s"), s.files, plural(s.files, "", "s"))
+}
+
+// maxNamed is how many skipped files the note names before "N more".
+const maxNamed = 5
+
+// note is the stderr line that says which rules did not run, why, and what
+// to do about it. A clean result has to mean clean: without this line a
+// run that never had a listing would read the same as one that passed.
+func (s skipSummary) note() string {
+	var why []string
+	for r := skipReason(0); r < numSkipReasons; r++ {
+		if n := s.byReason[r]; n > 0 {
+			why = append(why, fmt.Sprintf("%d %s", n, skipPhrases[r]))
+		}
+	}
+	names := s.names
+	more := ""
+	if len(names) > maxNamed {
+		more = fmt.Sprintf(" and %d more", len(names)-maxNamed)
+		names = names[:maxNamed]
+	}
+	var hint []string
+	if s.byReason[skipNoEntry] > 0 {
+		hint = append(hint, "give them a compile_commands.json entry (--compile-commands)")
+	}
+	if s.byReason[skipDisabled] > 0 {
+		hint = append(hint, "drop --no-toolchain to run them")
+	}
+	if s.byReason[skipNoCompiler] > 0 {
+		hint = append(hint, "install the compiler their entry names")
+	}
+	if s.byReason[skipFailed] > 0 {
+		hint = append(hint, "fix the assembly errors")
+	}
+	hint = append(hint, "see falcon-asm lint --help")
+	return fmt.Sprintf("note: %s (no assembler listing: %s): %s%s; %s", s.short(), strings.Join(why, ", "),
+		strings.Join(names, ", "), more, strings.Join(hint, "; "))
+}
+
+// writeText prints gcc-style lines on stdout and, on stderr, the skipped
+// listing rules note (when there is one) and a one-line summary, so stdout
+// stays exactly one problem per line for tools.
+func writeText(stdout, stderr io.Writer, items []item, files int, skip skipSummary) error {
 	counts := map[lint.Severity]int{}
 	for _, it := range items {
 		counts[it.Severity]++
@@ -38,8 +105,13 @@ func writeText(stdout, stderr io.Writer, items []item, files int) error {
 			return err
 		}
 	}
+	qualifier := ""
+	if skip.files > 0 {
+		fmt.Fprintln(stderr, skip.note())
+		qualifier = " (" + skip.short() + ")"
+	}
 	if len(items) == 0 {
-		fmt.Fprintf(stderr, "%d file%s linted, no problems\n", files, plural(files, "", "s"))
+		fmt.Fprintf(stderr, "%d file%s linted, no problems%s\n", files, plural(files, "", "s"), qualifier)
 		return nil
 	}
 	var parts []string
@@ -52,8 +124,8 @@ func writeText(stdout, stderr io.Writer, items []item, files int) error {
 			parts = append(parts, fmt.Sprintf("%d %s", n, name))
 		}
 	}
-	fmt.Fprintf(stderr, "%d problem%s (%s) in %d file%s linted\n", len(items), plural(len(items), "", "s"),
-		strings.Join(parts, ", "), files, plural(files, "", "s"))
+	fmt.Fprintf(stderr, "%d problem%s (%s) in %d file%s linted%s\n", len(items), plural(len(items), "", "s"),
+		strings.Join(parts, ", "), files, plural(files, "", "s"), qualifier)
 	return nil
 }
 
@@ -75,6 +147,37 @@ type jsonItem struct {
 }
 
 func writeJSON(w io.Writer, items []item) error {
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(jsonItems(items))
+}
+
+// jsonSkip is a file whose listing rules did not run, in json-full.
+type jsonSkip struct {
+	File   string   `json:"file"`
+	Reason string   `json:"reason"` // one of skipKeys
+	Rules  []string `json:"rules"`
+}
+
+// jsonFull is --format json-full: the findings plus what the plain array
+// cannot carry, so a tool can tell a clean run from one that skipped rules.
+type jsonFull struct {
+	Findings []jsonItem `json:"findings"`
+	Skipped  []jsonSkip `json:"skipped"`
+	Files    int        `json:"files"`
+}
+
+func writeJSONFull(w io.Writer, items []item, skipped []skippedFile, files int) error {
+	out := jsonFull{Findings: jsonItems(items), Skipped: []jsonSkip{}, Files: files}
+	for _, sk := range skipped {
+		out.Skipped = append(out.Skipped, jsonSkip{File: sk.file.display, Reason: skipKeys[sk.reason], Rules: sk.rules})
+	}
+	enc := json.NewEncoder(w)
+	enc.SetIndent("", "  ")
+	return enc.Encode(out)
+}
+
+func jsonItems(items []item) []jsonItem {
 	out := make([]jsonItem, 0, len(items))
 	for _, it := range items {
 		ji := jsonItem{
@@ -86,9 +189,7 @@ func writeJSON(w io.Writer, items []item) error {
 		}
 		out = append(out, ji)
 	}
-	enc := json.NewEncoder(w)
-	enc.SetIndent("", "  ")
-	return enc.Encode(out)
+	return out
 }
 
 // SARIF 2.1.0, the subset code-scanning services read: the tool with its
@@ -104,7 +205,39 @@ type sarifRun struct {
 	OriginalURIBaseIDs map[string]sarifArtifactLoc `json:"originalUriBaseIds,omitempty"`
 	ColumnKind         string                      `json:"columnKind"`
 	Results            []sarifResult               `json:"results"`
+	Invocations        []sarifInvocation           `json:"invocations"`
 }
+
+// sarifInvocation reports skipped listing rules as tool execution
+// notifications, one per file, which code-scanning services show beside
+// the results.
+type sarifInvocation struct {
+	ExecutionSuccessful        bool                `json:"executionSuccessful"`
+	ToolExecutionNotifications []sarifNotification `json:"toolExecutionNotifications,omitempty"`
+}
+
+type sarifNotification struct {
+	Descriptor sarifDescriptorRef      `json:"descriptor"`
+	Level      string                  `json:"level"`
+	Message    sarifText               `json:"message"`
+	Locations  []sarifArtifactLocation `json:"locations"`
+	Properties map[string]any          `json:"properties,omitempty"`
+}
+
+type sarifDescriptorRef struct {
+	ID string `json:"id"`
+}
+
+// sarifArtifactLocation is a location without a region: a notification
+// is about a whole file.
+type sarifArtifactLocation struct {
+	PhysicalLocation struct {
+		ArtifactLocation sarifArtifactLoc `json:"artifactLocation"`
+	} `json:"physicalLocation"`
+}
+
+// sarifSkippedID is the notification descriptor of a skipped file.
+const sarifSkippedID = "listing-rules-skipped"
 
 type sarifTool struct {
 	Driver sarifDriver `json:"driver"`
@@ -199,7 +332,7 @@ func sarifRegionOf(r protocol.Range) sarifRegion {
 	return sarifRegion{StartLine: r.Start.Line + 1, StartColumn: r.Start.Character + 1, EndLine: r.End.Line + 1, EndColumn: r.End.Character + 1}
 }
 
-func writeSARIF(w io.Writer, items []item) error {
+func writeSARIF(w io.Writer, items []item, skipped []skippedFile, ok bool) error {
 	driver := sarifDriver{Name: "falcon-asm", Version: version, InformationURI: "https://git.airies.net/vifair22/falcon-asm", Rules: []sarifRule{}}
 	index := map[string]int{}
 	for _, r := range lint.Rules() {
@@ -245,6 +378,19 @@ func writeSARIF(w io.Writer, items []item) error {
 		}
 		results = append(results, res)
 	}
+	inv := sarifInvocation{ExecutionSuccessful: ok}
+	for _, sk := range skipped {
+		var loc sarifArtifactLocation
+		loc.PhysicalLocation.ArtifactLocation = artifact(sk.file, wd)
+		inv.ToolExecutionNotifications = append(inv.ToolExecutionNotifications, sarifNotification{
+			Descriptor: sarifDescriptorRef{ID: sarifSkippedID},
+			Level:      "note",
+			Message: sarifText{Text: fmt.Sprintf("%d listing rule%s skipped (no assembler listing: %s): %s",
+				len(sk.rules), plural(len(sk.rules), "", "s"), skipKeys[sk.reason], strings.Join(sk.rules, ", "))},
+			Locations:  []sarifArtifactLocation{loc},
+			Properties: map[string]any{"reason": skipKeys[sk.reason], "rules": sk.rules},
+		})
+	}
 	log := sarifLog{
 		Schema:  "https://json.schemastore.org/sarif-2.1.0.json",
 		Version: "2.1.0",
@@ -253,6 +399,7 @@ func writeSARIF(w io.Writer, items []item) error {
 			OriginalURIBaseIDs: map[string]sarifArtifactLoc{"SRCROOT": {URI: toolchain.PathToURI(wd) + "/"}},
 			ColumnKind:         "utf16CodeUnits",
 			Results:            results,
+			Invocations:        []sarifInvocation{inv},
 		}},
 	}
 	enc := json.NewEncoder(w)

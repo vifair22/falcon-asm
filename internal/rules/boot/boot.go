@@ -12,7 +12,10 @@
 //
 // Files: boot.go has the per-document facts (the mode-switch events of
 // every statement, and which of them may have happened before a given
-// statement), modeswitch.go rule 38, loader.go rule 43, reach.go rule 44.
+// statement), modeswitch.go rule 38, a20.go what lets a file that sets PE
+// without opening A20 off (a SIPI trampoline, `falcon-asm: a20=`),
+// loader.go rule 43, reach.go rule 44, annot.go the falcon-asm annotations
+// these rules read and the constants they name.
 package boot
 
 import (

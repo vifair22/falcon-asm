@@ -38,12 +38,13 @@ type Index struct {
 	commentLines []bool
 	// tramp are the SIPI trampolines (sysrules.go), found once: three
 	// rules ask.
-	trampOnce sync.Once
-	tramp     map[string]int
-	code64    bool          // the document has 64-bit code
-	evAt      map[int][]int // statement -> tracker events recorded there
-	fjs       []farJump
-	uses      []selectorUse
+	trampOnce   sync.Once
+	tramp       map[string]int
+	trampCopied map[string]bool // marked `falcon-asm: trampoline=copied`
+	code64      bool            // the document has 64-bit code
+	evAt        map[int][]int   // statement -> tracker events recorded there
+	fjs         []farJump
+	uses        []selectorUse
 	// fl is the dataflow solution the constants were widened with (see
 	// flowvals.go); nil for the block-local index.
 	fl *flow.Result

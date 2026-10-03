@@ -13,7 +13,6 @@ import (
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
 	"git.airies.net/vifair22/falcon-asm/internal/flow"
-	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/lint"
 	"git.airies.net/vifair22/falcon-asm/internal/rules/hw"
 	"git.airies.net/vifair22/falcon-asm/internal/toolchain"
@@ -45,6 +44,16 @@ import (
 // naming the stage (STAGE2_SECTORS for loads=stage2.S) is the count the
 // loader is built for, and `falcon-asm: sectors=<n>` states it outright.
 //
+// A real two-stage loader often has no single count at all: the installer
+// patches the stage's length into the sector, the read loops a call at a
+// time, and the bound lives in the build (a size check against a header
+// constant). `falcon-asm: loads=<label or file> max=<n or symbol>` states
+// that bound; the rule measures the stage, resolves max (a number, a macro
+// of the run or of the file's headers through its compile flags, a .equ),
+// and holds the stage to max sectors. A stage past it is the warning, a
+// stage within it is proven, and a max that cannot be resolved is the
+// information finding naming what was not found.
+//
 // A boot sector or an annotated loader whose fit cannot be shown gets one
 // information finding (loader-sector-count-unproven) saying what is
 // missing; anything else stays silent.
@@ -67,10 +76,10 @@ type readCall struct {
 	destK bool
 }
 
-// annotation is the loader's falcon-asm items: loads=, sectors=.
+// annotation is the loader's falcon-asm items: loads=, sectors=, max=.
 type annotation struct {
-	loads, sectors string
-	line           int
+	loads, sectors, max string
+	line                int
 }
 
 func checkLoader(c *lint.Context, info bool) {
@@ -103,7 +112,26 @@ func checkLoader(c *lint.Context, info bool) {
 	}
 	st, stOK, stWhy := f.stage(c, ann, annotated, reads)
 	if !stOK && !annotated && len(targets) > 0 {
-		stWhy = fmt.Sprintf("nothing names the stage it loads and jumps to at %#x (add `falcon-asm: loads=<label or file>`)", targets[0])
+		stWhy = fmt.Sprintf("nothing names the stage it loads and jumps to at %#x", targets[0])
+	}
+	// max= is the bound the stage is held to: proven, the reads need no
+	// count of their own; exceeded, it is the one warning.
+	var maxN uint64
+	maxOK, maxWhy, bounded := false, "", false
+	if ann.max != "" {
+		maxN, maxOK, maxWhy = resolveConst(f.p, ann.max)
+		if !maxOK {
+			maxWhy = "max=" + ann.max + " cannot be resolved: " + maxWhy
+		}
+	}
+	if maxOK && stOK {
+		bounded = true
+		if st.size > maxN*sectorSize && !info {
+			msg := fmt.Sprintf("%s is %d bytes (%d sectors), past the %d sectors (%d bytes) `max=%s` holds it to: "+
+				"the loader is built to read no more, so the end of the stage is never loaded",
+				st.name, st.size, (st.size+sectorSize-1)/sectorSize, maxN, maxN*sectorSize, ann.max)
+			f.report(c, reads[0].stmt, msg, st.stmt)
+		}
 	}
 	reported := false
 	for _, r := range reads {
@@ -121,6 +149,7 @@ func checkLoader(c *lint.Context, info bool) {
 					r.ah, count, count*sectorSize, st.name, st.size, need)
 				f.report(c, r.stmt, msg, from, st.stmt)
 			}
+		case bounded:
 		case info && !reported:
 			reasons := []string{}
 			if !stOK {
@@ -129,10 +158,38 @@ func checkLoader(c *lint.Context, info bool) {
 			if !countOK {
 				reasons = append(reasons, why)
 			}
+			if maxWhy != "" {
+				reasons = append(reasons, maxWhy)
+			}
 			reported = true
-			f.report(c, r.stmt, "cannot prove the loaded stage fits the INT 13h read: "+strings.Join(reasons, "; "))
+			msg := "cannot prove the loaded stage fits the INT 13h read: " + strings.Join(reasons, "; ")
+			if hint := loaderHint(ann, stOK, countOK); hint != "" {
+				msg += "; " + hint
+			}
+			f.report(c, r.stmt, msg)
 		}
 	}
+}
+
+// loaderHint says which annotation would let the rule prove the fit, given
+// what is missing: the stage, a count, or both.
+func loaderHint(a annotation, stOK, countOK bool) string {
+	needStage := !stOK && a.loads == ""
+	needBound := !countOK && a.max == "" && a.sectors == ""
+	switch {
+	case a.max != "" && !needStage:
+		// max= is there and is what failed; its reason says why.
+		return ""
+	case needStage && needBound:
+		return "name the stage and the bound the build holds it to with `falcon-asm: loads=<label or file> max=<sectors or symbol>`"
+	case needStage:
+		return "name the stage with `falcon-asm: loads=<label or file>`"
+	case needBound && a.loads != "":
+		return "add the bound the build holds the stage to, `max=<sectors or symbol>`, to the `falcon-asm: loads=` comment"
+	case needBound:
+		return "state the bound the build holds the stage to with `falcon-asm: max=<sectors or symbol>`"
+	}
+	return ""
 }
 
 // hasInt13 reports an `int $0x13` anywhere: the cheap gate before the
@@ -394,26 +451,19 @@ func (f *facts) progressLoop(i int) bool {
 	return false
 }
 
-// annotation finds `falcon-asm: loads=... sectors=...`.
+// annotation finds `falcon-asm: loads=... sectors=... max=...`.
 func (f *facts) annotation() (annotation, bool) {
 	var a annotation
 	found := false
-	for _, t := range f.p.Toks {
-		if t.Kind != lexer.Comment {
-			continue
-		}
-		_, rest, ok := strings.Cut(t.Text, "falcon-asm:")
-		if !ok {
-			continue
-		}
-		rest = strings.TrimSuffix(strings.TrimSpace(rest), "*/")
-		for _, it := range strings.FieldsFunc(rest, func(r rune) bool { return r == ' ' || r == '\t' || r == ',' }) {
-			k, v, _ := strings.Cut(it, "=")
-			switch strings.ToLower(k) {
+	for _, n := range notesOf(f.p) {
+		for k, v := range n.items {
+			switch k {
 			case "loads":
-				a.loads, a.line, found = v, t.Line, true
+				a.loads, a.line, found = v, n.line, true
 			case "sectors":
 				a.sectors, found = v, true
+			case "max":
+				a.max, found = v, true
 			}
 		}
 	}
@@ -505,7 +555,7 @@ func (f *facts) stage(c *lint.Context, a annotation, annotated bool, reads []rea
 			return stageInfo{name: fmt.Sprintf("the rest of section %s (from offset %#x)", sec, off), size: total - off, stmt: -1}, true, ""
 		}
 	}
-	return stageInfo{}, false, "nothing names the stage it loads (add `falcon-asm: loads=<label or file>`)"
+	return stageInfo{}, false, "nothing names the stage it loads"
 }
 
 // labelSize is a label's extent from the listing: to <label>_end (or
@@ -562,9 +612,14 @@ func listingOffset(res *toolchain.AsmResult, line int, sec string) (uint64, bool
 // macro or .equ <STAGE>_SECTORS for the stage's base name.
 func (f *facts) declaredSectors(a annotation, stage string) (uint64, bool) {
 	if a.sectors != "" {
-		if v, ok := f.eval(a.sectors); ok {
+		if v, ok, _ := resolveConst(f.p, a.sectors); ok {
 			return v, true
 		}
+	}
+	if a.max != "" {
+		// The bound was stated; a macro guessed from the stage's name must
+		// not stand in for it when it cannot be resolved.
+		return 0, false
 	}
 	base := strings.ToUpper(strings.TrimSuffix(stage, filepath.Ext(stage)))
 	base = strings.TrimSuffix(base, "_START")
@@ -688,7 +743,11 @@ func init() {
 				"never read. The count is taken from the dataflow (AL, or a packet laid out as constants that nothing writes), and the " +
 				"stage from `falcon-asm: loads=<label or file>` (a label of this file measured to its _end label in the listing, a binary " +
 				"by its size, an assembly source assembled with its own flags) or, in a boot sector, from a read into the rest of its " +
-				"own section. A count read from memory is replaced by `falcon-asm: sectors=<n>` or a <STAGE>_SECTORS macro when there is one.",
+				"own section. A count read from memory is replaced by `falcon-asm: sectors=<n>` or a <STAGE>_SECTORS macro when there is one. " +
+				"A loader with no single count (patched in by an installer, read a sector at a time) states the bound its build holds " +
+				"the stage to with `falcon-asm: loads=<label or file> max=<n or symbol>`: max is a sector count, a number or a symbol " +
+				"(a macro of the run, a .equ of the file, or a macro of the headers it includes, read through its compile flags), and a " +
+				"stage larger than max sectors is reported here.",
 			Bad: "\t.code16\n_start:\n\txorw %ax, %ax\n\tmovw %ax, %es\n\tmovw $0x0202, %ax\n\tmovw $0x0002, %cx\n\txorw %dx, %dx\n\tmovw $0x7E00, %bx\n\tint $0x13\n" +
 				"\tljmp $0, $0x7E00\n\t. = _start + 510\n\t.byte 0x55, 0xAA\nstage2:\n\t.fill 1500, 1, 0x90",
 			Good: "\t.code16\n_start:\n\txorw %ax, %ax\n\tmovw %ax, %es\n\tmovw $0x0203, %ax\n\tmovw $0x0002, %cx\n\txorw %dx, %dx\n\tmovw $0x7E00, %bx\n\tint $0x13\n" +
@@ -707,12 +766,16 @@ func init() {
 			Summary: "Boot sector or annotated loader whose INT 13h read cannot be shown to cover the stage it loads.",
 			Why: "loader-sector-count needs a constant sector count and a known stage size. When a boot sector reads with a count " +
 				"from memory (patched in by an installer), inside a loop, or without anything naming the stage, the fit cannot be " +
-				"proven and this says which part is missing. Information only: annotate with `falcon-asm: loads=<label or file>` " +
-				"and, for a count from memory, `falcon-asm: sectors=<n>` to have it checked.",
+				"proven and this says which part is missing, and which annotation would prove it. Information only. Name the " +
+				"stage with `falcon-asm: loads=<label or file>`; for a count from memory or a read loop, state the bound with " +
+				"`max=<n or symbol>` on the same comment (the size the build holds the stage to, such as a header's " +
+				"STAGE2_MAX_SECTORS that a build step checks), or the count with `falcon-asm: sectors=<n>`. A max= that cannot be " +
+				"resolved (a symbol neither the run, the file nor its headers define) is reported here by name.",
 			Bad: "\t.code16\n_start:\n\tmovb count, %al\n\tmovb $0x02, %ah\n\tint $0x13\n\tljmp $0, $0x7E00\ncount:\t.byte 0\n" +
-				"\t. = _start + 510\n\t.byte 0x55, 0xAA",
-			Good: "\t.code16\n_start:\n\txorw %ax, %ax\n\tmovw %ax, %es\n\tmovw $0x0201, %ax\n\tmovw $0x7E00, %bx\n\tint $0x13\n\tljmp $0, $0x7E00\n" +
-				"\t. = _start + 510\n\t.byte 0x55, 0xAA\nstage2:\n\t.fill 500, 1, 0x90",
+				"\t. = _start + 510\n\t.byte 0x55, 0xAA\nstage2:\n\t.fill 600, 1, 0x90",
+			Good: "\t.equ STAGE2_MAX_SECTORS, 2\n\t.code16\n_start:\n\t/* falcon-asm: loads=stage2 max=STAGE2_MAX_SECTORS */\n" +
+				"\tmovb count, %al\n\tmovb $0x02, %ah\n\tint $0x13\n\tljmp $0, $0x7E00\ncount:\t.byte 0\n" +
+				"\t. = _start + 510\n\t.byte 0x55, 0xAA\nstage2:\n\t.fill 600, 1, 0x90",
 		},
 		Check: func(c *lint.Context) { checkLoader(c, true) },
 	})

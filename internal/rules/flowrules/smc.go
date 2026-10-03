@@ -22,7 +22,12 @@ func init() {
 				"is an old boot loader trick, but it is invisible in the source, it breaks the moment the " +
 				"code is placed in ROM or a write-protected page, and on processors since the i486 a write " +
 				"close ahead of the executing instruction may or may not be seen without a jump in " +
-				"between. The rule reports a store whose memory operand names a label of code (an " +
+				"between. It becomes a real hazard once paging or W^X makes code pages read-only (the " +
+				"store faults), and when another processor runs the patched bytes, which it may not see " +
+				"until it executes a serialising instruction (cpuid, iret, a far jump through a mode " +
+				"switch). When the patched instruction is 16-bit code and the document shows no sign " +
+				"of paging (no write to CR3, no 64-bit code), the message calls the patch what it " +
+				"usually is there, the real-mode idiom. The rule reports a store whose memory operand names a label of code (an " +
 				"instruction, not a data directive) in .text or a section with the x flag, as Information: " +
 				"it is sometimes the point. Variables kept in .text (a data label) are not code and are not " +
 				"reported.",
@@ -66,6 +71,7 @@ func checkSMC(c *lint.Context) {
 	}
 	p, g, res := f.p, f.g, f.res
 	var sections map[string]bool
+	paging := 0 // 0 not yet looked, 1 no evidence of paging, 2 evidence
 	for i := range p.Stmts {
 		st := &p.Stmts[i]
 		if st.Kind != asm.Instr || st.Inst == nil || len(st.Ops) == 0 || !res.Reachable(i) {
@@ -86,9 +92,43 @@ func checkSMC(c *lint.Context) {
 		if !isExec(sections, p.Stmts[t].Section) {
 			continue
 		}
-		c.ReportOp(i, k, fmt.Sprintf("%s writes into the instruction at %s (line %d) in executable section %s: self-modifying code",
-			st.Mnemonic, name, lineOf(p, t), sectionName(p.Stmts[t].Section)))
+		what := fmt.Sprintf("%s writes into the instruction at %s (line %d) in executable section %s: self-modifying code",
+			st.Mnemonic, name, lineOf(p, t), sectionName(p.Stmts[t].Section))
+		if p.Stmts[t].Mode == asm.Mode16 {
+			if paging == 0 {
+				paging = 1
+				if pagingEvidence(p) {
+					paging = 2
+				}
+			}
+			if paging == 1 {
+				c.ReportOp(i, k, what+", the real-mode idiom, safe with paging off; a hazard only under paging or W^X, or for another processor without a serialising instruction")
+				continue
+			}
+		}
+		c.ReportOp(i, k, what+", a hazard under paging or W^X (read-only code faults) and for other processors, which may run the old bytes until a serialising instruction")
 	}
+}
+
+// pagingEvidence reports whether the document turns paging on or runs
+// where it is always on: a write to CR3 (page tables are only loaded to be
+// used) or any 64-bit code (long mode requires paging). Without either, a
+// patch of 16-bit code is the real-mode idiom, not a W^X violation in the
+// making.
+func pagingEvidence(p *asm.Program) bool {
+	for i := range p.Stmts {
+		st := &p.Stmts[i]
+		if st.Kind != asm.Instr || st.InMacroDef {
+			continue
+		}
+		if st.Mode == asm.Mode64 {
+			return true
+		}
+		if n := len(st.Ops); n > 0 && st.Ops[n-1].Kind == asm.OpReg && strings.EqualFold(st.Ops[n-1].RegName, "cr3") {
+			return true
+		}
+	}
+	return false
 }
 
 func sectionName(s string) string {

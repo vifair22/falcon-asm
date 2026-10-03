@@ -213,7 +213,7 @@ func (b *Batch) Add(in Input) {
 func (b *Batch) runRules(in *Input, rules []*Rule) []Finding {
 	var all []Finding
 	for _, r := range rules {
-		if r.Langs&in.Lang == 0 || r.Code == UnusedSuppressionCode {
+		if r.Langs&in.Lang == 0 || r.Code == UnusedSuppressionCode || r.Code == IgnoreWithoutReasonCode {
 			continue
 		}
 		if in.expansion && (r.SkipExpansions || r.NeedsFlow || r.NeedsListing) {
@@ -362,12 +362,24 @@ next:
 }
 
 // Finish applies the suppression comments to the collected findings, adds
-// the unused-suppression findings, and returns everything sorted by
-// position with exact duplicates removed. sup may be nil (no comments).
+// the ignore-without-reason and unused-suppression findings, and returns
+// everything sorted by position with exact duplicates removed. sup may be
+// nil (no comments).
 func (b *Batch) Finish(sup *Suppressions, cfg FileConfig) []Finding {
 	out := b.raw
 	if sup != nil {
 		out = sup.Filter(out)
+		// Before Unused: a suppression of ignore-without-reason is used
+		// only once these findings have been filtered through it.
+		if r, ok := Lookup(IgnoreWithoutReasonCode); ok {
+			if sev := cfg.SeverityOf(r); sev != Off {
+				if b.ran == nil {
+					b.ran = map[string]bool{}
+				}
+				b.ran[IgnoreWithoutReasonCode] = true
+				out = append(out, sup.Unreasoned(sev)...)
+			}
+		}
 		if r, ok := Lookup(UnusedSuppressionCode); ok {
 			if sev := cfg.SeverityOf(r); sev != Off {
 				out = append(out, sup.Filter(sup.Unused(sev, b.ran))...)

@@ -113,7 +113,12 @@ func TestRun(t *testing.T) {
 	}{
 		{name: "version", args: []string{"--version"}, wantStdout: "falcon-asm dev (built dev)\n"},
 		{name: "single dash version", args: []string{"-version"}, wantStdout: "falcon-asm dev"},
-		{name: "help", args: []string{"--help"}, wantStderr: "-stdio"},
+		{name: "help", args: []string{"--help"}, wantStdout: "usage: falcon-asm [command]"},
+		{name: "help command", args: []string{"help"}, wantStdout: "usage: falcon-asm [command]"},
+		{name: "version command", args: []string{"version"}, wantStdout: "falcon-asm dev (built dev)\n"},
+		{name: "unknown command", args: []string{"lnit"}, wantCode: 2, wantStderr: `unknown command "lnit"`},
+		{name: "unknown help topic", args: []string{"help", "nope"}, wantCode: 2, wantStderr: "usage: falcon-asm [command]"},
+		{name: "server argument", args: []string{"--stdio", "extra"}, wantCode: 2, wantStderr: `unexpected argument "extra"`},
 		{name: "unknown flag", args: []string{"--bogus"}, wantCode: 2, wantStderr: "bogus"},
 		{name: "stdio session", args: []string{"--stdio", "--clientProcessId=42"}, stdin: session, session: true},
 		{name: "no exit", args: nil, stdin: "", wantCode: 1, wantStderr: "without exit"},

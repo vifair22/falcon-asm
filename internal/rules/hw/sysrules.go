@@ -38,24 +38,42 @@ var sipiRe = regexp.MustCompile(`([A-Za-z_.$][A-Za-z0-9_.$]*)\s*\)?\s*>>\s*12`)
 
 // trampolines are the labels used as SIPI vectors: written into an ICR
 // value with delivery mode 110b (`$(0x4600 | (ap_start >> 12))`), or marked
-// with a `falcon-asm: trampoline` comment.
+// with a `falcon-asm: trampoline` comment. `falcon-asm: trampoline=copied`
+// marks one that is copied to its page before the IPIs go out (the IPI is
+// often sent from C, where no ICR constant names the label): it is still
+// real-mode code a startup IPI enters, but where it sits in its section
+// says nothing about the page it runs from.
 func (ix *Index) trampolines() map[string]int {
-	ix.trampOnce.Do(func() { ix.tramp = ix.findTrampolines() })
+	ix.trampOnce.Do(func() { ix.tramp, ix.trampCopied = ix.findTrampolines() })
 	return ix.tramp
 }
 
-func (ix *Index) findTrampolines() map[string]int {
+// Trampolines returns the SIPI trampolines of the document: label ->
+// statement defining it, copied ones included. Other rules use it to know
+// code a startup IPI enters, which inherits the platform state the boot
+// processor set up (A20, for one) rather than establishing it.
+func Trampolines(c *lint.Context) map[string]int {
+	ix := indexOf(c)
+	if ix == nil {
+		return nil
+	}
+	return ix.trampolines()
+}
+
+func (ix *Index) findTrampolines() (map[string]int, map[string]bool) {
 	out := map[string]int{}
+	copied := map[string]bool{}
 	for i := range ix.Prog.Stmts {
 		s := &ix.Prog.Stmts[i]
 		if s.InMacroDef {
 			continue
 		}
 		if len(s.Labels) > 0 {
-			if _, ok := ix.note(i, "trampoline"); ok {
+			if v, ok := ix.note(i, "trampoline"); ok {
 				for _, l := range s.Labels {
 					if ix.isLabel(l) {
 						out[l] = i
+						copied[l] = v == "copied"
 					}
 				}
 			}
@@ -82,7 +100,7 @@ func (ix *Index) findTrampolines() map[string]int {
 			}
 		}
 	}
-	return out
+	return out, copied
 }
 
 // SIPI checks, split by what they need: the mode needs nothing, the
@@ -107,11 +125,14 @@ func checkSIPI(c *lint.Context, what int) {
 					label, ix.Prog.Stmts[code].Mode))
 			}
 		case sipiListing:
+			if ix.trampCopied[label] {
+				continue
+			}
 			if off, ok := listingOffset(c, ix, li); ok && off%4096 != 0 {
 				c.ReportStmt(li, fmt.Sprintf("SIPI trampoline %s is at offset %#x in its section, not on a 4 KiB boundary: the vector names a page and the processor starts at its first byte", label, off))
 			}
 		case sipiUnproven:
-			if !ix.pageAligned(li) {
+			if !ix.trampCopied[label] && !ix.pageAligned(li) {
 				c.ReportStmt(li, fmt.Sprintf("SIPI trampoline %s: nothing here proves 4 KiB alignment (no .balign 4096 right before it); the vector names a page and the processor starts at its first byte", label))
 			}
 		}
@@ -386,7 +407,9 @@ func init() {
 				"vector names (CS = vector << 8, IP = 0). The trampoline therefore has to be .code16 and page " +
 				"aligned. A label is taken as the trampoline when the vector field of an ICR value is built from " +
 				"it with delivery mode 110b (`$(0x4600 | (ap_start >> 12))`), or when a `falcon-asm: trampoline` " +
-				"comment marks it. sipi-alignment checks the page alignment against the listing.",
+				"comment marks it; `falcon-asm: trampoline=copied` marks one that is copied to its page before the " +
+				"IPIs are sent (from C, often, where no ICR constant names it), which this rule checks and the " +
+				"alignment rules leave alone. sipi-alignment checks the page alignment against the listing.",
 			Bad:  "\t# falcon-asm: trampoline\n\t.code32\nap_start:\n\tcli",
 			Good: "\t.balign 4096\n\t# falcon-asm: trampoline\n\t.code16\nap_start:\n\tcli",
 		},
@@ -403,7 +426,7 @@ func init() {
 			Why: "The startup IPI's vector is a page number: the processor starts at offset 0 of that page. A " +
 				"trampoline the listing places at, say, offset 0x120 of its section cannot be the first byte of a " +
 				"page however the section is aligned. A trampoline that is copied to its page before the IPIs " +
-				"are sent is not this rule's business; mark only the in-place one.",
+				"are sent is not this rule's business: mark it `falcon-asm: trampoline=copied`.",
 			Bad:  "\t.code16\n\tnop\n\t# falcon-asm: trampoline\nap_start:\n\tcli",
 			Good: "\t.code16\n\t# falcon-asm: trampoline\nap_start:\n\tcli",
 		},
@@ -418,7 +441,8 @@ func init() {
 			Summary: "SIPI trampoline whose 4 KiB alignment cannot be shown.",
 			Why: "When there is no listing and no `.balign 4096` (or `.p2align 12`) right before the trampoline " +
 				"label, nothing in the file proves the page alignment a startup IPI needs. Reported as " +
-				"information: the linker script may well place it, which is outside what the linter sees.",
+				"information: the linker script may well place it, which is outside what the linter sees. A " +
+				"trampoline marked `falcon-asm: trampoline=copied` runs from the page it is copied to and is not reported.",
 			Bad:  "\t# falcon-asm: trampoline\n\t.code16\nap_start:\n\tcli",
 			Good: "\t.balign 4096\n\t# falcon-asm: trampoline\n\t.code16\nap_start:\n\tcli",
 		},

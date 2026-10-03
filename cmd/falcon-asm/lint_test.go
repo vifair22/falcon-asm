@@ -96,6 +96,9 @@ func TestLintText(t *testing.T) {
 	if code != 0 || !strings.Contains(errs, "1 file linted, no problems") {
 		t.Fatalf("clean: exit %d %q", code, errs)
 	}
+	// Without a compile database the listing rules could not run, and the
+	// summary says so.
+	assertQualifiedClean(t, errs)
 }
 
 func TestLintJSONAndSARIF(t *testing.T) {
@@ -241,7 +244,6 @@ func TestLintUsageErrors(t *testing.T) {
 		{"severity", []string{"--severity=loud"}, 2, `unknown --severity "loud"`},
 		{"severity off", []string{"--severity=off"}, 2, `unknown --severity "off"`},
 		{"flag", []string{"--nope"}, 2, "flag provided but not defined"},
-		{"help", []string{"-h"}, 0, "usage: falcon-asm lint"},
 		{"missing path", []string{"missing.S"}, 2, "missing.S"},
 		{"config read", []string{"--config", "missing.json", "a.S"}, 2, "read missing.json"},
 		{"config broken", []string{"broken"}, 2, "broken/.falcon-asm.json:1:11: error: invalid JSON"},
@@ -374,7 +376,8 @@ func TestRulesCommand(t *testing.T) {
 	if code := run([]string{"rules", "nope"}, nil, &out, &errs); code != 2 || !strings.Contains(errs.String(), `unknown rule "nope"`) {
 		t.Fatalf("unknown: %d %q", code, errs.String())
 	}
-	if code := run([]string{"rules", "-h"}, nil, &out, &errs); code != 0 || !strings.Contains(errs.String(), "usage: falcon-asm rules") {
+	out.Reset()
+	if code := run([]string{"rules", "-h"}, nil, &out, &errs); code != 0 || !strings.Contains(out.String(), "usage: falcon-asm rules") {
 		t.Fatal("help")
 	}
 	if code := run([]string{"rules", "--bad"}, nil, &out, &errs); code != 2 {

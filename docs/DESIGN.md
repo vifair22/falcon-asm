@@ -783,19 +783,33 @@ Highest precedence first:
 Inside any comment (`/* */`, `#`, `//` in assembly; `//` and `/* */` in C,
 so inline asm findings are silenced from the C source):
 
-- `falcon-asm: ignore=<code>[,<code>...]` - findings starting on this line
-- `falcon-asm: ignore-next=<code>` - the next line holding code
-- `falcon-asm: ignore-file=<code>`
-- `falcon-asm: ignore-begin=<code>` ... `falcon-asm: ignore-end=<code>` -
-  inclusive; nested regions pair innermost first; an unclosed begin runs
-  to the end of the file
+- `falcon-asm: ignore=<code>[,<code>...]: <reason>` - findings starting
+  on this line
+- `falcon-asm: ignore-next=<code>: <reason>` - the next line holding code
+- `falcon-asm: ignore-file=<code>: <reason>`
+- `falcon-asm: ignore-begin=<code>: <reason>` ... `falcon-asm:
+  ignore-end=<code>` - inclusive; nested regions pair innermost first; an
+  unclosed begin runs to the end of the file
 - `all` matches every rule; several items may share one comment, and
-  other `key=value` items (`level=`) and free text after them are ignored.
+  other `key=value` items (`level=`, `cc=`, `reached=`) and free text after
+  them are ignored. A space is allowed after a comma in the code list
+  only, so `ignore=a because` still ends the list at `a`.
+- The reason is the text after a colon directly following the code list.
+  It is optional for the engine; the marker and the item must share one
+  line, because the lexer cuts a block comment at each newline.
 
 `unused-suppression` (default Info) reports a suppression that matched
 nothing, but only for codes whose rule ran on the document (a rule turned
 off is not a reason to report its suppressions), `all`, unknown codes and
-an `ignore-end` without a begin. A suppression never hides its own report.
+an `ignore-end` without a begin. `ignore-without-reason` (default Off,
+the one rule that is) reports every suppression item without a reason,
+one finding per item, never for `ignore-end`; a project that wants
+suppressions to stay honest turns it on in `.falcon-asm.json`. The runner
+implements both: the reason check runs first, so a suppression of
+`ignore-without-reason` is marked used before unused suppressions are
+judged. A suppression never hides its own report. The syntax paragraph is
+`lint.SuppressionSyntax`, shared by the generated docs/RULES.md header and
+the rule's own documentation.
 
 ### Engine wiring
 
@@ -829,27 +843,72 @@ an `ignore-end` without a begin. A suppression never hides its own report.
 
 ### CLI
 
+`falcon-asm` with no command (or only `-stdio`/`-clientProcessId`) is the
+language server; `lint`, `rules`, `version` and `help [command]` are the
+other modes. `--help`/`-h` (checked before any other flag, up to `--`)
+prints the mode's help on stdout with status 0: the top level lists the
+modes and the server flags, `lint --help`/`help lint` every lint flag
+with its default, the exit codes and examples, `rules --help` the rules
+flags. Each help prints the same `flag.FlagSet` the parser uses
+(`serverFlagSet`, `lintFlagSet`, `rulesFlagSet`), and the CLI test walks
+those sets, so a flag cannot be added without appearing in the help. A
+flag error prints the flag package's message and a one-line pointer to
+`--help` on stderr, status 2; so does an unknown command or a positional
+argument to the server.
+
 `falcon-asm lint [flags] [paths...]` (paths default `.`; flags may follow
 paths): walks directories for `.S`/`.s` and, with `--c` (default on),
 `.c/.h/.cc/.cpp/.cxx/.hpp/.hh`, skipping `build`, `.git` and
 `node_modules`; a file named explicitly is linted whatever its extension.
-Files are linted on a pool of `--jobs` workers (default GOMAXPROCS).
-Compile flags come from `--compile-commands`, else `./` or `./build/`, else
-the nearest database above each file. `--toolchain` also assembles each
-assembly file with flags (macros, listing and gas diagnostics, deduplicated
-as in the editor). `--fix` applies the first fix of every finding whose
-edits overlap no fix already taken (never ignore comments), writes the
-file, and reports what is left after linting it again. `--changed` keeps
-the files git reports changed against HEAD plus untracked ones, and lints
-everything outside a repository. Output: `text` (`file:line:col: severity:
-message [code]`, byte columns, summary on stderr), `json` (file, line,
-column, LSP range, code, severity, source, message, fixes) or `sarif`
-(2.1.0, rule metadata from the registry, `SRCROOT`-relative locations,
-UTF-16 columns, fixes). `--severity` (default warning) sets the exit
-threshold: 0 below it, 1 at or above, 2 for usage and configuration
-errors. `falcon-asm rules` lists the rules, `falcon-asm rules <code>`
-prints one, `--markdown` prints docs/RULES.md, which `make rules-doc`
-regenerates and `internal/rules/all`'s test keeps current.
+Files are linted on a pool of `--jobs` workers (default GOMAXPROCS), and
+each worker runs its file's assembler, so the toolchain is as parallel as
+the rules. Compile flags come from `--compile-commands`, else `./` or
+`./build/`, else the nearest database above each file; within a database
+a file without its own entry borrows one from its directory or top-level
+subdirectory (`toolchain.DB.Flags`, the engine's lookup).
+
+The toolchain is on by default (`--no-toolchain`, or `--toolchain=false`,
+turns it off; `--toolchain` is accepted as a no-op): every assembly file
+with flags gets its macros, its listing and gas's diagnostics,
+deduplicated as in the editor. A clean result has to mean clean, so the
+CLI accounts for every listing rule that did not run. For an assembly
+file, `lintText` records a `listingSkip` (the enabled `NeedsListing` rules
+for that file's configuration, and a reason) when there is no listing:
+no compile command, `--no-toolchain`, the compiler not found
+(`ErrNoToolchain`), not an assembler source (`ErrNotAssembly`, a file
+named explicitly), or a failed run (an `Assemble` error, or a result with
+an error diagnostic and no listed line, which leaves no addresses). A
+failed assembly that still listed lines keeps its partial listing and is
+not counted, which is what the editor does; its gas errors are reported
+as findings anyway. A file whose configuration turns every listing rule
+off records nothing. At the end, stderr gets one note (distinct rule
+count, file count, counts per reason, up to five file names, and what to
+do) before the summary, and the summary carries the qualifier: "N files
+linted, no problems (R listing rules skipped on F files)". Skips never
+change the exit status. Machine output: `json` stays an array of findings
+for compatibility; `json-full` is `{"findings", "skipped": [{"file",
+"reason", "rules"}], "files"}` with stable reason keys
+(`no-compile-command`, `no-toolchain`, `compiler-not-found`,
+`assembly-failed`, `not-assembly`); `sarif` adds
+`runs[0].invocations[0]` with `executionSuccessful` and one
+`toolExecutionNotifications` entry per skipped file (descriptor
+`listing-rules-skipped`, level `note`, the file as location, reason and
+rules in `properties`). The note is printed on stderr for every format.
+
+`--fix` applies the first fix of every finding whose edits overlap no fix
+already taken (never ignore comments), writes the file, and reports what
+is left after linting it again. `--changed` keeps the files git reports
+changed against HEAD plus untracked ones, and lints everything outside a
+repository. Output: `text` (`file:line:col: severity: message [code]`,
+byte columns, notes and summary on stderr), `json` (file, line, column,
+LSP range, code, severity, source, message, fixes), `json-full` or
+`sarif` (2.1.0, rule metadata from the registry, `SRCROOT`-relative
+locations, UTF-16 columns, fixes). `--severity` (default warning) sets
+the exit threshold: 0 below it, 1 at or above, 2 for usage and
+configuration errors and unreadable files. `falcon-asm rules` lists the
+rules, `falcon-asm rules <code>` prints one, `--markdown` prints
+docs/RULES.md, which `make rules-doc` regenerates and
+`internal/rules/all`'s test keeps current.
 
 ## Layout rules and editor features (items 47-49, 79, 85)
 
@@ -940,7 +999,13 @@ after `inc`/`dec` reads a stale carry, which is usually a bug. Codes:
   just before the inc/dec wrote CF (`cmp; inc; jb` is an idiom);
   everything else is the Info merge note. `pushf` and other readers of
   non-status flags are excluded: they save flags, they do not consume CF.
-- 60 `slow-loop` (not in 16-bit code), `slow-enter` (a nesting level in any
+- 60 `slow-loop` (not in 16-bit code, and only in hot code: the loop
+  instruction's block lies on a CFG cycle that leaves it by an edge other
+  than its own backward branch, or its function is called from a block on
+  a cycle, from a hot function, or recursively; `rules/perf/hot.go`. A
+  global routine with no caller in the document counts as cold, which is
+  what keeps setup code quiet; inline asm templates are always reported,
+  since their loops are in the C), `slow-enter` (a nesting level in any
   mode, level 0 only in 64-bit code; the fix uses `lea` because `enter`
   leaves the flags alone), `xchg-mem-lock`, `bt-mem`, `lea-three-component`
   (only for the sandybridge..icelake-server profiles), `div-by-constant`
@@ -967,7 +1032,10 @@ another measured source) publishes a redistributable licence.
   stdcall, fastcall, regparm(N), custom and none. A custom convention
   holds only what its comment declares (`clobbers=`, `preserves=`, `args=`,
   `returns=`, with `all` for "every other general register"); a register
-  in neither set is unknown and never reported. The model also parses the
+  in neither set is unknown and never reported. `cc=custom` may be left
+  out when a list is given: lists without `cc=` mean custom (no other
+  convention takes them), and lists next to `cc=` naming another
+  convention are a `cc-annotation` finding, since one of the two is wrong. The model also parses the
   `falcon-asm:` items it owns (`cc=`, the lists, `handler[=errcode|
   noerrcode|service]`, `vector=N`); other items and trailing free text are
   ignored, as the suppression parser does.

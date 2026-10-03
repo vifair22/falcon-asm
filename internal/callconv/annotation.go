@@ -97,17 +97,20 @@ func ParseComment(text string) (Annotation, bool) {
 
 // Conv resolves the annotation's convention: nil when it names none (it
 // may still be a handler annotation). A custom convention is built from
-// the lists; lists without cc=custom are a problem, since they would
-// otherwise be silently ignored.
+// the lists. Lists without any cc= item imply cc=custom: no other
+// convention takes them, so requiring the item would only make a helper
+// that forgot it lose its checks for no gain. Lists next to a cc= naming
+// another convention are a problem, since one of the two is a mistake.
 func (a *Annotation) Conv() (*Conv, []string) {
 	var problems []string
-	if a.CC == "" {
-		if a.HasSpec {
-			problems = append(problems, "clobbers/preserves/args/returns need cc=custom")
+	name := a.CC
+	if name == "" {
+		if !a.HasSpec {
+			return nil, nil
 		}
-		return nil, problems
+		name = "custom"
 	}
-	c, ok := Lookup(a.CC)
+	c, ok := Lookup(name)
 	if !ok {
 		return nil, append(problems, fmt.Sprintf("unknown calling convention %q (known: %s)", a.CC, Names))
 	}
@@ -122,7 +125,8 @@ func (a *Annotation) Conv() (*Conv, []string) {
 		return cc, problems
 	}
 	if a.HasSpec {
-		problems = append(problems, fmt.Sprintf("clobbers/preserves/args/returns apply only to cc=custom, not %s", c.Name))
+		problems = append(problems, fmt.Sprintf("clobbers/preserves/args/returns apply only to cc=custom, not %s: "+
+			"drop cc=%s (lists alone mean cc=custom) or drop the lists", c.Name, a.CC))
 	}
 	return c, problems
 }

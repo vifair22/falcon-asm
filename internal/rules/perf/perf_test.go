@@ -229,10 +229,20 @@ func TestIncNoCarry(t *testing.T) {
 
 func TestSlowForms(t *testing.T) {
 	check(t, CodeSlowLoop, []tc{
-		{name: "loop32", text: "1:\tnop\n\tloop 1b\n", tgt: lint.Target{Mode: asm.Mode32}, want: 1},
-		{name: "loopnz", text: "1:\tnop\n\tloopnz 1b\n", want: 1, msg: "loopnz"},
-		{name: "16-bit", text: "1:\tnop\n\tloop 1b\n", tgt: lint.Target{Mode: asm.Mode16}},
+		{name: "loop32 nested", text: "2:\tmovl $4, %ecx\n1:\tnop\n\tloop 1b\n\tdecl %edx\n\tjnz 2b\n", tgt: lint.Target{Mode: asm.Mode32}, want: 1, msg: "nested loop"},
+		{name: "loopnz nested", text: "2:\n1:\tnop\n\tloopnz 1b\n\tjmp 2b\n", want: 1, msg: "loopnz"},
+		{name: "16-bit", text: "2:\n1:\tnop\n\tloop 1b\n\tjmp 2b\n", tgt: lint.Target{Mode: asm.Mode16}},
 		{name: "in macro body", text: ".macro m\n1:\tloop 1b\n.endm\n"},
+		// Once-only: no enclosing loop, no caller in one (idt.S's fill).
+		{name: "cold", text: "1:\tnop\n\tloop 1b\n", tgt: lint.Target{Mode: asm.Mode32}},
+		{name: "cold function", text: "\t.globl f\nf:\n\tcall g\n\tret\ng:\n1:\tnop\n\tloop 1b\n\tret\n"},
+		{name: "inner loop of own body is not enclosing", text: "1:\n2:\tnop\n\tjnz 2b\n\tloop 1b\n\tret\n"},
+		{name: "called from a loop", text: "\t.globl f\nf:\n1:\tcall g\n\tdecl %edx\n\tjnz 1b\n\tret\ng:\n2:\tnop\n\tloop 2b\n\tret\n",
+			want: 1, msg: "called repeatedly"},
+		{name: "called from a hot function", text: "\t.globl f\nf:\n1:\tcall g\n\tjmp 1b\ng:\n\tcall h\n\tret\nh:\n2:\tnop\n\tloop 2b\n\tret\n",
+			want: 1, msg: "called repeatedly"},
+		{name: "recursive", text: "\t.globl f\nf:\n\tcall g\n\tret\ng:\n2:\tnop\n\tloop 2b\n\tcall g\n\tret\n",
+			want: 1, msg: "called repeatedly"},
 	})
 	check(t, CodeSlowEnter, []tc{
 		{name: "enter64", text: "f:\n\tenter $32, $0\n\tleave\n\tret\n", want: 1,
@@ -277,6 +287,19 @@ func TestSlowForms(t *testing.T) {
 		{name: "negative", text: "f:\n\tmovl $-4, %ecx\n\tidivl %ecx\n\tret\n"},
 		{name: "memory", text: "f:\n\tdivl (%rdi)\n\tret\n"},
 	})
+}
+
+// An inline asm template cannot show the C loop around it, so a loop
+// there is reported however cold the template looks on its own.
+func TestSlowLoopInline(t *testing.T) {
+	r, _ := lint.Lookup(CodeSlowLoop)
+	text := "1:\tnop\n\tloop 1b\n"
+	doc := &docstore.Document{URI: "file:///t.c", Text: text}
+	p := asm.Parse(doc, lexer.Tokenize(text), asm.Config{InitialMode: asm.Mode64})
+	got := lint.Run(lint.Input{Prog: p, Lang: lint.LangInline, Target: lint.Target{Mode: asm.Mode64}, Rules: []*lint.Rule{r}})
+	if len(got) != 1 {
+		t.Fatalf("inline: %v", got)
+	}
 }
 
 func TestNegative(t *testing.T) {

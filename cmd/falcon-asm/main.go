@@ -41,25 +41,43 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			return runLint(args[1:], stdout, stderr)
 		case "rules":
 			return runRules(args[1:], stdout, stderr)
+		case "version":
+			printVersion(stdout)
+			return 0
+		case "help":
+			return runHelp(args[1:], stdout, stderr)
+		}
+		if !strings.HasPrefix(args[0], "-") {
+			fmt.Fprintf(stderr, "falcon-asm: unknown command %q\n\n", args[0])
+			printUsage(stderr)
+			return 2
 		}
 	}
+	if wantsHelp(args) {
+		printUsage(stdout)
+		return 0
+	}
 	args, prof := profileArgs(args)
-	fs := flag.NewFlagSet("falcon-asm", flag.ContinueOnError)
+	var showVersion bool
+	fs := serverFlagSet(&showVersion)
 	fs.SetOutput(stderr)
-	showVersion := fs.Bool("version", false, "print version and exit")
-	// Clients append these by convention; stdio is the only transport, and
-	// the client process id is not needed because exit/EOF already end the
-	// session.
-	fs.Bool("stdio", false, "use stdin/stdout (the default and only transport)")
-	fs.Int("clientProcessId", 0, "accepted for client compatibility; ignored")
+	fs.Usage = func() {
+		fmt.Fprintln(stderr, "usage: falcon-asm [command] [flags]; falcon-asm --help lists them")
+	}
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			printUsage(stdout)
 			return 0
 		}
 		return 2
 	}
-	if *showVersion {
-		fmt.Fprintf(stdout, "falcon-asm %s (built %s)\n", version, buildTime)
+	if fs.NArg() > 0 {
+		fmt.Fprintf(stderr, "falcon-asm: unexpected argument %q (the language server takes no paths)\n\n", fs.Arg(0))
+		printUsage(stderr)
+		return 2
+	}
+	if showVersion {
+		printVersion(stdout)
 		return 0
 	}
 	stop, err := prof.start()
@@ -99,6 +117,75 @@ func run(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		Log:            stderr,
 	})
 	return srv.Run(stdin, stdout)
+}
+
+// serverFlagSet defines the language server's flags. Clients append -stdio
+// and -clientProcessId by convention; stdio is the only transport, and the
+// client process id is not needed because exit/EOF already end the session.
+func serverFlagSet(showVersion *bool) *flag.FlagSet {
+	fs := flag.NewFlagSet("falcon-asm", flag.ContinueOnError)
+	fs.BoolVar(showVersion, "version", false, "print version and exit")
+	fs.Bool("stdio", false, "use stdin/stdout (the default and only transport)")
+	fs.Int("clientProcessId", 0, "accepted for client compatibility; ignored")
+	return fs
+}
+
+const usageHead = `usage: falcon-asm [command] [flags]
+
+falcon-asm is a language server and linter for GNU as x86 assembly in AT&T
+syntax (.S, .s) and the inline asm of C sources.
+
+Commands:
+  (none)            run the language server on stdin/stdout; what an editor
+                    starts (see "Language server flags" below)
+  lint [paths...]   lint files and directories for CI and pre-commit hooks;
+                    exit 0 clean, 1 findings, 2 usage or configuration error
+  rules [code...]   list the lint rules, or print rules' documentation
+  version           print the version and exit
+  help [command]    print this help, or a command's (help lint, help rules)
+
+Language server flags:
+`
+
+const usageTail = `
+Run "falcon-asm help lint" for the linter's flags (--severity, --changed,
+--fix, --format, --jobs, --config, --compile-commands, --no-toolchain, --c)
+and examples, "falcon-asm help rules" for the rule reference.
+`
+
+// printUsage writes the top-level help.
+func printUsage(w io.Writer) {
+	var v bool
+	fs := serverFlagSet(&v)
+	fs.SetOutput(w)
+	fmt.Fprint(w, usageHead)
+	fs.PrintDefaults()
+	fmt.Fprint(w, usageTail)
+}
+
+func printVersion(w io.Writer) {
+	fmt.Fprintf(w, "falcon-asm %s (built %s)\n", version, buildTime)
+}
+
+// runHelp is "falcon-asm help [command]".
+func runHelp(args []string, stdout, stderr io.Writer) int {
+	if len(args) == 0 {
+		printUsage(stdout)
+		return 0
+	}
+	switch args[0] {
+	case "lint":
+		printLintHelp(stdout)
+	case "rules":
+		printRulesHelp(stdout)
+	case "version", "help", "server":
+		printUsage(stdout)
+	default:
+		fmt.Fprintf(stderr, "falcon-asm help: unknown command %q\n\n", args[0])
+		printUsage(stderr)
+		return 2
+	}
+	return 0
 }
 
 // profiles holds the hidden profiling flags. They are kept out of the flag

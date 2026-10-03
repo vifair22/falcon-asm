@@ -578,7 +578,7 @@ func TestAnnotations(t *testing.T) {
 	}{
 		{"unknown cc", "# falcon-asm: cc=pascal\nf:\n\tret\n", "cc-annotation@1", "unknown calling convention \"pascal\""},
 		{"unknown register", "# falcon-asm: cc=custom clobbers=ax,qq\nf:\n\tret\n", "cc-annotation@1", "unknown register \"qq\""},
-		{"lists need custom", "# falcon-asm: clobbers=ax\nf:\n\tret\n", "cc-annotation@1", "need cc=custom"},
+		{"lists imply custom", "# falcon-asm: clobbers=ax\nf:\n\tret\n", "", ""},
 		{"lists on sysv", "# falcon-asm: cc=sysv clobbers=ax\nf:\n\tret\n", "cc-annotation@1", "apply only to cc=custom"},
 		{"empty custom", "# falcon-asm: cc=custom\nf:\n\tret\n", "cc-annotation@1", "declares nothing"},
 		{"both", "# falcon-asm: cc=custom clobbers=ax preserves=ax\nf:\n\tret\n", "cc-annotation@1", "both clobbered and preserved"},
@@ -612,6 +612,7 @@ func TestResolution(t *testing.T) {
 		want string
 	}{
 		{"label line", bx("f: # falcon-asm: cc=custom preserves=bx\n"), 16, "", "cc-callee-saved@3"},
+		{"lists without cc= are custom", bx("f: # falcon-asm: preserves=bx\n"), 16, "", "cc-callee-saved@3"},
 		{"above with declarations", bx("# falcon-asm: cc=custom preserves=bx\n\t.globl f\n\t.type f, @function\nf:\n"),
 			16, "", "cc-callee-saved@6"},
 		{"file level, blank line", bx("# falcon-asm: cc=custom preserves=bx\n\nf:\n"), 16, "", "cc-callee-saved@5"},

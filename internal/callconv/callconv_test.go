@@ -149,7 +149,6 @@ func TestParseComment(t *testing.T) {
 	}
 	for text, want := range map[string]string{
 		"# falcon-asm: cc=pascal":                "unknown calling convention",
-		"# falcon-asm: returns=ax":               "need cc=custom",
 		"# falcon-asm: cc=cdecl args=ax":         "apply only to cc=custom",
 		"# falcon-asm: cc=custom":                "declares nothing",
 		"# falcon-asm: cc=custom preserves=nope": "unknown register",
@@ -158,6 +157,15 @@ func TestParseComment(t *testing.T) {
 		if _, probs := a.Conv(); len(probs) != 1 || !strings.Contains(probs[0], want) {
 			t.Errorf("%s: %v", text, probs)
 		}
+	}
+	// Lists alone imply cc=custom, with no problem to report.
+	a, _ = ParseComment("# falcon-asm: args=si returns=ax clobbers=dx")
+	if c, probs := a.Conv(); c == nil || c.Kind != Custom || len(probs) != 0 {
+		t.Errorf("lists without cc=: %v %v", c, probs)
+	}
+	a, _ = ParseComment("# falcon-asm: cc=cdecl args=ax")
+	if _, probs := a.Conv(); len(probs) != 1 || !strings.Contains(probs[0], "drop cc=cdecl") {
+		t.Errorf("cdecl with lists: %v", probs)
 	}
 	a, _ = ParseComment("# falcon-asm: cc=ms")
 	if c, probs := a.Conv(); c == nil || c.Kind != MS || len(probs) != 0 {

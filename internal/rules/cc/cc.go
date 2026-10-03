@@ -55,9 +55,12 @@ func init() {
 		Summary: "A falcon-asm calling convention or handler annotation that cannot be understood.",
 		Why: "Annotations select the calling convention of a file or a function (`falcon-asm: cc=sysv`, " +
 			"`cc=custom clobbers=ax,cx preserves=bx,si,di args=ax returns=ax`) and mark interrupt handlers " +
-			"(`falcon-asm: handler=errcode vector=14`). A misspelled convention or register, lists without " +
-			"cc=custom, or an annotation on a label that is not a function start would otherwise be ignored " +
-			"silently, and the checks the author asked for would quietly not run. Known conventions: sysv, ms, " +
+			"(`falcon-asm: handler=errcode vector=14`). The lists (args=, returns=, clobbers=, preserves=) " +
+			"belong to a custom convention, so cc=custom may be left out when they are given: lists alone mean " +
+			"cc=custom. Lists next to cc= naming any other convention are reported, because one of the two is " +
+			"wrong. A misspelled convention or register, or an annotation on a label that is not a function " +
+			"start would otherwise be ignored silently, and the checks the author asked for would quietly not " +
+			"run. Known conventions: sysv, ms, " +
 			"cdecl, stdcall, fastcall, regparm(N), custom and none. An annotation on the label's line, or above " +
 			"it with only comments and declaration directives (.globl, .type, .align) between, applies to that " +
 			"function; anywhere else it is the file's default.",

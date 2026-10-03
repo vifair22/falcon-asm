@@ -31,14 +31,50 @@ const lintUsage = `usage: falcon-asm lint [flags] [paths...]
 
 Lints GAS (AT&T) x86 assembly (.S, .s) and the inline asm of C sources
 (.c, .h, .cc, .cpp) under the given files and directories (default ".").
-Directories named build, .git and node_modules are skipped. Each file's
-target (mode, x86-64 level, CPU, calling convention) comes from the
-compile database, .falcon-asm.json and in-file comments, as in the editor.
+Directories named build, .git and node_modules are skipped; a file named
+explicitly is linted whatever its extension. Flags may follow paths, and
+"--" ends the flags. Each file's target (mode, x86-64 level, CPU, calling
+convention) comes from the compile database, .falcon-asm.json and in-file
+comments, as in the editor.
 
-Exit status: 0 when nothing at or above --severity was found, 1 when
-something was, 2 on a usage or configuration error.
+Every enabled rule runs, including the listing rules (alignment, size
+budgets, boot layout, branch encoding), which need the assembler's
+listing. Each assembly file with a compile_commands.json entry (its own,
+else one for a file in the same directory or the same top-level
+subdirectory, as in the editor) is assembled with that entry's compiler,
+which also reports gas's own diagnostics. A file with no entry, or one
+that fails to assemble, cannot be checked by the listing rules: the run
+then ends with a note on stderr ("note: N listing rules skipped on M
+files ...") and never reports "no problems" without saying so.
+--no-toolchain turns the assembler off (faster; every listing rule is
+then skipped and counted).
 
-Flags:
+Exit status:
+  0  nothing at or above --severity was found
+  1  something at or above --severity was found
+  2  usage or configuration error, or a file could not be read or written
+--severity only sets the exit threshold: everything found is printed
+whatever it is. Skipped listing rules do not change the exit status.
+
+Output (--format): text is "file:line:col: severity: message [code]" on
+stdout with the summary and notes on stderr; json is an array of
+findings; json-full is {"findings", "skipped", "files"}; sarif is SARIF
+2.1.0, with skipped listing rules as tool execution notifications.
+
+Flags (one dash or two):
+`
+
+const lintExamples = `
+Examples:
+  falcon-asm lint                           lint the working directory
+  falcon-asm lint --severity hint src       fail on anything, hints included
+  falcon-asm lint --severity error .        fail only on errors
+  falcon-asm lint --changed                 pre-commit: files changed against HEAD
+  falcon-asm lint --fix boot/               apply quick fixes, report what is left
+  falcon-asm lint --format sarif . > lint.sarif
+  falcon-asm lint --compile-commands build/ --jobs 4
+  falcon-asm lint --config ci.falcon-asm.json --c=false asm/
+  falcon-asm lint --no-toolchain            rules only, no assembler runs
 `
 
 // lintOptions are the parsed flags of the lint subcommand.
@@ -55,28 +91,69 @@ type lintOptions struct {
 	paths     []string
 }
 
-func parseLintFlags(args []string, stderr io.Writer) (lintOptions, int, bool) {
-	var o lintOptions
+// lintFlagSet defines the lint flags into o. It is separate from parsing
+// so the help test can walk the same set the parser uses.
+func lintFlagSet(o *lintOptions, sev *string, noToolchain *bool) *flag.FlagSet {
 	fs := flag.NewFlagSet("falcon-asm lint", flag.ContinueOnError)
-	fs.SetOutput(stderr)
-	fs.Usage = func() {
-		fmt.Fprint(stderr, lintUsage)
-		fs.PrintDefaults()
-	}
-	fs.StringVar(&o.format, "format", "text", "output format: text (file:line:col: severity: message [code]), json or sarif")
+	fs.StringVar(&o.format, "format", "text", "output format: text, json, json-full or sarif")
 	fs.StringVar(&o.config, "config", "", "configuration file (default: the nearest .falcon-asm.json above each file)")
 	fs.StringVar(&o.ccdb, "compile-commands", "", "compile_commands.json, or a directory holding one (default: ./ or ./build/, else the nearest above each file)")
-	fs.BoolVar(&o.toolchain, "toolchain", false, "also assemble each file with its compiler and report gas diagnostics (slower)")
+	fs.BoolVar(&o.toolchain, "toolchain", true, "assemble each file that has a compile command, for gas diagnostics and the listing rules; on by default, accepted for compatibility")
+	fs.BoolVar(noToolchain, "no-toolchain", false, "do not run the assembler: no gas diagnostics, every listing rule skipped (faster)")
 	fs.BoolVar(&o.cFiles, "c", true, "lint inline asm in C sources found in directories")
 	fs.BoolVar(&o.fix, "fix", false, "apply every non-conflicting quick fix in place, then report what remains")
-	sev := fs.String("severity", "warning", "lowest severity that makes the exit status 1: error, warning, info or hint")
+	fs.StringVar(sev, "severity", "warning", "lowest severity that makes the exit status 1: error, warning, info or hint")
 	fs.BoolVar(&o.changed, "changed", false, "only lint files changed against git HEAD, plus untracked ones (for pre-commit)")
-	fs.IntVar(&o.jobs, "jobs", runtime.GOMAXPROCS(0), "files linted in parallel")
+	fs.IntVar(&o.jobs, "jobs", runtime.GOMAXPROCS(0), "files linted (and assembled) in parallel")
+	return fs
+}
+
+// printLintHelp writes the lint subcommand's full help.
+func printLintHelp(w io.Writer) {
+	var o lintOptions
+	var sev string
+	var noTC bool
+	fs := lintFlagSet(&o, &sev, &noTC)
+	fs.SetOutput(w)
+	fmt.Fprint(w, lintUsage)
+	fs.PrintDefaults()
+	fmt.Fprint(w, lintExamples)
+}
+
+// wantsHelp reports whether args ask for help before any "--": checked
+// before parsing, so help goes to stdout with status 0 and is never mixed
+// with an error about another flag.
+func wantsHelp(args []string) bool {
+	for _, a := range args {
+		switch a {
+		case "--":
+			return false
+		case "-h", "-help", "--help", "--h":
+			return true
+		}
+	}
+	return false
+}
+
+func parseLintFlags(args []string, stdout, stderr io.Writer) (lintOptions, int, bool) {
+	var o lintOptions
+	if wantsHelp(args) {
+		printLintHelp(stdout)
+		return o, 0, false
+	}
+	var sev string
+	var noToolchain bool
+	fs := lintFlagSet(&o, &sev, &noToolchain)
+	fs.SetOutput(stderr)
+	fs.Usage = func() {
+		fmt.Fprintln(stderr, "usage: falcon-asm lint [flags] [paths...]; falcon-asm lint --help lists the flags")
+	}
 	// Flags may follow paths ("lint src --fix"): parse, take one path,
 	// parse the rest again. After "--" everything is a path.
 	for rest := args; ; {
 		if err := fs.Parse(rest); err != nil {
 			if errors.Is(err, flag.ErrHelp) {
+				printLintHelp(stdout)
 				return o, 0, false
 			}
 			return o, 2, false
@@ -92,15 +169,18 @@ func parseLintFlags(args []string, stderr io.Writer) (lintOptions, int, bool) {
 		o.paths = append(o.paths, rest[0])
 		rest = rest[1:]
 	}
+	if noToolchain {
+		o.toolchain = false
+	}
 	switch o.format {
-	case "text", "json", "sarif":
+	case "text", "json", "json-full", "sarif":
 	default:
-		fmt.Fprintf(stderr, "falcon-asm lint: unknown --format %q (want text, json or sarif)\n", o.format)
+		fmt.Fprintf(stderr, "falcon-asm lint: unknown --format %q (want text, json, json-full or sarif)\n", o.format)
 		return o, 2, false
 	}
-	s, ok := lint.ParseSeverity(*sev)
+	s, ok := lint.ParseSeverity(sev)
 	if !ok || s == lint.Off {
-		fmt.Fprintf(stderr, "falcon-asm lint: unknown --severity %q (want error, warning, info or hint)\n", *sev)
+		fmt.Fprintf(stderr, "falcon-asm lint: unknown --severity %q (want error, warning, info or hint)\n", sev)
 		return o, 2, false
 	}
 	o.threshold = s
@@ -140,7 +220,41 @@ type item struct {
 type fileResult struct {
 	items []item
 	fixed int
+	skip  *listingSkip // nil when every enabled listing rule ran
 	err   error
+}
+
+// skipReason is why a file had no usable assembler listing, so that its
+// listing rules could not run.
+type skipReason int
+
+const (
+	skipNone        skipReason = iota - 1
+	skipNoEntry                // no compile command for the file
+	skipDisabled               // --no-toolchain
+	skipNoCompiler             // the entry's compiler is not installed
+	skipFailed                 // preprocessing or assembly failed: no addresses
+	skipNotAssembly            // named explicitly, but not an assembler source
+	numSkipReasons
+)
+
+// skipKeys name the reasons in json-full and SARIF output; they are part of
+// the output format and must not change.
+var skipKeys = [numSkipReasons]string{"no-compile-command", "no-toolchain", "compiler-not-found", "assembly-failed", "not-assembly"}
+
+// skipPhrases describe a count of files skipped for each reason.
+var skipPhrases = [numSkipReasons]string{"without a compile command", "with --no-toolchain", "whose compiler was not found", "failed to assemble", "not assembler sources"}
+
+// listingSkip is a file whose enabled listing rules did not run.
+type listingSkip struct {
+	reason skipReason
+	rules  []string // codes of the enabled listing rules for the file
+}
+
+// skippedFile pairs a skip with its file for the output writers.
+type skippedFile struct {
+	file *lintFile
+	listingSkip
 }
 
 // linter holds what files share: configurations and databases found by
@@ -164,7 +278,7 @@ type linter struct {
 }
 
 func runLint(args []string, stdout, stderr io.Writer) int {
-	o, code, ok := parseLintFlags(args, stderr)
+	o, code, ok := parseLintFlags(args, stdout, stderr)
 	if !ok {
 		return code
 	}
@@ -242,6 +356,7 @@ func runLint(args []string, stdout, stderr io.Writer) int {
 	wg.Wait()
 
 	var items []item
+	var skipped []skippedFile
 	status := 0
 	for i, r := range results {
 		if r.err != nil {
@@ -253,18 +368,27 @@ func runLint(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "%s: applied %d fix%s\n", files[i].display, r.fixed, plural(r.fixed, "", "es"))
 		}
 		items = append(items, r.items...)
+		if r.skip != nil {
+			skipped = append(skipped, skippedFile{file: &files[i], listingSkip: *r.skip})
+		}
 	}
+	sum := summarizeSkips(skipped)
 	switch o.format {
 	case "json":
 		err = writeJSON(stdout, items)
+	case "json-full":
+		err = writeJSONFull(stdout, items, skipped, len(files))
 	case "sarif":
-		err = writeSARIF(stdout, items)
+		err = writeSARIF(stdout, items, skipped, status == 0)
 	default:
-		err = writeText(stdout, stderr, items, len(files))
+		err = writeText(stdout, stderr, items, len(files), sum)
 	}
 	if err != nil {
 		fmt.Fprintf(stderr, "falcon-asm lint: write: %v\n", err)
 		return 2
+	}
+	if o.format != "text" && sum.files > 0 {
+		fmt.Fprintln(stderr, sum.note())
 	}
 	if status != 0 {
 		return status
@@ -515,21 +639,25 @@ func (l *linter) lintPath(f *lintFile) fileResult {
 	if err != nil {
 		return fileResult{err: err}
 	}
-	items := l.lintText(f, string(data))
+	items, skip := l.lintText(f, string(data))
 	if !l.o.fix {
-		return fileResult{items: items}
+		return fileResult{items: items, skip: skip}
 	}
 	text, n := applyFixes(string(data), items)
 	if n == 0 {
-		return fileResult{items: items}
+		return fileResult{items: items, skip: skip}
 	}
 	if err := os.WriteFile(f.abs, []byte(text), 0o644); err != nil {
 		return fileResult{err: fmt.Errorf("write fixes: %w", err)}
 	}
-	return fileResult{items: l.lintText(f, text), fixed: n}
+	items, skip = l.lintText(f, text)
+	return fileResult{items: items, skip: skip, fixed: n}
 }
 
-func (l *linter) lintText(f *lintFile, text string) []item {
+// lintText lints one file's text. The listingSkip is non-nil when the file
+// is assembly, some listing rule is enabled for it, and there was no
+// listing to run it on.
+func (l *linter) lintText(f *lintFile, text string) ([]item, *listingSkip) {
 	doc := &docstore.Document{URI: toolchain.PathToURI(f.abs), Text: text}
 	flags, hasFlags := l.flagsFor(f.abs)
 	fc := l.configFor(f.abs).For(f.abs)
@@ -543,6 +671,7 @@ func (l *linter) lintText(f *lintFile, text string) []item {
 		l.noteOnce(fmt.Sprintf(format, args...), format, args...)
 	}}
 	var gas []protocol.Diagnostic
+	why := skipNone
 	if f.c {
 		d.Target = project.ResolveTarget(tin, project.CLevelComment(text))
 	} else {
@@ -551,8 +680,13 @@ func (l *linter) lintText(f *lintFile, text string) []item {
 		}
 		d.Toks = lexer.Tokenize(text)
 		d.Target = project.ResolveTarget(tin, project.AsmLevelComment(d.Toks))
-		if l.o.toolchain && hasFlags {
-			d.Macros, d.Listing, gas = l.assemble(f, flags)
+		switch {
+		case !l.o.toolchain:
+			why = skipDisabled
+		case !hasFlags:
+			why = skipNoEntry
+		default:
+			d.Macros, d.Listing, gas, why = l.assemble(f, flags)
 		}
 	}
 	res := project.Lint(d)
@@ -584,12 +718,34 @@ func (l *linter) lintText(f *lintFile, text string) []item {
 		a, b := items[i].Range.Start, items[j].Range.Start
 		return a.Line < b.Line || a.Line == b.Line && a.Character < b.Character
 	})
-	return items
+	if why == skipNone {
+		return items, nil
+	}
+	codes := listingRules(fc)
+	if len(codes) == 0 {
+		return items, nil
+	}
+	return items, &listingSkip{reason: why, rules: codes}
+}
+
+// listingRules are the codes of the assembly listing rules a file's
+// configuration leaves on: the ones a missing listing silently drops.
+func listingRules(fc lint.FileConfig) []string {
+	var codes []string
+	for _, r := range lint.Rules() {
+		if r.NeedsListing && r.Langs&lint.LangAsm != 0 && fc.SeverityOf(r) != lint.Off {
+			codes = append(codes, r.Code)
+		}
+	}
+	return codes
 }
 
 // assemble runs the toolchain for a file: its macro table (which the parse
-// uses), the listing (rules that need one) and gas's own diagnostics.
-func (l *linter) assemble(f *lintFile, flags toolchain.Flags) (map[string]string, *toolchain.AsmResult, []protocol.Diagnostic) {
+// uses), the listing (rules that need one) and gas's own diagnostics. The
+// reason is skipNone when the listing is usable. A failed assembly that
+// still listed some lines keeps its listing, as the editor does; one that
+// listed nothing leaves the listing rules with no addresses at all.
+func (l *linter) assemble(f *lintFile, flags toolchain.Flags) (map[string]string, *toolchain.AsmResult, []protocol.Diagnostic, skipReason) {
 	ctx := context.Background()
 	var macros map[string]string
 	m, err := l.tc.Macros(ctx, f.abs, flags)
@@ -600,19 +756,38 @@ func (l *linter) assemble(f *lintFile, flags toolchain.Flags) (map[string]string
 			macros[k] = v.Value
 		}
 	case errors.Is(err, toolchain.ErrNoToolchain):
-		l.noteOnce("notc", "--toolchain: %v; gas diagnostics are off", err)
-		return nil, nil, nil
-	case !errors.Is(err, toolchain.ErrNotAssembly):
+		l.noteOnce("notc", "%v; gas diagnostics are off, and the listing rules skipped, for the files it builds", err)
+		return nil, nil, nil, skipNoCompiler
+	case errors.Is(err, toolchain.ErrNotAssembly):
+		return nil, nil, nil, skipNotAssembly
+	default:
 		l.noteOnce("macros:"+err.Error(), "%s: macros: %v", f.display, err)
 	}
 	res, err := l.tc.Assemble(ctx, f.abs, flags)
-	if err != nil {
-		if !errors.Is(err, toolchain.ErrNotAssembly) && !errors.Is(err, toolchain.ErrNoToolchain) {
-			l.noteOnce("asm:"+err.Error(), "%s: assemble: %v", f.display, err)
-		}
-		return macros, nil, nil
+	switch {
+	case errors.Is(err, toolchain.ErrNoToolchain):
+		return macros, nil, nil, skipNoCompiler
+	case errors.Is(err, toolchain.ErrNotAssembly):
+		return macros, nil, nil, skipNotAssembly
+	case err != nil:
+		l.noteOnce("asm:"+err.Error(), "%s: assemble: %v", f.display, err)
+		return macros, nil, nil, skipFailed
 	}
-	return macros, res, res.Diagnostics[f.abs]
+	gas := res.Diagnostics[f.abs]
+	why := skipNone
+	if len(res.Listing) == 0 && hasError(gas) {
+		why = skipFailed
+	}
+	return macros, res, gas, why
+}
+
+func hasError(ds []protocol.Diagnostic) bool {
+	for _, d := range ds {
+		if d.Severity == protocol.SeverityError {
+			return true
+		}
+	}
+	return false
 }
 
 // applyFixes applies the first fix of every item that has one, skipping a

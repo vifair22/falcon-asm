@@ -255,9 +255,18 @@ func TestBusySpin(t *testing.T) {
 
 func TestSelfModifying(t *testing.T) {
 	got := expect(t, "\t.code16\nf:\n\tmovb %al, patch+1\npatch:\n\tint $0\n\tret", asm.Mode16, CodeSelfModifying, 1, "into the instruction at patch (line 4) in executable section .text")
-	if got[0].Severity != lint.Info {
+	if got[0].Severity != lint.Info || !strings.Contains(got[0].Message, "the real-mode idiom, safe with paging off") {
 		t.Fatalf("%v", got[0])
 	}
+	// Paging in the document, or code that is not 16-bit: the hazard.
+	got = expect(t, "\t.code16\nf:\n\tmovl %eax, %cr3\n\tmovb %al, patch+1\npatch:\n\tint $0\n\tret", asm.Mode16, CodeSelfModifying, 1, "a hazard under paging or W^X")
+	got = append(got, expect(t, "\t.code32\nf:\n\tmovb %al, patch+1\npatch:\n\tint $0\n\tret", asm.Mode32, CodeSelfModifying, 1, "serialising instruction")...)
+	if strings.Contains(got[0].Message, "idiom") || strings.Contains(got[1].Message, "idiom") {
+		t.Fatalf("%v", got)
+	}
+	// 32-bit code patching the 16-bit code it switches to (thunk.S).
+	expect(t, "\t.code32\nf:\n\tmovb %al, patch+1\n\tret\n\t.code16\npatch:\n\tint $0\n\tret", asm.Mode32, CodeSelfModifying, 1, "real-mode idiom")
+	expect(t, "\t.code64\ng:\n\tret\n\t.code32\nf:\n\tmovb %al, patch+1\n\tret\n\t.code16\npatch:\n\tint $0\n\tret", asm.Mode64, CodeSelfModifying, 1, "W^X")
 	// A variable in .text is data, and a store to .data is not code.
 	expect(t, "\t.code16\nf:\n\tmovb %al, var\n\tmovb %al, d\n\tmovb (var), %al\n\tret\nvar:\n\t.byte 0\n\t.section .data\nd:\n\tnop", asm.Mode16, CodeSelfModifying, 0, "")
 	// A section without the x flag.

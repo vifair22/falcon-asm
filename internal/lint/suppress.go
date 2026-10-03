@@ -14,6 +14,22 @@ import (
 // for its code, severity, configuration and documentation.
 const UnusedSuppressionCode = "unused-suppression"
 
+// IgnoreWithoutReasonCode is the rule reporting suppressions that do not
+// say why. Like unused-suppression, the runner implements it.
+const IgnoreWithoutReasonCode = "ignore-without-reason"
+
+// SuppressionSyntax is the one-paragraph reference of the suppression
+// comment syntax, shared by docs/RULES.md and the rule documentation so
+// the two cannot drift apart.
+const SuppressionSyntax = "Inside any comment (`/* */`, `#` or `//` in assembly; `//` or `/* */` in C, " +
+	"for inline asm): `falcon-asm: ignore=<code>[,<code>...]: <reason>` silences findings that start " +
+	"on the comment's line; `ignore-next=<code>: <reason>` the next line holding code (comment-only " +
+	"lines between are skipped); `ignore-file=<code>: <reason>` the whole file; `ignore-begin=<code>: " +
+	"<reason>` ... `ignore-end=<code>` every line between the two, inclusive (an unclosed begin runs " +
+	"to the end of the file). `all` in place of a code matches every rule. The reason is optional: " +
+	"everything after the colon that follows the code list is free text. Enable ignore-without-reason " +
+	"to require one."
+
 func init() {
 	Register(&Rule{
 		Code:    UnusedSuppressionCode,
@@ -29,6 +45,24 @@ func init() {
 				"because it suppresses nothing either.",
 			Bad:  "\t.code64\n\tpushq %rax /* falcon-asm: ignore=mode-register */",
 			Good: "\t.code64\n\tpushq %rax",
+		},
+		Check: func(*Context) {},
+	})
+	Register(&Rule{
+		Code:    IgnoreWithoutReasonCode,
+		Section: 12,
+		Default: Off,
+		Langs:   LangAsm | LangInline | LangC,
+		Doc: Doc{
+			Summary: "A falcon-asm: ignore comment that does not say why (no `: reason` after its codes).",
+			Why: "A suppression records a decision that a finding is wrong about this code, and the next " +
+				"reader cannot tell a considered decision from a quick silencing unless the comment says " +
+				"which it was. Write the reason after a colon: `falcon-asm: ignore=slow-loop: runs once at " +
+				"boot`. ignore-end needs none, since its begin carries it. Off by default; turn it on per " +
+				"project with `\"rules\": {\"ignore-without-reason\": \"info\"}` in .falcon-asm.json. " +
+				SuppressionSyntax,
+			Bad:  "\t.code64\n\tenter $32, $0 /* falcon-asm: ignore=slow-enter */",
+			Good: "\t.code64\n\tenter $32, $0 /* falcon-asm: ignore=slow-enter: matches the frame the debugger expects */",
 		},
 		Check: func(*Context) {},
 	})
@@ -69,6 +103,7 @@ type directive struct {
 	endLine    int // dirBegin: last line of the region (inclusive)
 	matched    bool
 	used       bool
+	reason     bool // a ": text" follows the item's code list
 }
 
 // Suppressions are the suppression comments of one document, parsed once.
@@ -204,13 +239,27 @@ func (s *Suppressions) parseComment(text string, base int) {
 				}
 				break
 			}
+			reason := hasReason(text[j:])
 			for _, d := range item {
 				d.listEnd = base + j
+				d.reason = reason
 			}
 			s.dirs = append(s.dirs, item...)
 		}
 		i = j - 1
 	}
+}
+
+// hasReason reports whether rest (the comment after an item's code list)
+// opens with ": " and some text. The comment's closing delimiter is not
+// text, and neither is a colon followed only by spaces.
+func hasReason(rest string) bool {
+	if rest == "" || rest[0] != ':' {
+		return false
+	}
+	r := strings.TrimSpace(rest[1:])
+	r = strings.TrimSpace(strings.TrimSuffix(r, "*/"))
+	return r != ""
 }
 
 func isLower(c byte) bool { return c >= 'a' && c <= 'z' }
@@ -321,6 +370,42 @@ func (s *Suppressions) Unused(sev Severity, ran map[string]bool) []Finding {
 			Severity: sev,
 			Range:    protocol.Range{Start: s.doc.Position(d.start), End: s.doc.Position(d.end)},
 			Message:  msg,
+		})
+		self = append(self, d)
+	}
+	return s.filter(out, self)
+}
+
+// Unreasoned reports, at severity sev, every suppression item that gives
+// no reason. An item is one key with its code list, so "ignore=a,b" is
+// one finding over both codes. ignore-end is never reported: its begin
+// carries the reason. As with Unused, a suppression cannot hide its own
+// report, but others (an ignore-file of this code) can.
+func (s *Suppressions) Unreasoned(sev Severity) []Finding {
+	if s == nil {
+		return nil
+	}
+	var out []Finding
+	var self []*directive
+	for k, d := range s.dirs {
+		if d.kind == dirEnd || d.reason {
+			continue
+		}
+		// The first directive of an item stands for the whole item.
+		if k > 0 && s.dirs[k-1].listEnd == d.listEnd && s.dirs[k-1].kind == d.kind {
+			continue
+		}
+		key := "ignore"
+		for name, kind := range dirKeys {
+			if kind == d.kind {
+				key = name
+			}
+		}
+		out = append(out, Finding{
+			Code:     IgnoreWithoutReasonCode,
+			Severity: sev,
+			Range:    protocol.Range{Start: s.doc.Position(d.start), End: s.doc.Position(d.listEnd)},
+			Message:  fmt.Sprintf("%s=%s gives no reason: say why after a colon, as in %s=<code>: <reason>", key, s.doc.Text[d.start:d.listEnd], key),
 		})
 		self = append(self, d)
 	}

@@ -68,7 +68,16 @@ func init() {
 		Why: "A label nobody jumps to, calls or takes the address of is either dead code left over " +
 			"from a refactor or a reference that was meant to use it and spells it differently. " +
 			"Global labels, entry points (_start and friends), labels inside .macro bodies and " +
-			"labels a linker script names are never reported.",
+			"labels a linker script names are never reported. Some labels are reached by offset " +
+			"rather than by name: code placed with .org and entered through a vector or a far " +
+			"pointer built elsewhere, an option ROM's entry at offset 3, strings walked one after " +
+			"another. A label directly after `.org <constant>` or `. = <constant>` (only label " +
+			"lines and directives that emit nothing between) is presumed reachable. Anywhere " +
+			"else, say so on the label's line or in the comment lines directly above it: " +
+			"`falcon-asm: reached=offset` (entered at its offset), `reached=external` (entered " +
+			"from outside the sources), or `reached=sequence` (data walked from a previous label), " +
+			"which also covers the labels of the data lines that directly follow, up to the " +
+			"first blank, comment or code line. Text after a colon is a free-form reason.",
 		Bad:  "\tjmp done\nretry:\n\tnop\ndone:\n\tret",
 		Good: "\tjmp done\ndone:\n\tret",
 	})
@@ -231,6 +240,7 @@ func checkUnusedLabel(c *lint.Context, t *table) {
 		return
 	}
 	seen := map[string]bool{}
+	var ri *reachInfo
 	for _, d := range t.labels {
 		if seen[d.name] {
 			continue
@@ -239,7 +249,20 @@ func checkUnusedLabel(c *lint.Context, t *table) {
 		if t.exported[d.name] || entryNames[d.name] || t.uses[d.name] > 0 || ws.Referenced(d.name) {
 			continue
 		}
-		c.ReportRange(d.start, d.end, fmt.Sprintf("label %s is never referenced", d.name))
+		// Only computed once a label is otherwise unused, which most
+		// documents never reach.
+		if ri == nil {
+			r := reachedLabels(c.Prog, t)
+			ri = &r
+		}
+		if ri.reached[d.name] {
+			continue
+		}
+		msg := fmt.Sprintf("label %s is never referenced", d.name)
+		if v, ok := ri.bad[d.name]; ok {
+			msg += fmt.Sprintf(" (reached=%s is not one of offset, sequence, external)", v)
+		}
+		c.ReportRange(d.start, d.end, msg)
 	}
 }
 

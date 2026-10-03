@@ -4,11 +4,25 @@ Generated from the rule registry by `make rules-doc`; do not edit by hand.
 A test fails when this file and the registry disagree.
 
 Every rule can be configured per project and per path in
-`.falcon-asm.json` (`"rules": {"<code>": "off"}`) and suppressed in
-the source with a comment: `falcon-asm: ignore=<code>` on the line,
-`ignore-next=<code>` for the next code line, `ignore-file=<code>`, or an
-`ignore-begin=<code>` ... `ignore-end=<code>` region. `all` matches every
-rule. See docs/DESIGN.md (Lint engine) for the full reference.
+`.falcon-asm.json` (`"rules": {"<code>": "off"}`, or a severity to turn on
+a rule that is off by default) and suppressed in the source.
+
+## Suppression comments
+
+Inside any comment (`/* */`, `#` or `//` in assembly; `//` or `/* */` in C, for inline asm): `falcon-asm: ignore=<code>[,<code>...]: <reason>` silences findings that start on the comment's line; `ignore-next=<code>: <reason>` the next line holding code (comment-only lines between are skipped); `ignore-file=<code>: <reason>` the whole file; `ignore-begin=<code>: <reason>` ... `ignore-end=<code>` every line between the two, inclusive (an unclosed begin runs to the end of the file). `all` in place of a code matches every rule. The reason is optional: everything after the colon that follows the code list is free text. Enable ignore-without-reason to require one.
+
+```asm
+	loop 1b /* falcon-asm: ignore=slow-loop: 32 passes, once, at boot */
+/* falcon-asm: ignore-next=self-modifying-code,unused-label: patched before paging is on */
+/* falcon-asm: ignore-begin=unused-label: a table walked by offset */
+/* falcon-asm: ignore-end=unused-label */
+```
+
+unused-suppression reports a suppression that matched nothing, and
+ignore-without-reason (off by default) one with no reason. See
+docs/DESIGN.md (Lint engine, Suppressions) for the full reference.
+
+## Rules
 
 | Code | Section | Default | Summary |
 | --- | --- | --- | --- |
@@ -111,6 +125,7 @@ rule. See docs/DESIGN.md (Lint engine) for the full reference.
 | [undefined-label](#undefined-label) | 10 | warning | A branch, call, $symbol or data reference to a symbol defined nowhere in the workspace. |
 | [unused-define](#unused-define) | 10 | info | A #define, .set or .equ symbol that neither the file nor the files including it use. |
 | [unused-label](#unused-label) | 10 | info | A label that is not global and that nothing references, in the file or the workspace. |
+| [ignore-without-reason](#ignore-without-reason) | 12 | off | A falcon-asm: ignore comment that does not say why (no `: reason` after its codes). |
 | [unused-suppression](#unused-suppression) | 12 | info | A falcon-asm: ignore comment that suppresses nothing. |
 
 ## addr-invalid-reg
@@ -1015,7 +1030,7 @@ _start:
 
 Store into an instruction in an executable section (self-modifying code).
 
-Patching an instruction (the immediate of a far jump, an opcode) works in real mode and is an old boot loader trick, but it is invisible in the source, it breaks the moment the code is placed in ROM or a write-protected page, and on processors since the i486 a write close ahead of the executing instruction may or may not be seen without a jump in between. The rule reports a store whose memory operand names a label of code (an instruction, not a data directive) in .text or a section with the x flag, as Information: it is sometimes the point. Variables kept in .text (a data label) are not code and are not reported.
+Patching an instruction (the immediate of a far jump, an opcode) works in real mode and is an old boot loader trick, but it is invisible in the source, it breaks the moment the code is placed in ROM or a write-protected page, and on processors since the i486 a write close ahead of the executing instruction may or may not be seen without a jump in between. It becomes a real hazard once paging or W^X makes code pages read-only (the store faults), and when another processor runs the patched bytes, which it may not see until it executes a serialising instruction (cpuid, iret, a far jump through a mode switch). When the patched instruction is 16-bit code and the document shows no sign of paging (no write to CR3, no 64-bit code), the message calls the patch what it usually is there, the real-mode idiom. The rule reports a store whose memory operand names a label of code (an instruction, not a data directive) in .text or a section with the x flag, as Information: it is sometimes the point. Variables kept in .text (a data label) are not code and are not reported.
 
 Bad:
 
@@ -1146,7 +1161,7 @@ g:
 
 A falcon-asm calling convention or handler annotation that cannot be understood.
 
-Annotations select the calling convention of a file or a function (`falcon-asm: cc=sysv`, `cc=custom clobbers=ax,cx preserves=bx,si,di args=ax returns=ax`) and mark interrupt handlers (`falcon-asm: handler=errcode vector=14`). A misspelled convention or register, lists without cc=custom, or an annotation on a label that is not a function start would otherwise be ignored silently, and the checks the author asked for would quietly not run. Known conventions: sysv, ms, cdecl, stdcall, fastcall, regparm(N), custom and none. An annotation on the label's line, or above it with only comments and declaration directives (.globl, .type, .align) between, applies to that function; anywhere else it is the file's default.
+Annotations select the calling convention of a file or a function (`falcon-asm: cc=sysv`, `cc=custom clobbers=ax,cx preserves=bx,si,di args=ax returns=ax`) and mark interrupt handlers (`falcon-asm: handler=errcode vector=14`). The lists (args=, returns=, clobbers=, preserves=) belong to a custom convention, so cc=custom may be left out when they are given: lists alone mean cc=custom. Lists next to cc= naming any other convention are reported, because one of the two is wrong. A misspelled convention or register, or an annotation on a label that is not a function start would otherwise be ignored silently, and the checks the author asked for would quietly not run. Known conventions: sysv, ms, cdecl, stdcall, fastcall, regparm(N), custom and none. An annotation on the label's line, or above it with only comments and declaration directives (.globl, .type, .align) between, applies to that function; anywhere else it is the file's default.
 
 Bad:
 
@@ -1653,7 +1668,7 @@ gdt_end:
 
 INT 13h read of fewer sectors than the stage it loads.
 
-A boot sector reads the next stage with INT 13h: AL sectors for AH=02h, the disk address packet's count for AH=42h. When the stage grows past that many sectors nothing fails at build time; the loader jumps into a stage whose tail was never read. The count is taken from the dataflow (AL, or a packet laid out as constants that nothing writes), and the stage from `falcon-asm: loads=<label or file>` (a label of this file measured to its _end label in the listing, a binary by its size, an assembly source assembled with its own flags) or, in a boot sector, from a read into the rest of its own section. A count read from memory is replaced by `falcon-asm: sectors=<n>` or a <STAGE>_SECTORS macro when there is one.
+A boot sector reads the next stage with INT 13h: AL sectors for AH=02h, the disk address packet's count for AH=42h. When the stage grows past that many sectors nothing fails at build time; the loader jumps into a stage whose tail was never read. The count is taken from the dataflow (AL, or a packet laid out as constants that nothing writes), and the stage from `falcon-asm: loads=<label or file>` (a label of this file measured to its _end label in the listing, a binary by its size, an assembly source assembled with its own flags) or, in a boot sector, from a read into the rest of its own section. A count read from memory is replaced by `falcon-asm: sectors=<n>` or a <STAGE>_SECTORS macro when there is one. A loader with no single count (patched in by an installer, read a sector at a time) states the bound its build holds the stage to with `falcon-asm: loads=<label or file> max=<n or symbol>`: max is a sector count, a number or a symbol (a macro of the run, a .equ of the file, or a macro of the headers it includes, read through its compile flags), and a stage larger than max sectors is reported here.
 
 Bad:
 
@@ -1702,7 +1717,7 @@ stage2:
 
 Boot sector or annotated loader whose INT 13h read cannot be shown to cover the stage it loads.
 
-loader-sector-count needs a constant sector count and a known stage size. When a boot sector reads with a count from memory (patched in by an installer), inside a loop, or without anything naming the stage, the fit cannot be proven and this says which part is missing. Information only: annotate with `falcon-asm: loads=<label or file>` and, for a count from memory, `falcon-asm: sectors=<n>` to have it checked.
+loader-sector-count needs a constant sector count and a known stage size. When a boot sector reads with a count from memory (patched in by an installer), inside a loop, or without anything naming the stage, the fit cannot be proven and this says which part is missing, and which annotation would prove it. Information only. Name the stage with `falcon-asm: loads=<label or file>`; for a count from memory or a read loop, state the bound with `max=<n or symbol>` on the same comment (the size the build holds the stage to, such as a header's STAGE2_MAX_SECTORS that a build step checks), or the count with `falcon-asm: sectors=<n>`. A max= that cannot be resolved (a symbol neither the run, the file nor its headers define) is reported here by name.
 
 Bad:
 
@@ -1716,23 +1731,26 @@ _start:
 count:	.byte 0
 	. = _start + 510
 	.byte 0x55, 0xAA
+stage2:
+	.fill 600, 1, 0x90
 ```
 
 Good:
 
 ```asm
+	.equ STAGE2_MAX_SECTORS, 2
 	.code16
 _start:
-	xorw %ax, %ax
-	movw %ax, %es
-	movw $0x0201, %ax
-	movw $0x7E00, %bx
+	/* falcon-asm: loads=stage2 max=STAGE2_MAX_SECTORS */
+	movb count, %al
+	movb $0x02, %ah
 	int $0x13
 	ljmp $0, $0x7E00
+count:	.byte 0
 	. = _start + 510
 	.byte 0x55, 0xAA
 stage2:
-	.fill 500, 1, 0x90
+	.fill 600, 1, 0x90
 ```
 
 ## mbr-partition-overlap
@@ -1775,7 +1793,7 @@ _start:
 
 Switch to protected mode in a file that never enables A20.
 
-With the A20 line masked every odd megabyte of physical memory aliases the one below it, so anything placed at 1 MiB lands on the interrupt vector table. The file sets CR0.PE but nothing in it opens A20 (the fast gate, bit 1 of port 0x92; the keyboard controller's write-output-port command 0xD1; INT 15h AX=2401h). Information only: an earlier stage may have done it, which a single file cannot show. A return to protected mode after a trip to real mode is not reported.
+With the A20 line masked every odd megabyte of physical memory aliases the one below it, so anything placed at 1 MiB lands on the interrupt vector table. The file sets CR0.PE but nothing in it opens A20 (the fast gate, bit 1 of port 0x92; the keyboard controller's write-output-port command 0xD1; INT 15h AX=2401h). Information only: an earlier stage may have done it, which a single file cannot show. A return to protected mode after a trip to real mode is not reported, and neither is a SIPI trampoline (one the sipi rules recognise, or one marked `falcon-asm: trampoline` or `falcon-asm: trampoline=copied`): A20 is a chipset gate, not processor state, and an application processor inherits it. When an earlier stage opens it, `falcon-asm: a20=<target>` says which: a file relative to this one (`a20=../start/pmode.S`), a function in one (`a20=../start/pmode.S:pmode_enter`), or a label of this file or a global of a file linked with it (`a20=pmode_enter`). The target is checked: it must itself enable A20 (directly or in a function it calls), or the finding stays and says why the annotation does not hold.
 
 Bad:
 
@@ -1797,11 +1815,18 @@ gdt_desc:	.word 0
 Good:
 
 ```asm
+# pmode.S
 	.code16
-	cli
+	.globl pmode_enter
+pmode_enter:
 	inb $0x92, %al
 	orb $2, %al
 	outb %al, $0x92
+	ret
+# ap.S
+	.code16
+	/* falcon-asm: a20=pmode.S */
+	cli
 	lgdt gdt_desc
 	movl %cr0, %eax
 	orl $1, %eax
@@ -2009,7 +2034,7 @@ gdt_desc: .word gdt_end - gdt - 1
 
 SIPI trampoline at a section offset that is not a multiple of 4 KiB.
 
-The startup IPI's vector is a page number: the processor starts at offset 0 of that page. A trampoline the listing places at, say, offset 0x120 of its section cannot be the first byte of a page however the section is aligned. A trampoline that is copied to its page before the IPIs are sent is not this rule's business; mark only the in-place one.
+The startup IPI's vector is a page number: the processor starts at offset 0 of that page. A trampoline the listing places at, say, offset 0x120 of its section cannot be the first byte of a page however the section is aligned. A trampoline that is copied to its page before the IPIs are sent is not this rule's business: mark it `falcon-asm: trampoline=copied`.
 
 Bad:
 
@@ -2038,7 +2063,7 @@ ap_start:
 
 SIPI trampoline not assembled as 16-bit code.
 
-A startup IPI starts an application processor in real mode at the first byte of the page its vector names (CS = vector << 8, IP = 0). The trampoline therefore has to be .code16 and page aligned. A label is taken as the trampoline when the vector field of an ICR value is built from it with delivery mode 110b (`$(0x4600 | (ap_start >> 12))`), or when a `falcon-asm: trampoline` comment marks it. sipi-alignment checks the page alignment against the listing.
+A startup IPI starts an application processor in real mode at the first byte of the page its vector names (CS = vector << 8, IP = 0). The trampoline therefore has to be .code16 and page aligned. A label is taken as the trampoline when the vector field of an ICR value is built from it with delivery mode 110b (`$(0x4600 | (ap_start >> 12))`), or when a `falcon-asm: trampoline` comment marks it; `falcon-asm: trampoline=copied` marks one that is copied to its page before the IPIs are sent (from C, often, where no ICR constant names it), which this rule checks and the alignment rules leave alone. sipi-alignment checks the page alignment against the listing.
 
 Bad:
 
@@ -2067,7 +2092,7 @@ ap_start:
 
 SIPI trampoline whose 4 KiB alignment cannot be shown.
 
-When there is no listing and no `.balign 4096` (or `.p2align 12`) right before the trampoline label, nothing in the file proves the page alignment a startup IPI needs. Reported as information: the linker script may well place it, which is outside what the linter sees.
+When there is no listing and no `.balign 4096` (or `.p2align 12`) right before the trampoline label, nothing in the file proves the page alignment a startup IPI needs. Reported as information: the linker script may well place it, which is outside what the linter sees. A trampoline marked `falcon-asm: trampoline=copied` runs from the page it is copied to and is not reported.
 
 Bad:
 
@@ -2594,23 +2619,29 @@ Good:
 
 loop/loope/loopne in 32- or 64-bit code: microcoded on Intel cores; dec + jnz is faster.
 
-Intel cores decode loop into several uops and run it far slower than the dec/jnz pair, which macro-fuses into one uop (Agner Fog's instruction tables list loop at about 7 uops on Skylake and loope/loopne at more; the Intel optimization manual advises against it). Compilers never emit it. In 16-bit code the rule is quiet: there it is usually boot code optimised for size, where loop's two bytes matter more than its speed. dec does not preserve the flags that loop preserves, so the rewrite is not offered as an automatic fix.
+Intel cores decode loop into several uops and run it far slower than the dec/jnz pair, which macro-fuses into one uop (Agner Fog's instruction tables list loop at about 7 uops on Skylake and loope/loopne at more; the Intel optimization manual advises against it). Compilers never emit it. In 16-bit code the rule is quiet: there it is usually boot code optimised for size, where loop's two bytes matter more than its speed. The cost only matters when the loop itself runs many times, so the rule reports a loop instruction only in hot code: inside an enclosing loop (a cycle of the control-flow graph other than the one the loop instruction closes), or in a function called from a loop, from such a function, or recursively. A loop in setup or once-only code (no enclosing loop, no caller in a loop in the document) is not reported, nor is a global routine whose only callers are outside the document; inline asm templates, whose loops are in the surrounding C, are always reported. dec does not preserve the flags that loop preserves, so the rewrite is not offered as an automatic fix.
 
 Bad:
 
 ```asm
+2:	movl $8, %ecx
 1:	addl (%esi), %eax
 	addl $4, %esi
 	loop 1b
+	decl %edx
+	jnz 2b
 ```
 
 Good:
 
 ```asm
+2:	movl $8, %ecx
 1:	addl (%esi), %eax
 	addl $4, %esi
 	decl %ecx
 	jnz 1b
+	decl %edx
+	jnz 2b
 ```
 
 ## xchg-mem-lock
@@ -3055,7 +3086,7 @@ Good:
 
 A label that is not global and that nothing references, in the file or the workspace.
 
-A label nobody jumps to, calls or takes the address of is either dead code left over from a refactor or a reference that was meant to use it and spells it differently. Global labels, entry points (_start and friends), labels inside .macro bodies and labels a linker script names are never reported.
+A label nobody jumps to, calls or takes the address of is either dead code left over from a refactor or a reference that was meant to use it and spells it differently. Global labels, entry points (_start and friends), labels inside .macro bodies and labels a linker script names are never reported. Some labels are reached by offset rather than by name: code placed with .org and entered through a vector or a far pointer built elsewhere, an option ROM's entry at offset 3, strings walked one after another. A label directly after `.org <constant>` or `. = <constant>` (only label lines and directives that emit nothing between) is presumed reachable. Anywhere else, say so on the label's line or in the comment lines directly above it: `falcon-asm: reached=offset` (entered at its offset), `reached=external` (entered from outside the sources), or `reached=sequence` (data walked from a previous label), which also covers the labels of the data lines that directly follow, up to the first blank, comment or code line. Text after a colon is a free-form reason.
 
 Bad:
 
@@ -3073,6 +3104,30 @@ Good:
 	jmp done
 done:
 	ret
+```
+
+## ignore-without-reason
+
+- Section: 12 (Lint workflow)
+- Default severity: off
+- Runs on: assembly, inline asm, C
+
+A falcon-asm: ignore comment that does not say why (no `: reason` after its codes).
+
+A suppression records a decision that a finding is wrong about this code, and the next reader cannot tell a considered decision from a quick silencing unless the comment says which it was. Write the reason after a colon: `falcon-asm: ignore=slow-loop: runs once at boot`. ignore-end needs none, since its begin carries it. Off by default; turn it on per project with `"rules": {"ignore-without-reason": "info"}` in .falcon-asm.json. Inside any comment (`/* */`, `#` or `//` in assembly; `//` or `/* */` in C, for inline asm): `falcon-asm: ignore=<code>[,<code>...]: <reason>` silences findings that start on the comment's line; `ignore-next=<code>: <reason>` the next line holding code (comment-only lines between are skipped); `ignore-file=<code>: <reason>` the whole file; `ignore-begin=<code>: <reason>` ... `ignore-end=<code>` every line between the two, inclusive (an unclosed begin runs to the end of the file). `all` in place of a code matches every rule. The reason is optional: everything after the colon that follows the code list is free text. Enable ignore-without-reason to require one.
+
+Bad:
+
+```asm
+	.code64
+	enter $32, $0 /* falcon-asm: ignore=slow-enter */
+```
+
+Good:
+
+```asm
+	.code64
+	enter $32, $0 /* falcon-asm: ignore=slow-enter: matches the frame the debugger expects */
 ```
 
 ## unused-suppression

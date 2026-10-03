@@ -469,7 +469,9 @@ func (b *bench) cliScenario() error {
 		if err != nil {
 			return fmt.Errorf("cli root: %w", err)
 		}
-		if err := b.lintRuns("cli/lint-tree", root); err != nil {
+		// The toolchain is the CLI's default; the plain metric keeps
+		// measuring the rules alone.
+		if err := b.lintRuns("cli/lint-tree", root, "--no-toolchain"); err != nil {
 			return err
 		}
 		if err := b.lintRuns("cli/lint-tree-toolchain", root, "--toolchain"); err != nil {

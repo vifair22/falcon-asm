@@ -5,6 +5,7 @@ import (
 	"math/bits"
 
 	"git.airies.net/vifair22/falcon-asm/internal/asm"
+	"git.airies.net/vifair22/falcon-asm/internal/flow"
 	"git.airies.net/vifair22/falcon-asm/internal/lint"
 )
 
@@ -30,10 +31,16 @@ func init() {
 				"macro-fuses into one uop (Agner Fog's instruction tables list loop at about 7 uops on Skylake " +
 				"and loope/loopne at more; the Intel optimization manual advises against it). Compilers never " +
 				"emit it. In 16-bit code the rule is quiet: there it is usually boot code optimised for size, " +
-				"where loop's two bytes matter more than its speed. dec does not preserve the flags that loop " +
-				"preserves, so the rewrite is not offered as an automatic fix.",
-			Bad:  "1:\taddl (%esi), %eax\n\taddl $4, %esi\n\tloop 1b",
-			Good: "1:\taddl (%esi), %eax\n\taddl $4, %esi\n\tdecl %ecx\n\tjnz 1b",
+				"where loop's two bytes matter more than its speed. The cost only matters when the loop itself " +
+				"runs many times, so the rule reports a loop instruction only in hot code: inside an " +
+				"enclosing loop (a cycle of the control-flow graph other than the one the loop instruction " +
+				"closes), or in a function called from a loop, from such a function, or recursively. A loop " +
+				"in setup or once-only code (no enclosing loop, no caller in a loop in the document) is not " +
+				"reported, nor is a global routine whose only callers are outside the document; inline asm " +
+				"templates, whose loops are in the surrounding C, are always reported. dec does not preserve " +
+				"the flags that loop preserves, so the rewrite is not offered as an automatic fix.",
+			Bad:  "2:\tmovl $8, %ecx\n1:\taddl (%esi), %eax\n\taddl $4, %esi\n\tloop 1b\n\tdecl %edx\n\tjnz 2b",
+			Good: "2:\tmovl $8, %ecx\n1:\taddl (%esi), %eax\n\taddl $4, %esi\n\tdecl %ecx\n\tjnz 1b\n\tdecl %edx\n\tjnz 2b",
 		},
 		Check: checkSlowLoop,
 	})
@@ -135,6 +142,7 @@ func checkSlowLoop(c *lint.Context) {
 	if p == nil {
 		return
 	}
+	var cand []int
 	for i := range p.Stmts {
 		s := instr(p, i)
 		if s == nil || s.Mode == asm.Mode16 {
@@ -142,8 +150,42 @@ func checkSlowLoop(c *lint.Context) {
 		}
 		switch s.Inst.Name {
 		case "loop", "loope", "loopne":
-			reportMnem(c, i, s.Mnemonic+" is microcoded and slow on Intel cores; dec plus jnz (which macro-fuse) is faster")
+			cand = append(cand, i)
 		}
+	}
+	if len(cand) == 0 {
+		return
+	}
+	// The graph is asked for only once a candidate exists. An inline asm
+	// template sits in C whose loops the template cannot show, and an
+	// expansion has no graph: there the old judgement (report) stands.
+	var g *flow.CFG
+	if c.Lang() != lint.LangInline {
+		g, _ = c.Flow()
+	}
+	var h *hotness
+	if g != nil {
+		h = newHotness(g)
+	}
+	for _, i := range cand {
+		s := &p.Stmts[i]
+		msg := s.Mnemonic + " is microcoded and slow on Intel cores; dec plus jnz (which macro-fuse) is faster"
+		if h != nil {
+			b := g.BlockOf[i]
+			switch {
+			case b < 0:
+				continue
+			case h.enclosed(b):
+				msg += " in this nested loop"
+			case h.hotFunc(g.FuncOf[b]):
+				msg += " in a function called repeatedly (from a loop or recursively)"
+			default:
+				// Runs as often as its own count says and no more:
+				// setup code, where loop's size is often the point.
+				continue
+			}
+		}
+		reportMnem(c, i, msg)
 	}
 }
 

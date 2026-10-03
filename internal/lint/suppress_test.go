@@ -204,3 +204,71 @@ func applyEdit(t *testing.T, doc *docstore.Document, e protocol.TextEdit) string
 	}
 	return doc.Text[:s] + e.NewText + doc.Text[en:]
 }
+
+func TestUnreasoned(t *testing.T) {
+	text := "" +
+		"\tnop /* falcon-asm: ignore=x-reg */\n" + // 0: no reason
+		"\tnop /* falcon-asm: ignore=x-reg: the BIOS reads it */\n" + // 1: reason
+		"\tnop # falcon-asm: ignore=x-reg, x-lvl:   \n" + // 2: colon, nothing after: one finding for the item
+		"# falcon-asm: ignore-begin=x-reg: a table\n" + // 3
+		"# falcon-asm: ignore-end=x-reg\n" + // 4: ends need none
+		"/* falcon-asm: ignore-next=x-lvl */\n" + // 5
+		"\tnop // falcon-asm: ignore-file=x-a because words\n" + // 6: free text without a colon is not a reason
+		"\tnop /* falcon-asm: ignore=x-b:*/\n" // 7: the delimiter is not a reason
+	s := asmSup(text)
+	var got []string
+	for _, f := range s.Unreasoned(Hint) {
+		if f.Code != IgnoreWithoutReasonCode || f.Severity != Hint {
+			t.Fatalf("finding %v", f)
+		}
+		got = append(got, itoa(f.Range.Start.Line)+":"+f.Message)
+	}
+	want := []string{
+		"0:ignore=x-reg gives no reason: say why after a colon, as in ignore=<code>: <reason>",
+		"2:ignore=x-reg, x-lvl gives no reason: say why after a colon, as in ignore=<code>: <reason>",
+		"5:ignore-next=x-lvl gives no reason: say why after a colon, as in ignore-next=<code>: <reason>",
+		"6:ignore-file=x-a gives no reason: say why after a colon, as in ignore-file=<code>: <reason>",
+		"7:ignore=x-b gives no reason: say why after a colon, as in ignore=<code>: <reason>",
+	}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("unreasoned =\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+	// Another suppression may hide the report; its own may not.
+	s = asmSup("# falcon-asm: ignore-file=ignore-without-reason: legacy file\n\tnop /* falcon-asm: ignore=x-reg */\n")
+	if u := s.Unreasoned(Info); len(u) != 0 {
+		t.Fatalf("suppressed: %v", u)
+	}
+	s = asmSup("# falcon-asm: ignore-file=ignore-without-reason\n")
+	if u := s.Unreasoned(Info); len(u) != 1 {
+		t.Fatalf("self: %v", u)
+	}
+	var nilSup *Suppressions
+	if nilSup.Unreasoned(Info) != nil {
+		t.Fatal("nil suppressions")
+	}
+}
+
+// The rule is off by default and runs from Finish when configured on; a
+// suppression of it then counts as used.
+func TestUnreasonedInFinish(t *testing.T) {
+	text := "\tnop /* falcon-asm: ignore=x-reg */\n# falcon-asm: ignore-file=ignore-without-reason: legacy\n"
+	if r, _ := Lookup(IgnoreWithoutReasonCode); r.Default != Off {
+		t.Fatalf("default %v", r.Default)
+	}
+	var b Batch
+	b.raw = []Finding{at("x-reg", 0)}
+	b.ran = map[string]bool{"x-reg": true}
+	// Off: the rule did not run, so its file suppression is not judged.
+	if got := b.Finish(asmSup(text), FileConfig{}); len(got) != 0 {
+		t.Fatalf("off: %v", got)
+	}
+	b = Batch{raw: []Finding{at("x-reg", 0)}, ran: map[string]bool{"x-reg": true}}
+	on := FileConfig{Rules: map[string]Severity{IgnoreWithoutReasonCode: Info}}
+	if got := b.Finish(asmSup(text), on); len(got) != 0 {
+		t.Fatalf("on: %v", got)
+	}
+	b = Batch{raw: []Finding{at("x-reg", 0)}}
+	if got := b.Finish(asmSup("\tnop /* falcon-asm: ignore=x-reg */\n"), on); len(got) != 1 || got[0].Code != IgnoreWithoutReasonCode {
+		t.Fatalf("reported: %v", got)
+	}
+}

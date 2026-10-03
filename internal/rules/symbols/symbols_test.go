@@ -144,6 +144,57 @@ func TestUnusedLabel(t *testing.T) {
 	expect(t, run(t, "a:\na:\n", empty(), CodeUnusedLabel), "unused-label@0")
 }
 
+// TestUnusedLabelReached covers labels reached by offset or in sequence:
+// presumed after a constant .org, declared with reached=.
+func TestUnusedLabelReached(t *testing.T) {
+	cases := []struct {
+		name, text, want string
+	}{
+		{"after .org", "\t.org 0x100\nentry:\n\tret\n", ""},
+		{"after .org macro", "\t.org JRES_OFF_CODE\n/* falcon-asm: handler=service vector=0x13 */\njres:\n\tiret\n", ""},
+		{"after . =", "\t. = 0x1FE\nsig:\n\t.word 0xAA55\n", ""},
+		{"through emitless directives and labels", "\t.org 3\n\t.code16\nfirst:\nsecond:\n\tret\n", ""},
+		{"label on the .org line", "lab:\t.org 3\nentry:\n\tret\n", "unused-label@0 unused-label@1"},
+		{".org relative to a label", "start:\n\tjmp start\n\t.org start+510\nsig:\n\t.word 0xAA55\n", "unused-label@3"},
+		{".org relative to .", "\t.org . + 4\nx:\n\tret\n", "unused-label@1"},
+		{".org to a local label", "1:\n\t.org 1b+4\nx:\n\tret\n", "unused-label@2"},
+		{"code between", "\t.org 0x100\n\tnop\nentry:\n\tret\n", "unused-label@2"},
+		{"alignment between", "\t.org 0x100\n\t.balign 16\nentry:\n\tret\n", "unused-label@2"},
+		{"reached=offset on the line", "\t.byte 0x55, 0xAA, 1\ninit:  /* falcon-asm: reached=offset: BIOS far-calls offset 3 */\n\tret\n", ""},
+		{"reached=external above", "/* falcon-asm: reached=external */\n# another comment\nentry:\n\tret\n", ""},
+		{"blank line breaks the attachment", "/* falcon-asm: reached=external */\n\nentry:\n\tret\n", "unused-label@2"},
+		{"code line breaks the attachment", "\tnop /* falcon-asm: reached=external */\nentry:\n\tret\n", "unused-label@1"},
+		{"multi-line comment above", "/* a vector entry,\n   falcon-asm: reached=offset */\nentry:\n\tret\n", ""},
+		{"unknown value", "x: /* falcon-asm: reached=somehow */\n\tret\n", "unused-label@0"},
+		{"sequence", "\tmovw $m_a, %si\nm_a: .asciz \"a\"\n/* falcon-asm: reached=sequence: walked from m_a */\n" +
+			"m_b: .asciz \"b\"\nm_c:\n\t.asciz \"c\"\nm_d: .byte 0\n\nm_e: .byte 0\n", "unused-label@8"},
+		{"sequence stops at a comment line", "m_a: .byte 0 /* falcon-asm: reached=sequence */\nm_b: .byte 1\n/* end */\nm_c: .byte 2\n",
+			"unused-label@3"},
+		{"sequence stops at code", "m_a: .byte 0 /* falcon-asm: reached=sequence */\nm_b: nop\n", "unused-label@1"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			expect(t, run(t, tc.text, empty(), CodeUnusedLabel), tc.want)
+		})
+	}
+	got := run(t, "x: /* falcon-asm: reached=somehow */\n\tret\n", empty(), CodeUnusedLabel)
+	if len(got) != 1 || !strings.Contains(got[0].Message, "reached=somehow is not one of offset, sequence, external") {
+		t.Fatalf("unknown value: %v", got)
+	}
+}
+
+func TestConstantExpr(t *testing.T) {
+	labels := map[string]bool{"start": true}
+	for expr, want := range map[string]bool{
+		"0x1FE": true, "JRES_OFF_CODE + 2": true, "(1 << 9) - 2": true, "0x1f": true, "10": true,
+		"": false, "start + 510": false, ".": false, ". + 4": false, "1b": false, "10f + 2": false,
+	} {
+		if got := constantExpr(expr, labels); got != want {
+			t.Errorf("constantExpr(%q) = %v, want %v", expr, got, want)
+		}
+	}
+}
+
 func TestUnusedDefine(t *testing.T) {
 	text := "#ifndef GUARD_H\n#define GUARD_H\n#define USED 1\n#define UNUSED 2\n#define VIA_DEF (USED+1)\n" +
 		"\tmovl $VIA_DEF, %eax\n\t.set count, 0\n\t.set count, count+1\n\t.equ lonely, 3\nalso = 4\n\t.long also\n" +

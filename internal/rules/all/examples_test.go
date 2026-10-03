@@ -130,6 +130,11 @@ func lintExample(t *testing.T, r *lint.Rule, src string, c bool, mode asm.Mode) 
 			Tables:    tables,
 			Workspace: ix.LintView(uri),
 		}
+		// A rule that is off by default documents what it reports once a
+		// project turns it on, so its examples run with it on.
+		if r.Default == lint.Off {
+			d.Config = lint.FileConfig{Rules: map[string]lint.Severity{r.Code: lint.Info}}
+		}
 		if r.NeedsListing && !c {
 			d.Listing = assemble(t, path, mode)
 		}

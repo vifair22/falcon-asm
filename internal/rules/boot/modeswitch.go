@@ -346,17 +346,29 @@ func checkA20(c *lint.Context) {
 	if f == nil || f.any&evPESet == 0 || f.any&evA20 != 0 {
 		return
 	}
-	done := false
+	at := -1
 	f.stmtsOf(evPESet, func(p int) {
 		// A return trip (a thunk's ascent after its descent) finds A20 as
-		// the first ascent left it.
-		if done || f.mayBefore(p, evPEClear) {
+		// the first ascent left it, and a SIPI trampoline runs after the
+		// boot processor set the platform up: A20 is the chipset's.
+		if at >= 0 || f.mayBefore(p, evPEClear) || f.trampolineSwitch(c, p) {
 			return
 		}
-		done = true
-		f.report(c, p, "CR0.PE is set, but nothing in this file enables A20 (port 0x92 bit 1, keyboard controller command 0xD1, or INT 15h AX=2401h): "+
-			"unless an earlier stage did, every odd megabyte aliases the one below it")
+		at = p
 	})
+	if at < 0 {
+		return
+	}
+	target, _, annotated := noteValue(f.p, "a20")
+	if !annotated {
+		f.report(c, at, "CR0.PE is set, but nothing in this file enables A20 (port 0x92 bit 1, keyboard controller command 0xD1, or INT 15h AX=2401h): "+
+			"unless an earlier stage did, every odd megabyte aliases the one below it; if one did, name it with `falcon-asm: a20=<file or function>`, "+
+			"and mark a SIPI trampoline `falcon-asm: trampoline` (`trampoline=copied` when it is copied to its page)")
+		return
+	}
+	if ok, why := f.a20Proof(c, target); !ok {
+		f.report(c, at, fmt.Sprintf("CR0.PE is set and nothing in this file enables A20, and `falcon-asm: a20=%s` does not prove an earlier stage did: %s", target, why))
+	}
 }
 
 func init() {
@@ -391,9 +403,17 @@ func init() {
 			Why: "With the A20 line masked every odd megabyte of physical memory aliases the one below it, so anything placed at 1 MiB " +
 				"lands on the interrupt vector table. The file sets CR0.PE but nothing in it opens A20 (the fast gate, bit 1 of port 0x92; " +
 				"the keyboard controller's write-output-port command 0xD1; INT 15h AX=2401h). Information only: an earlier stage may have " +
-				"done it, which a single file cannot show. A return to protected mode after a trip to real mode is not reported.",
-			Bad:  "\t.code16\n\tcli\n\tlgdt gdt_desc\n\tmovl %cr0, %eax\n\torl $1, %eax\n\tmovl %eax, %cr0\n\tljmpl $8, $pm\n\t.code32\npm:\n\thlt\ngdt_desc:\t.word 0\n\t.long 0",
-			Good: "\t.code16\n\tcli\n\tinb $0x92, %al\n\torb $2, %al\n\toutb %al, $0x92\n\tlgdt gdt_desc\n\tmovl %cr0, %eax\n\torl $1, %eax\n\tmovl %eax, %cr0\n\tljmpl $8, $pm\n\t.code32\npm:\n\thlt\ngdt_desc:\t.word 0\n\t.long 0",
+				"done it, which a single file cannot show. A return to protected mode after a trip to real mode is not reported, and " +
+				"neither is a SIPI trampoline (one the sipi rules recognise, or one marked `falcon-asm: trampoline` or " +
+				"`falcon-asm: trampoline=copied`): A20 is a chipset gate, not processor state, and an application processor inherits " +
+				"it. When an earlier stage opens it, `falcon-asm: a20=<target>` says which: a file relative to this one " +
+				"(`a20=../start/pmode.S`), a function in one (`a20=../start/pmode.S:pmode_enter`), or a label of this file or a global " +
+				"of a file linked with it (`a20=pmode_enter`). The target is checked: it must itself enable A20 (directly or in a " +
+				"function it calls), or the finding stays and says why the annotation does not hold.",
+			Bad: "\t.code16\n\tcli\n\tlgdt gdt_desc\n\tmovl %cr0, %eax\n\torl $1, %eax\n\tmovl %eax, %cr0\n\tljmpl $8, $pm\n\t.code32\npm:\n\thlt\ngdt_desc:\t.word 0\n\t.long 0",
+			Good: "# pmode.S\n\t.code16\n\t.globl pmode_enter\npmode_enter:\n\tinb $0x92, %al\n\torb $2, %al\n\toutb %al, $0x92\n\tret\n" +
+				"# ap.S\n\t.code16\n\t/* falcon-asm: a20=pmode.S */\n\tcli\n\tlgdt gdt_desc\n\tmovl %cr0, %eax\n\torl $1, %eax\n\tmovl %eax, %cr0\n" +
+				"\tljmpl $8, $pm\n\t.code32\npm:\n\thlt\ngdt_desc:\t.word 0\n\t.long 0",
 		},
 		Check: checkA20,
 	})

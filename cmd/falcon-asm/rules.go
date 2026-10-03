@@ -18,16 +18,43 @@ With no code, lists every rule. With codes, prints their documentation.
 Flags:
 `
 
-func runRules(args []string, stdout, stderr io.Writer) int {
+const rulesExamples = `
+Examples:
+  falcon-asm rules                     every rule: code, section, default severity
+  falcon-asm rules mode-register       one rule's documentation, with examples
+  falcon-asm rules --markdown > docs/RULES.md
+`
+
+func rulesFlagSet(markdown *bool) *flag.FlagSet {
 	fs := flag.NewFlagSet("falcon-asm rules", flag.ContinueOnError)
+	fs.BoolVar(markdown, "markdown", false, "print the rule reference as Markdown (docs/RULES.md)")
+	return fs
+}
+
+// printRulesHelp writes the rules subcommand's full help.
+func printRulesHelp(w io.Writer) {
+	var md bool
+	fs := rulesFlagSet(&md)
+	fs.SetOutput(w)
+	fmt.Fprint(w, rulesUsage)
+	fs.PrintDefaults()
+	fmt.Fprint(w, rulesExamples)
+}
+
+func runRules(args []string, stdout, stderr io.Writer) int {
+	if wantsHelp(args) {
+		printRulesHelp(stdout)
+		return 0
+	}
+	markdown := new(bool)
+	fs := rulesFlagSet(markdown)
 	fs.SetOutput(stderr)
 	fs.Usage = func() {
-		fmt.Fprint(stderr, rulesUsage)
-		fs.PrintDefaults()
+		fmt.Fprintln(stderr, "usage: falcon-asm rules [--markdown] [code...]; falcon-asm rules --help for more")
 	}
-	markdown := fs.Bool("markdown", false, "print the rule reference as Markdown (docs/RULES.md)")
 	if err := fs.Parse(args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
+			printRulesHelp(stdout)
 			return 0
 		}
 		return 2
