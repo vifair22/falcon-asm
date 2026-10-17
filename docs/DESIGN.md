@@ -624,9 +624,10 @@ selector for the `falcon-asm` language only, so C files keep clangd's
 tokens. Diagnostics published per file are the union of analysis and
 toolchain results; toolchain results are kept until the next save.
 
-Inlay hints (from the listing, main file only): at the end of an
-instruction or data line, `+0x1a3  b8 01 24` (offset within section, up to
-8 bytes then `...`). On a `.org` or `. = expr` line, the number of padding
+Inlay hints (from the listing, main file only): after the code of an
+instruction or data line, ahead of any trailing comment (which the hint
+pushes right), `+0x1a3  b8 01 24` (offset within section, up to 8 bytes
+then `...`). A line with no code of its own keeps the hint at its end. On a `.org` or `. = expr` line, the number of padding
 bytes the location move inserts (`pads 37 bytes`), which is the boot-sector
 budget for `. = _start + 510`.
 

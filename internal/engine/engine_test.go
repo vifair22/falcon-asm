@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"git.airies.net/vifair22/falcon-asm/internal/docstore"
+	"git.airies.net/vifair22/falcon-asm/internal/lexer"
 	"git.airies.net/vifair22/falcon-asm/internal/protocol"
 	"git.airies.net/vifair22/falcon-asm/internal/server"
 	"git.airies.net/vifair22/falcon-asm/internal/toolchain"
@@ -310,7 +311,7 @@ func TestAnalysisPublishing(t *testing.T) {
 func asmFixture(h *harness) (path, uri, hdrPath, text string) {
 	text = "#include \"defs.h\"\n" + // 0
 		"_start:\n" + // 1
-		"\tmovw $SEL, %ax\n" + // 2
+		"\tmovw $SEL, %ax\t/* selector */\n" + // 2
 		"#if 0\n" + // 3
 		"\tdead\n" + // 4
 		"#endif\n" + // 5
@@ -954,7 +955,7 @@ func TestListingHintsFormatting(t *testing.T) {
 			{Line: 9, Offset: 2, HasOffset: true, Section: ".data", Bytes: []byte{3}},
 		},
 	}
-	hints := listingHints(doc, res, protocol.Range{End: protocol.Position{Line: 99}})
+	hints := listingHints(doc, lexer.Tokenize(doc.Text), res, protocol.Range{End: protocol.Position{Line: 99}})
 	got := hintLabels(hints)
 	want := []string{"0:+0x1a3  01 02 03 04 05 06 07 08 ...", "1:+0x1b0  90", "3:pads 0 bytes", "4:+0x0  01 02"}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
@@ -967,6 +968,32 @@ func TestListingHintsFormatting(t *testing.T) {
 	res.SectionSizes = map[string]uint64{".text": 0x1b4}
 	if n := lineSize(res, 1); n != 4 {
 		t.Fatalf("size to section end = %d", n)
+	}
+}
+
+// Hints sit after the statement's code, not after a trailing comment, so
+// the offsets line up with the code whatever the comments look like.
+func TestHintColumn(t *testing.T) {
+	cases := []struct {
+		name, line string
+		want       int
+	}{
+		{"no comment", "\tmovl %eax, %cr0", len("\tmovl %eax, %cr0")},
+		{"trailing spaces", "\tcli   ", len("\tcli")},
+		{"block comment", "\torl $1, %eax\t\t/* CR0.PE */", len("\torl $1, %eax")},
+		{"hash comment", "\t.byte 1 # one", len("\t.byte 1")},
+		{"slash comment", "\tnop // pad", len("\tnop")},
+		{"comment inside", "\tmovl /* x */ %eax, %ebx /* y */", len("\tmovl /* x */ %eax, %ebx")},
+		{"comment only", "\t/* falcon-asm: a20=x */", len("\t/* falcon-asm: a20=x */")},
+		{"utf-16", "\t.ascii \"\u00e9\" /* e */", len("\t.ascii \"e\"")},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			src := "x:\n" + c.line + "\n"
+			if got := hintColumn(lexer.Tokenize(src), 1, c.line); got != c.want {
+				t.Fatalf("hintColumn(%q) = %d, want %d", c.line, got, c.want)
+			}
+		})
 	}
 }
 

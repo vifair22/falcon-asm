@@ -221,14 +221,14 @@ func (e *Engine) InlayHints(doc *docstore.Document, rng protocol.Range) []protoc
 	}
 	res := st.asm
 	e.mu.Unlock()
-	return e.registerHints(regs, doc, rng, listingHints(doc, res, rng))
+	return e.registerHints(regs, doc, rng, listingHints(doc, e.snapshotFor(doc).tokens(), res, rng))
 }
 
 // maxHintBytes is how many encoded bytes a hint shows before "...": enough
 // for most instructions, short enough not to push long lines off screen.
 const maxHintBytes = 8
 
-func listingHints(doc *docstore.Document, res *toolchain.AsmResult, rng protocol.Range) []protocol.InlayHint {
+func listingHints(doc *docstore.Document, toks []lexer.Token, res *toolchain.AsmResult, rng protocol.Range) []protocol.InlayHint {
 	var out []protocol.InlayHint
 	for i, l := range res.Listing {
 		if l.Line < rng.Start.Line || l.Line > rng.End.Line {
@@ -238,7 +238,7 @@ func listingHints(doc *docstore.Document, res *toolchain.AsmResult, rng protocol
 		if !ok {
 			continue
 		}
-		pos := protocol.Position{Line: l.Line, Character: docstore.UTF16Len(text)}
+		pos := protocol.Position{Line: l.Line, Character: hintColumn(toks, l.Line, text)}
 		// A location move that fills nothing has no address in the
 		// listing, but "pads 0 bytes" on a boot sector's ". = _start + 510"
 		// is exactly the news that the budget is used up.
@@ -278,6 +278,27 @@ func listingHints(doc *docstore.Document, res *toolchain.AsmResult, rng protocol
 		})
 	}
 	return out
+}
+
+// hintColumn is where an end-of-statement hint goes on a line: right after
+// its last code token, ahead of any trailing comment. At the end of the line
+// the hints would land wherever each comment happens to stop, so the column
+// of offsets jumps about and a long falcon-asm: annotation pushes its hint
+// off screen. The hint pushes the comment right instead, which is the lesser
+// cost. A line with no code (a statement continued from the line before)
+// keeps the end of the line.
+func hintColumn(toks []lexer.Token, line int, text string) int {
+	k := sort.Search(len(toks), func(k int) bool { return toks[k].Line >= line })
+	end := -1
+	for ; k < len(toks) && toks[k].Line == line; k++ {
+		if toks[k].Kind != lexer.Comment {
+			end = toks[k].Col + toks[k].Len
+		}
+	}
+	if end < 0 || end > len(text) {
+		return docstore.UTF16Len(text)
+	}
+	return docstore.UTF16Len(text[:end])
 }
 
 // lineSize is a listing line's true size. gas truncates long byte dumps, so

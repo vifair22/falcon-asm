@@ -11,7 +11,7 @@ import (
 
 // Register inlay hints (roadmap item 84): the tracked register values at
 // interesting statements (int, in/out, rdmsr/wrmsr, cpuid, lgdt, mov to a
-// control register, far jumps), shown at the end of the line, e.g.
+// control register, far jumps), shown after the statement's code, e.g.
 // `ah=42h dl=80h`. Off by default (initializationOptions.registerHints):
 // the values are a reading aid, and a line of code with a hint behind it
 // is noisier than one without.
@@ -27,9 +27,10 @@ func (s *snapshot) regHints() []protocol.InlayHint {
 		if len(hs) == 0 {
 			return
 		}
-		// One walk over the text finds the end of every hinted line (the
-		// hints are in line order), instead of a line lookup per hint.
+		// One walk over the text finds every hinted line (the hints are in
+		// line order), instead of a line lookup per hint.
 		text := s.doc.Text
+		toks := s.tokens()
 		out := make([]protocol.InlayHint, 0, len(hs))
 		line, start := 0, 0
 		for _, h := range hs {
@@ -48,7 +49,7 @@ func (s *snapshot) regHints() []protocol.InlayHint {
 			}
 			lineText := strings.TrimSuffix(text[start:start+end], "\r")
 			out = append(out, protocol.InlayHint{
-				Position:    protocol.Position{Line: want, Character: docstore.UTF16Len(lineText)},
+				Position:    protocol.Position{Line: want, Character: hintColumn(toks, want, lineText)},
 				Label:       h.Label,
 				PaddingLeft: true,
 				Tooltip:     h.Tooltip,
@@ -60,7 +61,7 @@ func (s *snapshot) regHints() []protocol.InlayHint {
 }
 
 // registerHints appends the register hints in rng to out (the listing
-// hints, which share the end of the line) when on is set.
+// hints, which share the hint column) when on is set.
 func (e *Engine) registerHints(on bool, doc *docstore.Document, rng protocol.Range, out []protocol.InlayHint) []protocol.InlayHint {
 	if !on {
 		return out
